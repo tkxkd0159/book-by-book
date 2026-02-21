@@ -3,7 +3,7 @@ import { Instrument } from "@/types/db";
 
 export const dynamic = "force-dynamic";
 
-export default async function Page() {
+export default async function Page({ params, searchParams }: Props.Page) {
   const instruments = await sql<Instrument[]>`
     select id::text as id, name
     from public.instruments
