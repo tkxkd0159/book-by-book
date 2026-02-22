@@ -1,12 +1,65 @@
-## Getting Started
+## Book by Book
 
-First, run the development server:
+Milestone 1 implementation includes:
+- Google OAuth sign-in
+- Google Books search and import/cache
+- Book detail page backed by local Postgres cache
+
+## Required Environment Variables
+
+Create `.env.local` with:
+
+```bash
+DATABASE_URL=postgres://...
+AUTH_SECRET=your-long-random-secret
+GOOGLE_CLIENT_ID=...
+GOOGLE_CLIENT_SECRET=...
+GOOGLE_BOOKS_API_KEY=...
+```
+
+Optional:
+
+```bash
+NEXTAUTH_URL=http://localhost:3000
+NEXTAUTH_SECRET=...
+```
+
+Generate a strong secret:
+
+```bash
+openssl rand -base64 32
+```
+
+Google Cloud OAuth redirect URI must include:
+
+```bash
+http://localhost:3000/api/auth/callback/google
+```
+
+## Database Setup
+
+Schema file:
+
+```bash
+db/schema/data.sql
+```
+
+The SQL expects `$APP_USER_PASSWORD` to be substituted when creating the app DB user:
+
+```bash
+export APP_USER_PASSWORD="replace-me"
+envsubst < db/schema/data.sql | psql "$DATABASE_URL"
+```
+
+## Run
 
 ```bash
 pnpm dev
 ```
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Quality Gates
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
-
+```bash
+pnpm lint
+pnpm build
+```

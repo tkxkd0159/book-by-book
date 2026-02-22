@@ -1,12 +1,4 @@
-type AuthUser = {
-  id: string;
-  email: string;
-  name: string | null;
-  imageUrl: string | null;
-};
-
-type BookRecord = {
-  id: string;
+type NormalizedBook = {
   googleVolumeId: string;
   title: string;
   subtitle: string | null;
@@ -24,8 +16,19 @@ type BookRecord = {
   infoLink: string | null;
   canonicalLink: string | null;
   rawGoogleJson: unknown;
-  createdAt: Date;
-  updatedAt: Date;
 };
 
-export type { AuthUser, BookRecord };
+type BookSearchItem = Pick<
+  NormalizedBook,
+  | "googleVolumeId"
+  | "title"
+  | "subtitle"
+  | "authors"
+  | "publisher"
+  | "publishedDate"
+  | "thumbnailUrl"
+  | "infoLink"
+  | "previewLink"
+>;
+
+export type { BookSearchItem, NormalizedBook };
