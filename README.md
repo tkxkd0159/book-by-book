@@ -51,6 +51,40 @@ export APP_USER_PASSWORD="replace-me"
 envsubst < db/schema/data.sql | psql "$DATABASE_URL"
 ```
 
+Or bootstrap local PostgreSQL with Docker and apply schema + migrations:
+
+```bash
+./scripts/setup-local-postgres.sh
+```
+
+Optional env overrides for Docker setup:
+
+```bash
+PG_CONTAINER_NAME=book-by-book-postgres
+PG_IMAGE=postgres:18
+PG_PORT=54329
+PG_SUPERUSER=postgres
+PG_SUPERUSER_PASSWORD=postgres
+LOCAL_DB_NAME=book_by_book_local
+APP_USER_PASSWORD=local-dev-password
+PG_VOLUME_NAME=book-by-book-postgres-data
+PG_VOLUME_MOUNT=/var/lib/postgresql
+```
+
+Clean up the local Docker PostgreSQL container and volume:
+
+```bash
+./scripts/cleanup-local-postgres.sh
+```
+
+Optional env overrides for cleanup:
+
+```bash
+PG_CONTAINER_NAME=book-by-book-postgres
+PG_VOLUME_NAME=book-by-book-postgres-data
+REMOVE_VOLUME=1
+```
+
 ## Run
 
 ```bash
