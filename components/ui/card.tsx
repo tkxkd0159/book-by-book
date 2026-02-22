@@ -2,14 +2,11 @@ import * as React from "react";
 
 import { cn } from "@/lib/utils";
 
-function Card({
-  className,
-  ...props
-}: React.HTMLAttributes<HTMLDivElement>) {
+function Card({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) {
   return (
     <div
       className={cn(
-        "rounded-xl border border-[var(--border)] bg-[var(--surface-strong)] shadow-sm",
+        "rounded-xl border border-(--border) bg-(--surface-strong) shadow-sm",
         className,
       )}
       {...props}
@@ -29,7 +26,10 @@ function CardTitle({
   ...props
 }: React.HTMLAttributes<HTMLHeadingElement>) {
   return (
-    <h3 className={cn("text-xl font-semibold tracking-tight", className)} {...props} />
+    <h3
+      className={cn("text-xl font-semibold tracking-tight", className)}
+      {...props}
+    />
   );
 }
 
@@ -37,7 +37,7 @@ function CardDescription({
   className,
   ...props
 }: React.HTMLAttributes<HTMLParagraphElement>) {
-  return <p className={cn("text-sm text-[var(--muted)]", className)} {...props} />;
+  return <p className={cn("text-sm text-(--muted)", className)} {...props} />;
 }
 
 function CardContent({
@@ -59,4 +59,11 @@ function CardFooter({
   );
 }
 
-export { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle };
+export {
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+};

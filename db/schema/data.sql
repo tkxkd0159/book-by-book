@@ -62,13 +62,20 @@ GRANT ALL ON SEQUENCES TO bbb_bff;
 -- Auth / Users (Auth.js / NextAuth compatible shape)
 -- -------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS users (
-  id           uuid        PRIMARY KEY DEFAULT gen_random_uuid(),
-  email        citext      NOT NULL UNIQUE,
-  name         text,
-  image_url    text,
-  created_at   timestamptz NOT NULL DEFAULT now(),
-  updated_at   timestamptz NOT NULL DEFAULT now()
+  id               uuid        PRIMARY KEY DEFAULT gen_random_uuid(),
+  provider         text        NOT NULL,
+  provider_user_id text        NOT NULL,
+  email            citext,
+  name             text,
+  image_url        text,
+  created_at       timestamptz NOT NULL DEFAULT now(),
+  updated_at       timestamptz NOT NULL DEFAULT now(),
+  CONSTRAINT users_provider_user_uniq UNIQUE (provider, provider_user_id)
 );
+
+CREATE UNIQUE INDEX IF NOT EXISTS users_provider_email_uniq
+ON users (provider, email)
+WHERE email IS NOT NULL;
 
 DROP TRIGGER IF EXISTS trg_users_updated_at ON users;
 CREATE TRIGGER trg_users_updated_at
@@ -98,23 +105,6 @@ CREATE INDEX IF NOT EXISTS auth_accounts_user_id_idx ON auth_accounts(user_id);
 DROP TRIGGER IF EXISTS trg_auth_accounts_updated_at ON auth_accounts;
 CREATE TRIGGER trg_auth_accounts_updated_at
 BEFORE UPDATE ON auth_accounts
-FOR EACH ROW EXECUTE FUNCTION set_updated_at();
-
-CREATE TABLE IF NOT EXISTS auth_sessions (
-  id            uuid        PRIMARY KEY DEFAULT gen_random_uuid(),
-  session_token text        NOT NULL UNIQUE,
-  user_id       uuid        NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-  expires       timestamptz NOT NULL,
-  created_at    timestamptz NOT NULL DEFAULT now(),
-  updated_at    timestamptz NOT NULL DEFAULT now()
-);
-
-CREATE INDEX IF NOT EXISTS auth_sessions_user_id_idx ON auth_sessions(user_id);
-CREATE INDEX IF NOT EXISTS auth_sessions_expires_idx ON auth_sessions(expires);
-
-DROP TRIGGER IF EXISTS trg_auth_sessions_updated_at ON auth_sessions;
-CREATE TRIGGER trg_auth_sessions_updated_at
-BEFORE UPDATE ON auth_sessions
 FOR EACH ROW EXECUTE FUNCTION set_updated_at();
 
 -- Used by some auth flows (email magic links, etc.). Keep for compatibility/future.

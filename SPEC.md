@@ -210,13 +210,20 @@ GRANT ALL ON SEQUENCES TO bbb_bff;
 -- Auth / Users (Auth.js / NextAuth compatible shape)
 -- -------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS users (
-  id           uuid        PRIMARY KEY DEFAULT gen_random_uuid(),
-  email        citext      NOT NULL UNIQUE,
-  name         text,
-  image_url    text,
-  created_at   timestamptz NOT NULL DEFAULT now(),
-  updated_at   timestamptz NOT NULL DEFAULT now()
+  id               uuid        PRIMARY KEY DEFAULT gen_random_uuid(),
+  provider         text        NOT NULL,
+  provider_user_id text        NOT NULL,
+  email            citext,
+  name             text,
+  image_url        text,
+  created_at       timestamptz NOT NULL DEFAULT now(),
+  updated_at       timestamptz NOT NULL DEFAULT now(),
+  CONSTRAINT users_provider_user_uniq UNIQUE (provider, provider_user_id)
 );
+
+CREATE UNIQUE INDEX IF NOT EXISTS users_provider_email_uniq
+ON users (provider, email)
+WHERE email IS NOT NULL;
 
 DROP TRIGGER IF EXISTS trg_users_updated_at ON users;
 CREATE TRIGGER trg_users_updated_at
@@ -246,23 +253,6 @@ CREATE INDEX IF NOT EXISTS auth_accounts_user_id_idx ON auth_accounts(user_id);
 DROP TRIGGER IF EXISTS trg_auth_accounts_updated_at ON auth_accounts;
 CREATE TRIGGER trg_auth_accounts_updated_at
 BEFORE UPDATE ON auth_accounts
-FOR EACH ROW EXECUTE FUNCTION set_updated_at();
-
-CREATE TABLE IF NOT EXISTS auth_sessions (
-  id            uuid        PRIMARY KEY DEFAULT gen_random_uuid(),
-  session_token text        NOT NULL UNIQUE,
-  user_id       uuid        NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-  expires       timestamptz NOT NULL,
-  created_at    timestamptz NOT NULL DEFAULT now(),
-  updated_at    timestamptz NOT NULL DEFAULT now()
-);
-
-CREATE INDEX IF NOT EXISTS auth_sessions_user_id_idx ON auth_sessions(user_id);
-CREATE INDEX IF NOT EXISTS auth_sessions_expires_idx ON auth_sessions(expires);
-
-DROP TRIGGER IF EXISTS trg_auth_sessions_updated_at ON auth_sessions;
-CREATE TRIGGER trg_auth_sessions_updated_at
-BEFORE UPDATE ON auth_sessions
 FOR EACH ROW EXECUTE FUNCTION set_updated_at();
 
 -- Used by some auth flows (email magic links, etc.). Keep for compatibility/future.
@@ -564,10 +554,11 @@ COMMIT;
 * `Book` caches Google Books metadata and stores `rawGoogleJson` to avoid losing fields.
 * `ClubBook` is the canonical representation of "book in a club + status section".
 * `Thread` references both `clubBookId` and `bookId` (denormalized) for fast queries.
-- Invitations support:
+* Auth sessions use NextAuth JWT cookies, so there is no `auth_sessions` table.
+* Invitations support:
   - `invitedUserId` (existing user)
   - `invitedEmail` (claim later)
-- Personal shelves are independent of clubs by design.
+* Personal shelves are independent of clubs by design.
 
 
 ## 6) Google Books API Integration
@@ -600,24 +591,25 @@ Store in DB:
 
 ### 7.2 Implementation (Auth.js / NextAuth)
 - Use provider-based Account table to support multiple identities per user.
-- Sign-in creates/links User by email.
+- Persist app user identity with `(provider, provider_user_id)` and keep email nullable/non-global-unique.
+- Use JWT session strategy (encrypted JWT in cookie), not database-backed `auth_sessions`.
 - Future providers only require:
   - adding provider config
-  - ensuring account linking is correct by email (or explicit linking UI later)
+  - ensuring account linking is correct by provider account identity (or explicit linking UI later)
 
 
 ### 7.3 Auth Rules
 - All core actions require auth.
 - Unauthenticated users can view limited pages if you choose (e.g., marketing). For v1, keep it simple:
   - `/` landing public
-  - everything else redirects to sign-in
+  - everything else redirects to `signin`
 
 ## 8) Application Routes (Next.js App Router)
 
 ### 8.1 Pages (UI)
 
 - `/` — landing (public)
-- `/sign-in` — auth entry (Google button)
+- `/signin` — auth entry (Google button)
 - `/books/search` — search Google Books + add to shelves/clubs
 - `/books/[googleVolumeId]` — book details (from DB or fetched+cached. Store book data in our DB after any user searches for it or tries to add it to a club/shelf.)
 - `/clubs` — discover public clubs + user’s clubs

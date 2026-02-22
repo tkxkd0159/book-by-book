@@ -3,7 +3,7 @@ import { getToken } from "next-auth/jwt";
 
 import { resolveAuthSecret } from "@/lib/auth/secret";
 
-const PUBLIC_PAGE_PATHS = new Set(["/", "/sign-in"]);
+const PUBLIC_PAGE_PATHS = new Set(["/", "/signin", "/auth/error"]);
 const AUTH_API_PREFIX = "/api/auth";
 const PUBLIC_API_PATHS = new Set<string>([]);
 
@@ -28,7 +28,7 @@ function isPublicPath(pathname: string) {
 }
 
 function createSignInRedirect(request: NextRequest) {
-  const signInUrl = new URL("/sign-in", request.url);
+  const signInUrl = new URL("/signin", request.url);
   const callbackUrl = `${request.nextUrl.pathname}${request.nextUrl.search}`;
   signInUrl.searchParams.set("callbackUrl", callbackUrl || "/books/search");
   return NextResponse.redirect(signInUrl);
@@ -41,7 +41,7 @@ export async function proxy(request: NextRequest) {
     secret: resolveAuthSecret(),
   });
 
-  if (pathname === "/sign-in" && token) {
+  if (pathname === "/signin" && token) {
     return NextResponse.redirect(new URL("/books/search", request.url));
   }
 

@@ -19,19 +19,19 @@ export default async function Page() {
 
   return (
     <main className="mx-auto flex min-h-screen w-full max-w-6xl flex-col items-start justify-center px-4 py-14 sm:px-6 lg:px-8">
-      <p className="mb-4 rounded-full border border-[var(--border)] bg-[var(--surface)] px-3 py-1 text-sm text-[var(--muted)]">
+      <p className="mb-4 rounded-full border border-(--border) bg-(--surface) px-3 py-1 text-sm text-(--muted)">
         Book by Book
       </p>
       <h1 className="max-w-3xl text-4xl font-semibold leading-tight sm:text-5xl">
         Build your reading life with social clubs and personal shelves.
       </h1>
-      <p className="mt-5 max-w-2xl text-lg text-[var(--muted)]">
+      <p className="mt-5 max-w-2xl text-lg text-(--muted)">
         Sign in, discover books from our vast catalog, and start shaping your
         next reads.
       </p>
 
       <div className="mt-8">
-        <Link href="/sign-in" className={buttonStyles({ size: "lg" })}>
+        <Link href="/signin" className={buttonStyles({ size: "lg" })}>
           Let the fun begin!
         </Link>
       </div>
@@ -42,7 +42,7 @@ export default async function Page() {
             <CardTitle>Search Fast</CardTitle>
             <CardDescription>Google Books-backed discovery</CardDescription>
           </CardHeader>
-          <CardContent className="text-sm text-[var(--muted)]">
+          <CardContent className="text-sm text-(--muted)">
             Find titles by author, title, or ISBN and import to local storage in
             one tap.
           </CardContent>
@@ -52,7 +52,7 @@ export default async function Page() {
             <CardTitle>Cache Reliable</CardTitle>
             <CardDescription>Local database copy</CardDescription>
           </CardHeader>
-          <CardContent className="text-sm text-[var(--muted)]">
+          <CardContent className="text-sm text-(--muted)">
             Imported books are cached in Postgres and used for book detail
             rendering.
           </CardContent>
@@ -62,7 +62,7 @@ export default async function Page() {
             <CardTitle>Milestone Ready</CardTitle>
             <CardDescription>Foundation for clubs</CardDescription>
           </CardHeader>
-          <CardContent className="text-sm text-[var(--muted)]">
+          <CardContent className="text-sm text-(--muted)">
             Auth and books are in place so clubs, threads, shelves, and reviews
             can layer on next.
           </CardContent>

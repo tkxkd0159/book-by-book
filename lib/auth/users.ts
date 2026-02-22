@@ -3,7 +3,9 @@ import type { AuthUser } from "@/types/db";
 
 type UserRow = {
   id: string;
-  email: string;
+  provider: string;
+  providerUserId: string;
+  email: string | null;
   name: string | null;
   imageUrl: string | null;
 };
@@ -25,11 +27,53 @@ export async function findUserByEmail(email: string): Promise<AuthUser | null> {
   const [user] = await sql<UserRow[]>`
     select
       id::text as id,
+      provider,
+      provider_user_id as "providerUserId",
       email::text as email,
       name,
       image_url as "imageUrl"
     from bookapp.users
     where email = ${email}
+    order by updated_at desc
+    limit 1
+  `;
+
+  return user ?? null;
+}
+
+export async function findUserById(id: string): Promise<AuthUser | null> {
+  const [user] = await sql<UserRow[]>`
+    select
+      id::text as id,
+      provider,
+      provider_user_id as "providerUserId",
+      email::text as email,
+      name,
+      image_url as "imageUrl"
+    from bookapp.users
+    where id = ${id}::uuid
+    limit 1
+  `;
+
+  return user ?? null;
+}
+
+export async function findUserByProviderAccount(
+  provider: string,
+  providerAccountId: string,
+): Promise<AuthUser | null> {
+  const [user] = await sql<UserRow[]>`
+    select
+      users.id::text as id,
+      users.provider,
+      users.provider_user_id as "providerUserId",
+      users.email::text as email,
+      users.name,
+      users.image_url as "imageUrl"
+    from bookapp.users
+    join bookapp.auth_accounts on auth_accounts.user_id = users.id
+    where auth_accounts.provider = ${provider}
+      and auth_accounts.provider_account_id = ${providerAccountId}
     limit 1
   `;
 
@@ -40,15 +84,18 @@ export async function upsertGoogleOAuthUser(
   input: UpsertGoogleOAuthUserInput,
 ): Promise<AuthUser> {
   const [user] = await sql<UserRow[]>`
-    insert into bookapp.users (email, name, image_url)
-    values (${input.email}, ${input.name}, ${input.imageUrl})
-    on conflict (email)
+    insert into bookapp.users (provider, provider_user_id, email, name, image_url)
+    values ('google', ${input.providerAccountId}, ${input.email}, ${input.name}, ${input.imageUrl})
+    on conflict (provider, provider_user_id)
     do update set
+      email = coalesce(excluded.email, bookapp.users.email),
       name = coalesce(excluded.name, bookapp.users.name),
       image_url = coalesce(excluded.image_url, bookapp.users.image_url),
       updated_at = now()
     returning
       id::text as id,
+      provider,
+      provider_user_id as "providerUserId",
       email::text as email,
       name,
       image_url as "imageUrl"

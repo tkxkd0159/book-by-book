@@ -1,6 +1,8 @@
 type AuthUser = {
   id: string;
-  email: string;
+  provider: string;
+  providerUserId: string;
+  email: string | null;
   name: string | null;
   imageUrl: string | null;
 };

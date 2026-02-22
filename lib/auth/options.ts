@@ -2,7 +2,10 @@ import type { NextAuthOptions } from "next-auth";
 import GoogleProvider from "next-auth/providers/google";
 
 import { resolveAuthSecret } from "@/lib/auth/secret";
-import { findUserByEmail, upsertGoogleOAuthUser } from "@/lib/auth/users";
+import {
+  findUserByProviderAccount,
+  upsertGoogleOAuthUser,
+} from "@/lib/auth/users";
 
 function readRequiredEnv(name: "GOOGLE_CLIENT_ID" | "GOOGLE_CLIENT_SECRET") {
   const value = process.env[name];
@@ -19,7 +22,8 @@ export const authOptions: NextAuthOptions = {
     strategy: "jwt",
   },
   pages: {
-    signIn: "/sign-in",
+    signIn: "/signin",
+    error: "/auth/error",
   },
   providers: [
     GoogleProvider({
@@ -29,24 +33,42 @@ export const authOptions: NextAuthOptions = {
   ],
   callbacks: {
     async signIn({ user, account }) {
-      if (account?.provider !== "google" || !user.email) {
+      if (!user.email) {
         return false;
       }
 
       try {
-        await upsertGoogleOAuthUser({
-          email: user.email,
-          name: user.name ?? null,
-          imageUrl: user.image ?? null,
-          providerAccountId: account.providerAccountId,
-          accessToken: typeof account.access_token === "string" ? account.access_token : null,
-          refreshToken:
-            typeof account.refresh_token === "string" ? account.refresh_token : null,
-          expiresAt: typeof account.expires_at === "number" ? account.expires_at : null,
-          tokenType: typeof account.token_type === "string" ? account.token_type : null,
-          scope: typeof account.scope === "string" ? account.scope : null,
-          idToken: typeof account.id_token === "string" ? account.id_token : null,
-        });
+        switch (account?.provider) {
+          case "google":
+            await upsertGoogleOAuthUser({
+              email: user.email,
+              name: user.name ?? null,
+              imageUrl: user.image ?? null,
+              providerAccountId: account.providerAccountId,
+              accessToken:
+                typeof account.access_token === "string"
+                  ? account.access_token
+                  : null,
+              refreshToken:
+                typeof account.refresh_token === "string"
+                  ? account.refresh_token
+                  : null,
+              expiresAt:
+                typeof account.expires_at === "number"
+                  ? account.expires_at
+                  : null,
+              tokenType:
+                typeof account.token_type === "string"
+                  ? account.token_type
+                  : null,
+              scope: typeof account.scope === "string" ? account.scope : null,
+              idToken:
+                typeof account.id_token === "string" ? account.id_token : null,
+            });
+            break;
+          default:
+            break;
+        }
       } catch (error) {
         console.error(error);
         return false;
@@ -55,8 +77,11 @@ export const authOptions: NextAuthOptions = {
       return true;
     },
     async jwt({ token, account }) {
-      if ((account || !token.userId) && token.email) {
-        const dbUser = await findUserByEmail(token.email);
+      if (account?.provider && account.providerAccountId) {
+        const dbUser = await findUserByProviderAccount(
+          account.provider,
+          account.providerAccountId,
+        );
         if (dbUser) {
           token.userId = dbUser.id;
         }
