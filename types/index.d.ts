@@ -13,7 +13,7 @@ declare namespace Props {
 
   type Page = {
     params: Promise<{ slug: string }>;
-    searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
+    searchParams: Promise<Record<string, string | string[] | undefined>>;
   };
 
   type Default<T extends Record<string, string>> = {

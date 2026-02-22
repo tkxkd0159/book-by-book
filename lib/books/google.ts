@@ -1,4 +1,5 @@
 import type { BookSearchItem, NormalizedBook } from "@/lib/books/types";
+import { formatBookDescription } from "@/lib/books/description";
 
 const GOOGLE_BOOKS_BASE_URL = "https://www.googleapis.com/books/v1/volumes";
 const SEARCH_CACHE_TTL_MS = 3 * 60 * 1000;
@@ -40,11 +41,43 @@ const searchCache = new Map<string, SearchCacheEntry>();
 
 function buildGoogleBooksUrl(path: string, params: URLSearchParams) {
   const apiKey = process.env.GOOGLE_BOOKS_API_KEY;
-  if (apiKey) {
-    params.set("key", apiKey);
+  if (!apiKey) {
+    throw new Error(
+      "GOOGLE_BOOKS_API_KEY is required for Google Books requests.",
+    );
   }
+  params.set("key", apiKey);
 
   return `${GOOGLE_BOOKS_BASE_URL}${path}?${params.toString()}`;
+}
+
+async function fetchGoogleBooksJson<TPayload>({
+  path,
+  params,
+  cache,
+  revalidate,
+}: {
+  path: string;
+  params: URLSearchParams;
+  cache: RequestCache;
+  revalidate?: number;
+}): Promise<TPayload | null> {
+  const response = await fetch(buildGoogleBooksUrl(path, params), {
+    cache,
+    next: revalidate ? { revalidate } : undefined,
+  });
+
+  if (response.status === 404) {
+    return null;
+  }
+
+  if (!response.ok) {
+    throw new Error(
+      `Google Books request failed with status ${response.status}`,
+    );
+  }
+
+  return (await response.json()) as TPayload;
 }
 
 function normalizeLink(link: string | undefined): string | null {
@@ -78,7 +111,7 @@ function normalizeVolume(volume: GoogleVolume): NormalizedBook | null {
     authors: volumeInfo.authors ?? [],
     publisher: volumeInfo.publisher ?? null,
     publishedDate: volumeInfo.publishedDate ?? null,
-    description: volumeInfo.description ?? null,
+    description: formatBookDescription(volumeInfo.description ?? null),
     isbn10: findIdentifier(volumeInfo.industryIdentifiers, "ISBN_10"),
     isbn13: findIdentifier(volumeInfo.industryIdentifiers, "ISBN_13"),
     pageCount: volumeInfo.pageCount ?? null,
@@ -89,7 +122,9 @@ function normalizeVolume(volume: GoogleVolume): NormalizedBook | null {
     ),
     previewLink: normalizeLink(volumeInfo.previewLink),
     infoLink: normalizeLink(volumeInfo.infoLink),
-    canonicalLink: normalizeLink(volumeInfo.canonicalVolumeLink ?? volume.selfLink),
+    canonicalLink: normalizeLink(
+      volumeInfo.canonicalVolumeLink ?? volume.selfLink,
+    ),
     rawGoogleJson: volume,
   };
 }
@@ -117,7 +152,9 @@ function validateQuery(query: string) {
   return query.trim().replace(/\s+/g, " ");
 }
 
-export async function searchGoogleBooks(query: string): Promise<BookSearchItem[]> {
+export async function searchGoogleBooks(
+  query: string,
+): Promise<BookSearchItem[]> {
   const normalizedQuery = validateQuery(query);
   if (normalizedQuery.length < 2) {
     return [];
@@ -136,15 +173,13 @@ export async function searchGoogleBooks(query: string): Promise<BookSearchItem[]
     projection: "lite",
   });
 
-  const response = await fetch(buildGoogleBooksUrl("", params), {
-    next: { revalidate: 300 },
-  });
-
-  if (!response.ok) {
-    throw new Error(`Google Books search failed with status ${response.status}`);
-  }
-
-  const payload = (await response.json()) as GoogleVolumesResponse;
+  const payload =
+    (await fetchGoogleBooksJson<GoogleVolumesResponse>({
+      path: "",
+      params,
+      cache: "force-cache",
+      revalidate: 300,
+    })) ?? {};
   const items =
     payload.items
       ?.map(normalizeSearchResult)
@@ -166,19 +201,14 @@ export async function fetchGoogleVolume(
     return null;
   }
 
-  const response = await fetch(
-    buildGoogleBooksUrl(`/${encodeURIComponent(normalizedVolumeId)}`, new URLSearchParams()),
-    { cache: "no-store" },
-  );
-
-  if (response.status === 404) {
+  const payload = await fetchGoogleBooksJson<GoogleVolume>({
+    path: `/${encodeURIComponent(normalizedVolumeId)}`,
+    params: new URLSearchParams(),
+    cache: "no-store",
+  });
+  if (!payload) {
     return null;
   }
 
-  if (!response.ok) {
-    throw new Error(`Google Books fetch failed with status ${response.status}`);
-  }
-
-  const payload = (await response.json()) as GoogleVolume;
   return normalizeVolume(payload);
 }

@@ -23,82 +23,103 @@ export default async function BookDetailPage({ params }: BookDetailPageProps) {
     notFound();
   }
 
+  const description = book.description;
+
   return (
     <article className="space-y-6">
-      <div className="flex flex-wrap items-center gap-2">
-        <Badge>Google Volume</Badge>
-        <code className="rounded-md bg-[var(--surface)] px-2 py-1 text-xs">
-          {book.googleVolumeId}
-        </code>
-      </div>
+      <Card className="relative overflow-hidden border-2 border-[var(--border)] bg-[var(--surface-strong)]">
+        <div className="pointer-events-none absolute -right-24 -top-24 h-72 w-72 rounded-full bg-[var(--accent)]/10 blur-3xl" />
+        <div className="pointer-events-none absolute -bottom-28 left-4 h-56 w-56 rounded-full bg-[#c78d42]/10 blur-3xl" />
 
-      <Card className="border-2">
-        <CardContent className="grid gap-6 p-6 md:grid-cols-[160px_1fr]">
-          <div className="relative h-56 w-40 overflow-hidden rounded-lg border border-[var(--border)] bg-[var(--surface)]">
-            {book.thumbnailUrl ? (
-              <Image
-                src={book.thumbnailUrl}
-                alt={`${book.title} cover`}
-                fill
-                sizes="160px"
-                className="object-cover"
-              />
-            ) : (
-              <div className="flex h-full items-center justify-center p-3 text-center text-xs text-[var(--muted)]">
-                No cover image
-              </div>
-            )}
+        <CardContent className="relative grid gap-6 p-6 lg:grid-cols-[220px_1fr] lg:p-8">
+          <div className="mx-auto w-full max-w-[220px]">
+            <div className="relative aspect-[2/3] w-full overflow-hidden rounded-xl border border-[var(--border)] bg-white p-2 shadow-[0_8px_20px_rgba(42,32,18,0.12)]">
+              {book.thumbnailUrl ? (
+                <Image
+                  src={book.thumbnailUrl}
+                  alt={`${book.title} cover`}
+                  fill
+                  sizes="(max-width: 1024px) 220px, 220px"
+                  className="object-contain"
+                />
+              ) : (
+                <div className="flex h-full items-center justify-center p-4 text-center text-sm text-[var(--muted)]">
+                  Cover image unavailable
+                </div>
+              )}
+            </div>
           </div>
 
-          <div className="space-y-4">
-            <header>
-              <h1 className="text-3xl font-semibold sm:text-4xl">{book.title}</h1>
+          <div className="space-y-5">
+            <header className="space-y-3">
+              <div className="flex flex-wrap items-center gap-2">
+                <Badge>ID</Badge>
+                <code className="rounded-md bg-[var(--surface)] px-2 py-1 text-xs">
+                  {book.googleVolumeId}
+                </code>
+              </div>
+              <h1 className="text-3xl font-semibold leading-tight sm:text-4xl">
+                {book.title}
+              </h1>
               {book.subtitle ? (
-                <p className="mt-1 text-lg text-[var(--muted)]">{book.subtitle}</p>
+                <p className="text-lg text-[var(--muted)]">{book.subtitle}</p>
               ) : null}
+              <p className="text-[var(--muted)]">
+                {book.authors.length > 0
+                  ? book.authors.join(", ")
+                  : "Unknown author"}
+              </p>
             </header>
 
-            <dl className="grid gap-3 text-sm sm:grid-cols-2">
-              <div>
-                <dt className="font-medium">Authors</dt>
-                <dd className="text-[var(--muted)]">
-                  {book.authors.length > 0 ? book.authors.join(", ") : "Unknown"}
-                </dd>
-              </div>
-              <div>
-                <dt className="font-medium">Publisher</dt>
-                <dd className="text-[var(--muted)]">
+            <div className="grid gap-3 text-sm sm:grid-cols-2 xl:grid-cols-3">
+              <div className="rounded-lg border border-[var(--border)]/70 bg-[var(--surface)]/70 p-3">
+                <p className="text-xs uppercase tracking-wide text-[var(--muted)]">
+                  Publisher
+                </p>
+                <p className="mt-1 font-medium">
                   {fallbackText(book.publisher, "Unknown")}
-                </dd>
+                </p>
               </div>
-              <div>
-                <dt className="font-medium">Published</dt>
-                <dd className="text-[var(--muted)]">
+              <div className="rounded-lg border border-[var(--border)]/70 bg-[var(--surface)]/70 p-3">
+                <p className="text-xs uppercase tracking-wide text-[var(--muted)]">
+                  Published
+                </p>
+                <p className="mt-1 font-medium">
                   {fallbackText(book.publishedDate, "Unknown")}
-                </dd>
+                </p>
               </div>
-              <div>
-                <dt className="font-medium">Language</dt>
-                <dd className="text-[var(--muted)]">
+              <div className="rounded-lg border border-[var(--border)]/70 bg-[var(--surface)]/70 p-3">
+                <p className="text-xs uppercase tracking-wide text-[var(--muted)]">
+                  Language
+                </p>
+                <p className="mt-1 font-medium">
                   {fallbackText(book.language?.toUpperCase(), "Unknown")}
-                </dd>
+                </p>
               </div>
-              <div>
-                <dt className="font-medium">Pages</dt>
-                <dd className="text-[var(--muted)]">{book.pageCount ?? "Unknown"}</dd>
+              <div className="rounded-lg border border-[var(--border)]/70 bg-[var(--surface)]/70 p-3">
+                <p className="text-xs uppercase tracking-wide text-[var(--muted)]">
+                  Pages
+                </p>
+                <p className="mt-1 font-medium">
+                  {book.pageCount ?? "Unknown"}
+                </p>
               </div>
-              <div>
-                <dt className="font-medium">ISBN</dt>
-                <dd className="text-[var(--muted)]">
+              <div className="rounded-lg border border-[var(--border)]/70 bg-[var(--surface)]/70 p-3 sm:col-span-2 xl:col-span-2">
+                <p className="text-xs uppercase tracking-wide text-[var(--muted)]">
+                  ISBN
+                </p>
+                <p className="mt-1 font-medium">
                   {book.isbn13 ?? book.isbn10 ?? "Unavailable"}
-                </dd>
+                </p>
               </div>
-            </dl>
+            </div>
 
             {book.categories.length > 0 ? (
               <div className="flex flex-wrap gap-2">
                 {book.categories.map((category) => (
-                  <Badge key={category}>{category}</Badge>
+                  <Badge key={category} className="bg-[var(--surface)]/80">
+                    {category}
+                  </Badge>
                 ))}
               </div>
             ) : null}
@@ -125,12 +146,19 @@ export default async function BookDetailPage({ params }: BookDetailPageProps) {
         </CardContent>
       </Card>
 
-      <Card>
-        <CardContent className="space-y-3 p-6">
-          <h2 className="text-xl font-semibold">Description</h2>
-          <p className="whitespace-pre-line text-sm text-[var(--muted)]">
-            {fallbackText(book.description, "No description available for this title.")}
-          </p>
+      <Card className="border-[var(--border)]/90">
+        <CardContent className="space-y-5 p-7 sm:p-8">
+          <h2 className="text-xl font-semibold">About this book</h2>
+          {description ? (
+            <div
+              className="text-[15px] leading-7 text-[var(--muted)] [&_p]:mb-4 [&_p:last-child]:mb-0 [&_strong]:font-semibold [&_em]:italic [&_ul]:my-4 [&_ul]:list-disc [&_ul]:pl-6 [&_ol]:my-4 [&_ol]:list-decimal [&_ol]:pl-6 [&_li]:mb-1"
+              dangerouslySetInnerHTML={{ __html: description }}
+            />
+          ) : (
+            <p className="text-sm text-[var(--muted)]">
+              No description available for this title.
+            </p>
+          )}
         </CardContent>
       </Card>
     </article>

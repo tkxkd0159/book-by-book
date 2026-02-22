@@ -1,4 +1,5 @@
 import { fetchGoogleVolume } from "@/lib/books/google";
+import { formatBookDescription } from "@/lib/books/description";
 import type { NormalizedBook } from "@/lib/books/types";
 import sql from "@/lib/db";
 import type { BookRecord } from "@/types/db";
