@@ -2,17 +2,33 @@ import Image from "next/image";
 import Link from "next/link";
 
 import { importBookAction } from "@/app/(protected)/books/search/actions";
-import { Button, buttonStyles } from "@/components/ui/button";
+import { BookSearchForm } from "@/components/books/book-search-form";
+import { ImportBookButton } from "@/components/books/import-book-button";
 import { Badge } from "@/components/ui/badge";
+import { buttonStyles } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { searchGoogleBooks } from "@/lib/books/google";
+import {
+  GoogleBooksQueryValidationError,
+  searchGoogleBooks,
+} from "@/lib/books/google";
 import { findBooksByGoogleVolumeIds } from "@/lib/books/repository";
+import type { BookSearchMode, BookSearchPage } from "@/lib/books/types";
 
 const errorMessages: Record<string, string> = {
   "missing-volume-id": "Select a valid book before importing.",
   "book-not-found": "Google Books could not find that volume.",
 };
+const SEARCH_PAGE_SIZE = 18;
+const advancedFilterKeys = [
+  "title",
+  "author",
+  "publisher",
+  "subject",
+  "isbn",
+] as const;
+
+type AdvancedFilterKey = (typeof advancedFilterKeys)[number];
+type AdvancedFilters = Record<AdvancedFilterKey, string>;
 
 function getParam(value: string | string[] | undefined) {
   if (Array.isArray(value)) {
@@ -22,27 +38,197 @@ function getParam(value: string | string[] | undefined) {
   return value ?? "";
 }
 
+function parsePage(value: string | string[] | undefined) {
+  const parsed = Number.parseInt(getParam(value), 10);
+  if (!Number.isFinite(parsed) || parsed < 1) {
+    return 1;
+  }
+
+  return parsed;
+}
+
+function parseBooleanParam(value: string | string[] | undefined) {
+  const values = Array.isArray(value) ? value : [value ?? ""];
+  return values.some(
+    (item) => item === "1" || item === "true" || item === "on",
+  );
+}
+
+function readAdvancedFilters(
+  params: Record<string, string | string[] | undefined>,
+): AdvancedFilters {
+  return {
+    title: getParam(params.title).trim(),
+    author: getParam(params.author).trim(),
+    publisher: getParam(params.publisher).trim(),
+    subject: getParam(params.subject).trim(),
+    isbn: getParam(params.isbn).trim(),
+  };
+}
+
+function hasAnyAdvancedFilter(filters: AdvancedFilters) {
+  return advancedFilterKeys.some((key) => filters[key].length > 0);
+}
+
+function normalizeAdvancedTerm(value: string) {
+  const normalized = value.trim().replace(/\s+/g, " ");
+  if (!normalized) {
+    return "";
+  }
+
+  if (!/\s/.test(normalized)) {
+    return normalized;
+  }
+
+  return `"${normalized.replace(/"/g, '\\"')}"`;
+}
+
+function buildAdvancedSearchQuery(filters: AdvancedFilters) {
+  const terms: string[] = [];
+
+  if (filters.title) {
+    terms.push(`intitle:${normalizeAdvancedTerm(filters.title)}`);
+  }
+  if (filters.author) {
+    terms.push(`inauthor:${normalizeAdvancedTerm(filters.author)}`);
+  }
+  if (filters.publisher) {
+    terms.push(`inpublisher:${normalizeAdvancedTerm(filters.publisher)}`);
+  }
+  if (filters.subject) {
+    terms.push(`subject:${normalizeAdvancedTerm(filters.subject)}`);
+  }
+  if (filters.isbn) {
+    terms.push(`isbn:${normalizeAdvancedTerm(filters.isbn)}`);
+  }
+
+  return terms.join(" ");
+}
+
+function createSearchHref(
+  page: number,
+  searchMode: BookSearchMode,
+  basicQuery: string,
+  titleOnly: boolean,
+  advancedFilters: AdvancedFilters,
+) {
+  const params = new URLSearchParams();
+
+  if (searchMode === "advanced") {
+    params.set("advanced", "1");
+    for (const key of advancedFilterKeys) {
+      if (advancedFilters[key]) {
+        params.set(key, advancedFilters[key]);
+      }
+    }
+  } else {
+    if (basicQuery) {
+      params.set("q", basicQuery);
+    }
+    if (titleOnly && basicQuery) {
+      params.set("titleOnly", "1");
+    }
+  }
+
+  if (page > 1) {
+    params.set("page", String(page));
+  }
+
+  const queryString = params.toString();
+  if (!queryString) {
+    return "/books/search";
+  }
+
+  return `/books/search?${queryString}`;
+}
+
+function createEmptySearchResult(
+  page: number,
+  pageSize: number,
+  mode: BookSearchMode,
+): BookSearchPage {
+  return {
+    items: [],
+    mode,
+    page,
+    pageSize,
+    totalItems: null,
+    totalPages: null,
+    hasPreviousPage: page > 1,
+    hasNextPage: false,
+  };
+}
+
 export default async function BookSearchPage({ searchParams }: Props.Page) {
   const params = await searchParams;
-  const query = getParam(params.q).trim();
+  const basicQuery = getParam(params.q).trim();
+  const titleOnly = parseBooleanParam(params.titleOnly);
+  const advancedRequested = parseBooleanParam(params.advanced);
+  const advancedFilters = readAdvancedFilters(params);
+  const hasAdvancedFilters = hasAnyAdvancedFilter(advancedFilters);
+  const isAdvancedOpen = advancedRequested || hasAdvancedFilters;
+  const searchMode: BookSearchMode = isAdvancedOpen ? "advanced" : "basic";
+  const searchQuery =
+    searchMode === "advanced" ? buildAdvancedSearchQuery(advancedFilters) : basicQuery;
+  const shouldSearch =
+    searchMode === "advanced" ? hasAdvancedFilters : basicQuery.length >= 2;
+
+  const requestedPage = parsePage(params.page);
   const errorCode = getParam(params.error);
   const errorMessage = errorMessages[errorCode];
 
   let searchError: string | null = null;
-  const results =
-    query.length >= 2
-      ? await searchGoogleBooks(query).catch((error: unknown) => {
-          console.error(error);
-          searchError = "Search is temporarily unavailable.";
-          return [];
-        })
-      : [];
+  const searchResult = shouldSearch
+    ? await searchGoogleBooks(searchQuery, {
+        page: requestedPage,
+        pageSize: SEARCH_PAGE_SIZE,
+        mode: searchMode,
+        titleOnly,
+      }).catch((error: unknown) => {
+        console.error(error);
+        searchError =
+          error instanceof GoogleBooksQueryValidationError
+            ? error.message
+            : "Search is temporarily unavailable.";
+        return createEmptySearchResult(
+          requestedPage,
+          SEARCH_PAGE_SIZE,
+          searchMode,
+        );
+      })
+    : createEmptySearchResult(1, SEARCH_PAGE_SIZE, searchMode);
+
+  const results = searchResult.items;
+  const hasPagination =
+    shouldSearch &&
+    !searchError &&
+    (searchResult.hasPreviousPage || searchResult.hasNextPage);
+  const resultStart =
+    results.length > 0
+      ? (searchResult.page - 1) * searchResult.pageSize + 1
+      : 0;
+  const resultEnd = results.length > 0 ? resultStart + results.length - 1 : 0;
+
+  const prevPageHref = createSearchHref(
+    Math.max(1, searchResult.page - 1),
+    searchMode,
+    basicQuery,
+    titleOnly,
+    advancedFilters,
+  );
+  const nextPageHref = createSearchHref(
+    searchResult.page + 1,
+    searchMode,
+    basicQuery,
+    titleOnly,
+    advancedFilters,
+  );
 
   const importedBooks = await findBooksByGoogleVolumeIds(
     results.map((result) => result.googleVolumeId),
   );
   const importedSet = new Set(importedBooks.map((book) => book.googleVolumeId));
-  const resultCount = results.length;
+  const resultCount = searchResult.totalItems;
 
   return (
     <div className="space-y-7">
@@ -55,41 +241,43 @@ export default async function BookSearchPage({ searchParams }: Props.Page) {
             Discover Your Next Book
           </h1>
           <p className="max-w-3xl text-(--muted)">
-            Search by title, author, or ISBN. Importing saves structured
-            metadata to your local cache for reliable club, shelf, and review
-            flows.
+            Use quick term search by default, optionally toggle title-only
+            matching, or expand advanced filters for precise queries.
           </p>
           <div className="flex flex-wrap gap-2 text-sm">
             <Badge className="bg-(--surface)/85">Google Books Source</Badge>
             <Badge className="bg-(--surface)/85">Postgres Cache Ready</Badge>
-            {query.length >= 2 ? (
+            {shouldSearch ? (
               <Badge className="bg-(--surface)/85">
-                {resultCount} result{resultCount === 1 ? "" : "s"}
+                {resultCount === null
+                  ? "Total count unavailable"
+                  : `${resultCount} total result${resultCount === 1 ? "" : "s"}`}
+              </Badge>
+            ) : null}
+            {searchMode === "advanced" ? (
+              <Badge className="bg-(--surface)/85">Advanced filters</Badge>
+            ) : null}
+            {searchMode === "basic" && titleOnly ? (
+              <Badge className="bg-(--surface)/85">Title-only match</Badge>
+            ) : null}
+            {hasPagination ? (
+              <Badge className="bg-(--surface)/85">
+                Page {searchResult.page}
+                {searchResult.totalPages !== null
+                  ? ` / ${searchResult.totalPages}`
+                  : ""}
               </Badge>
             ) : null}
           </div>
         </div>
       </section>
 
-      <form className="rounded-2xl border border-(--border) bg-(--surface-strong) p-4 shadow-[0_6px_20px_rgba(42,32,18,0.04)] sm:p-6">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
-          <div className="grow">
-            <label htmlFor="q" className="mb-2 block text-sm font-medium">
-              Search term
-            </label>
-            <Input
-              id="q"
-              name="q"
-              defaultValue={query}
-              placeholder="e.g. Atomic Habits, Ursula Le Guin, 9780143127741"
-              autoComplete="off"
-            />
-          </div>
-          <Button type="submit" className="sm:w-auto">
-            Search
-          </Button>
-        </div>
-      </form>
+      <BookSearchForm
+        basicQuery={basicQuery}
+        titleOnly={titleOnly}
+        advancedFilters={advancedFilters}
+        isAdvancedOpen={isAdvancedOpen}
+      />
 
       {errorMessage ? (
         <p className="rounded-md border border-[#d39e95] bg-[#fff2ef] p-3 text-sm text-[#7e1f14]">
@@ -103,14 +291,63 @@ export default async function BookSearchPage({ searchParams }: Props.Page) {
         </p>
       ) : null}
 
-      {query.length < 2 ? (
+      {!shouldSearch ? (
         <p className="text-sm text-(--muted)">
-          Enter at least 2 characters to start searching.
+          {searchMode === "advanced"
+            ? "Fill at least one advanced field to start searching."
+            : "Enter at least 2 characters to start searching."}
         </p>
       ) : null}
 
-      {query.length >= 2 && results.length === 0 && !searchError ? (
+      {shouldSearch && results.length === 0 && !searchError ? (
         <p className="text-sm text-(--muted)">No books matched your query.</p>
+      ) : null}
+
+      {hasPagination ? (
+        <section className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-(--border) bg-(--surface-strong) px-4 py-3 text-sm">
+          <p className="text-(--muted)">
+            {searchResult.totalItems === null
+              ? `Showing ${resultStart}-${resultEnd} (total unavailable)`
+              : `Showing ${resultStart}-${resultEnd} of ${searchResult.totalItems}`}
+          </p>
+          <div className="flex items-center gap-2">
+            {searchResult.hasPreviousPage ? (
+              <Link
+                href={prevPageHref}
+                className={buttonStyles({ variant: "secondary", size: "sm" })}
+              >
+                Previous
+              </Link>
+            ) : (
+              <span
+                className={buttonStyles({
+                  variant: "secondary",
+                  size: "sm",
+                  className: "pointer-events-none opacity-50",
+                })}
+              >
+                Previous
+              </span>
+            )}
+            {searchResult.hasNextPage ? (
+              <Link
+                href={nextPageHref}
+                className={buttonStyles({ size: "sm" })}
+              >
+                Next
+              </Link>
+            ) : (
+              <span
+                className={buttonStyles({
+                  size: "sm",
+                  className: "pointer-events-none opacity-50",
+                })}
+              >
+                Next
+              </span>
+            )}
+          </div>
+        </section>
       ) : null}
 
       {results.length > 0 ? (
@@ -188,9 +425,7 @@ export default async function BookSearchPage({ searchParams }: Props.Page) {
                         name="googleVolumeId"
                         value={book.googleVolumeId}
                       />
-                      <Button type="submit" size="sm" className="w-full">
-                        Import
-                      </Button>
+                      <ImportBookButton className="w-full" />
                     </form>
                   </div>
                 </CardContent>

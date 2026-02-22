@@ -31,4 +31,17 @@ type BookSearchItem = Pick<
   | "previewLink"
 >;
 
-export type { BookSearchItem, NormalizedBook };
+type BookSearchMode = "basic" | "advanced";
+
+type BookSearchPage = {
+  items: BookSearchItem[];
+  mode: BookSearchMode;
+  page: number;
+  pageSize: number;
+  totalItems: number | null;
+  totalPages: number | null;
+  hasPreviousPage: boolean;
+  hasNextPage: boolean;
+};
+
+export type { BookSearchItem, BookSearchMode, BookSearchPage, NormalizedBook };

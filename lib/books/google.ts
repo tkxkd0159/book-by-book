@@ -1,8 +1,26 @@
-import type { BookSearchItem, NormalizedBook } from "@/lib/books/types";
+import type {
+  BookSearchItem,
+  BookSearchMode,
+  BookSearchPage,
+  NormalizedBook,
+} from "@/lib/books/types";
 import { formatBookDescription } from "@/lib/books/description";
 
 const GOOGLE_BOOKS_BASE_URL = "https://www.googleapis.com/books/v1/volumes";
 const SEARCH_CACHE_TTL_MS = 3 * 60 * 1000;
+const SEARCH_CACHE_MAX_ENTRIES = 250;
+const SEARCH_CACHE_PRUNE_TARGET = 200;
+const SEARCH_CACHE_CLEANUP_INTERVAL_MS = 30 * 1000;
+const DEFAULT_SEARCH_PAGE_SIZE = 18;
+const GOOGLE_BOOKS_MAX_RESULTS = 40;
+const GOOGLE_TOTAL_ITEMS_UNRELIABLE_THRESHOLD = 1_000_000;
+const ADVANCED_SEARCH_PREFIXES = new Set([
+  "intitle",
+  "inauthor",
+  "inpublisher",
+  "subject",
+  "isbn",
+]);
 
 type GoogleVolume = {
   id: string;
@@ -29,15 +47,24 @@ type GoogleVolume = {
 };
 
 type GoogleVolumesResponse = {
+  totalItems?: number;
   items?: GoogleVolume[];
 };
 
 type SearchCacheEntry = {
   expiresAt: number;
-  value: BookSearchItem[];
+  value: BookSearchPage;
 };
 
 const searchCache = new Map<string, SearchCacheEntry>();
+let lastSearchCacheCleanupAt = 0;
+
+class GoogleBooksQueryValidationError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "GoogleBooksQueryValidationError";
+  }
+}
 
 function buildGoogleBooksUrl(path: string, params: URLSearchParams) {
   const apiKey = process.env.GOOGLE_BOOKS_API_KEY;
@@ -148,27 +175,211 @@ function normalizeSearchResult(volume: GoogleVolume): BookSearchItem | null {
   };
 }
 
-function validateQuery(query: string) {
-  return query.trim().replace(/\s+/g, " ");
+function normalizeBasicQuery(query: string) {
+  const trimmed = query.trim();
+  if (!trimmed) {
+    return "";
+  }
+
+  let normalized = "";
+  let inQuotes = false;
+  let previousWasWhitespace = false;
+
+  for (const character of trimmed) {
+    if (character === '"') {
+      inQuotes = !inQuotes;
+      normalized += character;
+      previousWasWhitespace = false;
+      continue;
+    }
+
+    if (!inQuotes && /\s/.test(character)) {
+      if (!previousWasWhitespace) {
+        normalized += " ";
+        previousWasWhitespace = true;
+      }
+      continue;
+    }
+
+    normalized += character;
+    previousWasWhitespace = false;
+  }
+
+  return normalized.trim();
+}
+
+function buildTitleOnlySearchQuery(normalizedQuery: string) {
+  const escaped = normalizedQuery.replace(/"/g, '\\"');
+  return `intitle:"${escaped}"`;
+}
+
+function buildBasicSearchQuery(normalizedQuery: string, titleOnly: boolean) {
+  if (!titleOnly) {
+    return normalizedQuery;
+  }
+
+  return buildTitleOnlySearchQuery(normalizedQuery);
+}
+
+function buildAdvancedSearchQuery(normalizedQuery: string) {
+  const prefixMatches = normalizedQuery.matchAll(/(?:^|\s)([a-z]+):/gi);
+
+  for (const match of prefixMatches) {
+    const prefix = match[1]?.toLowerCase();
+    if (prefix && !ADVANCED_SEARCH_PREFIXES.has(prefix)) {
+      throw new GoogleBooksQueryValidationError(
+        `Unsupported advanced keyword "${prefix}:". Use one of: intitle, inauthor, inpublisher, subject, isbn.`,
+      );
+    }
+  }
+
+  return normalizedQuery;
+}
+
+function buildSearchQuery(
+  query: string,
+  mode: BookSearchMode,
+  titleOnly: boolean,
+) {
+  if (mode === "advanced") {
+    return buildAdvancedSearchQuery(query);
+  }
+
+  return buildBasicSearchQuery(query, titleOnly);
+}
+
+function clampPageSize(pageSize: number | undefined) {
+  if (!Number.isFinite(pageSize)) {
+    return DEFAULT_SEARCH_PAGE_SIZE;
+  }
+
+  return Math.min(
+    GOOGLE_BOOKS_MAX_RESULTS,
+    Math.max(1, Math.floor(pageSize ?? DEFAULT_SEARCH_PAGE_SIZE)),
+  );
+}
+
+function clampPage(page: number | undefined) {
+  const normalizedPage = Number.isFinite(page) ? Math.floor(page ?? 1) : 1;
+
+  return Math.max(1, normalizedPage);
+}
+
+function parseSearchMode(mode: BookSearchMode | undefined): BookSearchMode {
+  return mode === "advanced" ? "advanced" : "basic";
+}
+
+function cleanupSearchCache(now: number) {
+  if (
+    now - lastSearchCacheCleanupAt < SEARCH_CACHE_CLEANUP_INTERVAL_MS &&
+    searchCache.size < SEARCH_CACHE_MAX_ENTRIES
+  ) {
+    return;
+  }
+
+  lastSearchCacheCleanupAt = now;
+
+  for (const [cacheKey, entry] of searchCache) {
+    if (entry.expiresAt <= now) {
+      searchCache.delete(cacheKey);
+    }
+  }
+
+  if (searchCache.size > SEARCH_CACHE_MAX_ENTRIES) {
+    while (searchCache.size > SEARCH_CACHE_PRUNE_TARGET) {
+      const oldestKey = searchCache.keys().next().value;
+      if (typeof oldestKey !== "string") {
+        break;
+      }
+      searchCache.delete(oldestKey);
+    }
+  }
+}
+
+function readSearchCache(cacheKey: string, now: number) {
+  cleanupSearchCache(now);
+
+  const cached = searchCache.get(cacheKey);
+  if (!cached) {
+    return null;
+  }
+
+  if (cached.expiresAt <= now) {
+    searchCache.delete(cacheKey);
+    return null;
+  }
+
+  // Reinsert to keep frequently used keys hot in the Map iteration order.
+  searchCache.delete(cacheKey);
+  searchCache.set(cacheKey, cached);
+
+  return cached.value;
+}
+
+function writeSearchCache(
+  cacheKey: string,
+  value: BookSearchPage,
+  now: number,
+) {
+  searchCache.set(cacheKey, {
+    value,
+    expiresAt: now + SEARCH_CACHE_TTL_MS,
+  });
+  cleanupSearchCache(now);
 }
 
 export async function searchGoogleBooks(
   query: string,
-): Promise<BookSearchItem[]> {
-  const normalizedQuery = validateQuery(query);
-  if (normalizedQuery.length < 2) {
-    return [];
+  options?: {
+    page?: number;
+    pageSize?: number;
+    mode?: BookSearchMode;
+    titleOnly?: boolean;
+  },
+): Promise<BookSearchPage> {
+  const mode = parseSearchMode(options?.mode);
+  const titleOnly = options?.titleOnly === true;
+  const normalizedQuery =
+    mode === "advanced"
+      ? query.trim().replace(/\s+/g, " ")
+      : normalizeBasicQuery(query);
+
+  const normalizedGoogleQuery = buildSearchQuery(
+    normalizedQuery,
+    mode,
+    titleOnly,
+  );
+  const pageSize = clampPageSize(options?.pageSize);
+  const page = clampPage(options?.page);
+
+  if (
+    (mode === "basic" && normalizedQuery.length < 2) ||
+    (mode === "advanced" && normalizedQuery.length === 0)
+  ) {
+    return {
+      items: [],
+      mode,
+      page: 1,
+      pageSize,
+      totalItems: 0,
+      totalPages: 0,
+      hasPreviousPage: false,
+      hasNextPage: false,
+    };
   }
 
-  const cacheKey = normalizedQuery.toLowerCase();
-  const cached = searchCache.get(cacheKey);
-  if (cached && cached.expiresAt > Date.now()) {
-    return cached.value;
+  const cacheKey = `${mode}:${titleOnly ? "title-only:" : ""}${normalizedGoogleQuery.toLowerCase()}::p${page}::s${pageSize}`;
+  const cacheNow = Date.now();
+  const cachedResult = readSearchCache(cacheKey, cacheNow);
+  if (cachedResult) {
+    return cachedResult;
   }
 
+  const startIndex = (page - 1) * pageSize;
   const params = new URLSearchParams({
-    q: normalizedQuery,
-    maxResults: "20",
+    q: normalizedGoogleQuery,
+    startIndex: String(startIndex),
+    maxResults: String(pageSize),
     printType: "books",
     projection: "lite",
   });
@@ -184,14 +395,33 @@ export async function searchGoogleBooks(
     payload.items
       ?.map(normalizeSearchResult)
       .filter((item): item is BookSearchItem => item !== null) ?? [];
+  const reportedTotalItems = Math.max(0, payload.totalItems ?? 0);
+  const hasReliableTotalItems =
+    reportedTotalItems > 0 &&
+    reportedTotalItems < GOOGLE_TOTAL_ITEMS_UNRELIABLE_THRESHOLD;
+  const totalItems = hasReliableTotalItems ? reportedTotalItems : null;
+  const totalPages =
+    totalItems !== null && totalItems > 0
+      ? Math.ceil(totalItems / pageSize)
+      : null;
+  const result: BookSearchPage = {
+    items,
+    mode,
+    page,
+    pageSize,
+    totalItems,
+    totalPages,
+    hasPreviousPage: page > 1,
+    hasNextPage:
+      totalPages !== null ? page < totalPages : items.length === pageSize,
+  };
 
-  searchCache.set(cacheKey, {
-    value: items,
-    expiresAt: Date.now() + SEARCH_CACHE_TTL_MS,
-  });
+  writeSearchCache(cacheKey, result, Date.now());
 
-  return items;
+  return result;
 }
+
+export { GoogleBooksQueryValidationError };
 
 export async function fetchGoogleVolume(
   googleVolumeId: string,

@@ -17,6 +17,7 @@ function readRequiredEnv(name: "GOOGLE_CLIENT_ID" | "GOOGLE_CLIENT_SECRET") {
 }
 
 export const authOptions: NextAuthOptions = {
+  debug: process.env.NODE_ENV === "development",
   secret: resolveAuthSecret(),
   session: {
     strategy: "jwt",

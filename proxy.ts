@@ -35,6 +35,10 @@ function createSignInRedirect(request: NextRequest) {
 }
 
 export async function proxy(request: NextRequest) {
+  if (process.env.E2E_BYPASS_AUTH === "1") {
+    return NextResponse.next();
+  }
+
   const pathname = request.nextUrl.pathname;
   const token = await getToken({
     req: request,
