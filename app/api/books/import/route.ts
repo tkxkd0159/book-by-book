@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
 
-import { getAuthSessionSafe } from "@/lib/auth/session";
 import { ensureBookInDatabase } from "@/lib/books/repository";
 
 export const runtime = "nodejs";
@@ -10,11 +9,6 @@ type ImportBookRequest = {
 };
 
 export async function POST(request: NextRequest) {
-  const session = await getAuthSessionSafe();
-  if (!session?.user?.email) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
   let payload: ImportBookRequest;
   try {
     payload = (await request.json()) as ImportBookRequest;

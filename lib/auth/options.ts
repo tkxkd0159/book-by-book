@@ -1,11 +1,8 @@
-import { createHash } from "node:crypto";
-
 import type { NextAuthOptions } from "next-auth";
 import GoogleProvider from "next-auth/providers/google";
 
+import { resolveAuthSecret } from "@/lib/auth/secret";
 import { findUserByEmail, upsertGoogleOAuthUser } from "@/lib/auth/users";
-
-const DEV_AUTH_SECRET = "book-by-book-dev-auth-secret-change-me";
 
 function readRequiredEnv(name: "GOOGLE_CLIENT_ID" | "GOOGLE_CLIENT_SECRET") {
   const value = process.env[name];
@@ -14,18 +11,6 @@ function readRequiredEnv(name: "GOOGLE_CLIENT_ID" | "GOOGLE_CLIENT_SECRET") {
   }
 
   return value;
-}
-
-function resolveAuthSecret() {
-  const secret = process.env.AUTH_SECRET ?? process.env.NEXTAUTH_SECRET;
-  if (secret) {
-    return secret;
-  }
-  const fallbackSeed =
-    process.env.GOOGLE_CLIENT_SECRET ??
-    process.env.GOOGLE_CLIENT_ID ??
-    DEV_AUTH_SECRET;
-  return createHash("sha256").update(`book-by-book:${fallbackSeed}`).digest("hex");
 }
 
 export const authOptions: NextAuthOptions = {

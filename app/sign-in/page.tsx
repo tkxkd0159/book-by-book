@@ -25,6 +25,14 @@ function extractSearchParam(value: string | string[] | undefined) {
   return value ?? "";
 }
 
+function normalizeCallbackUrl(value: string) {
+  if (!value.startsWith("/") || value.startsWith("//")) {
+    return "/books/search";
+  }
+
+  return value;
+}
+
 export default async function SignInPage({ searchParams }: SignInPageProps) {
   const session = await getAuthSession();
   if (session) {
@@ -34,6 +42,9 @@ export default async function SignInPage({ searchParams }: SignInPageProps) {
   const params = await searchParams;
   const errorCode = extractSearchParam(params.error);
   const errorMessage = errorMessages[errorCode];
+  const callbackUrl = normalizeCallbackUrl(
+    extractSearchParam(params.callbackUrl) || "/books/search",
+  );
 
   return (
     <main className="mx-auto flex min-h-screen w-full max-w-3xl items-center px-4 py-14 sm:px-6 lg:px-8">
@@ -52,7 +63,7 @@ export default async function SignInPage({ searchParams }: SignInPageProps) {
             </p>
           ) : null}
 
-          <SignInGoogleButton callbackUrl="/books/search" />
+          <SignInGoogleButton callbackUrl={callbackUrl} />
 
           <p className="text-sm text-[var(--muted)]">
             By signing in, you agree to use Google OAuth for account access.

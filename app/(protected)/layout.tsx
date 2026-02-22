@@ -3,10 +3,11 @@ import Link from "next/link";
 import SignOutButton from "@/components/auth/sign-out-button";
 import { Badge } from "@/components/ui/badge";
 import { buttonStyles } from "@/components/ui/button";
-import { requireCurrentUser } from "@/lib/auth/server";
+import { getAuthSession } from "@/lib/auth/server";
 
 export default async function ProtectedLayout({ children }: Props.Layout) {
-  const user = await requireCurrentUser();
+  const session = await getAuthSession();
+  const userEmail = session?.user?.email ?? "Signed-in user";
 
   return (
     <div className="min-h-screen">
@@ -30,7 +31,7 @@ export default async function ProtectedLayout({ children }: Props.Layout) {
           </nav>
         </div>
         <div className="mx-auto w-full max-w-6xl px-4 pb-4 text-sm text-[var(--muted)] sm:px-6 lg:px-8">
-          Signed in as {user.email}
+          Signed in as {userEmail}
         </div>
       </header>
 
