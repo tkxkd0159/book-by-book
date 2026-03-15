@@ -10,6 +10,8 @@ import {
   findInvitationByToken,
   joinPublicClub,
   listClubBooks,
+  listDiscoverablePublicClubs,
+  listUserClubs,
   moveClubBook,
   removeClubBook,
 } from "@/lib/clubs/repository";
@@ -115,5 +117,133 @@ describe("club repository integration", () => {
 
     const updatedLookup = await findInvitationByToken(invitationResult.rawToken);
     expect(updatedLookup?.effectiveStatus).toBe("ACCEPTED");
+  });
+
+  it("rejects accepting a private invitation with the wrong account", async () => {
+    const owner = await getRequiredUser("owner");
+    const member = await getRequiredUser("member");
+    const stranger = await getRequiredUser("stranger");
+
+    const privateClub = await createClub({
+      createdById: owner.id,
+      name: "Wrong Account Club",
+      description: null,
+      visibility: "PRIVATE",
+    });
+
+    const invitationResult = await createClubInvitation({
+      clubId: privateClub.id,
+      invitedById: owner.id,
+      invitedEmail: member.email ?? "",
+    });
+
+    await expect(
+      acceptClubInvitation({
+        token: invitationResult.rawToken,
+        user: stranger,
+      }),
+    ).rejects.toMatchObject({
+      code: "FORBIDDEN",
+      message: "This invitation is for a different account.",
+    });
+
+    const strangerClubs = await listUserClubs(stranger.id);
+    expect(strangerClubs).toHaveLength(0);
+
+    const invitationLookup = await findInvitationByToken(invitationResult.rawToken);
+    expect(invitationLookup?.effectiveStatus).toBe("PENDING");
+    expect(invitationLookup?.invitedUserId).toBeNull();
+  });
+
+  it("hides private clubs from public discovery for non-members", async () => {
+    const owner = await getRequiredUser("owner");
+    const stranger = await getRequiredUser("stranger");
+
+    await createClub({
+      createdById: owner.id,
+      name: "Public Discovery Club",
+      description: "Visible in discovery",
+      visibility: "PUBLIC",
+    });
+    await createClub({
+      createdById: owner.id,
+      name: "Hidden Private Club",
+      description: "Should not appear in discovery",
+      visibility: "PRIVATE",
+    });
+
+    const discoverableClubs = await listDiscoverablePublicClubs(stranger.id);
+
+    expect(discoverableClubs).toHaveLength(1);
+    expect(discoverableClubs[0]?.name).toBe("Public Discovery Club");
+    expect(discoverableClubs.map((club) => club.name)).not.toContain(
+      "Hidden Private Club",
+    );
+  });
+
+  it("rejects club book mutations from non-admin members", async () => {
+    const owner = await getRequiredUser("owner");
+    const member = await getRequiredUser("member");
+    const book = await findBookByGoogleVolumeId(TEST_BOOK_VOLUME_ID);
+
+    expect(book, "Expected seeded fixture book.").toBeTruthy();
+
+    const club = await createClub({
+      createdById: owner.id,
+      name: "Permission Boundaries Club",
+      description: null,
+      visibility: "PUBLIC",
+    });
+
+    await joinPublicClub({
+      clubId: club.id,
+      userId: member.id,
+    });
+
+    const clubBook = await addBookToClub({
+      clubId: club.id,
+      bookId: book!.id,
+      addedById: owner.id,
+      status: "WANT_TO_READ",
+    });
+
+    await expect(
+      addBookToClub({
+        clubId: club.id,
+        bookId: book!.id,
+        addedById: member.id,
+        status: "READING",
+      }),
+    ).rejects.toMatchObject({
+      code: "FORBIDDEN",
+      message: "Only club admins can manage books.",
+    });
+
+    await expect(
+      moveClubBook({
+        clubId: club.id,
+        clubBookId: clubBook.id,
+        movedById: member.id,
+        status: "READING",
+      }),
+    ).rejects.toMatchObject({
+      code: "FORBIDDEN",
+      message: "Only club admins can manage books.",
+    });
+
+    await expect(
+      removeClubBook({
+        clubId: club.id,
+        clubBookId: clubBook.id,
+        removedById: member.id,
+      }),
+    ).rejects.toMatchObject({
+      code: "FORBIDDEN",
+      message: "Only club admins can manage books.",
+    });
+
+    const remainingBooks = await listClubBooks(club.id);
+    expect(remainingBooks).toHaveLength(1);
+    expect(remainingBooks[0]?.status).toBe("WANT_TO_READ");
   });
 });

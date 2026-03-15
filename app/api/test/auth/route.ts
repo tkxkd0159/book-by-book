@@ -1,7 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 
 import { E2E_AUTH_COOKIE_NAME, isE2EBypassEnabled } from "@/lib/auth/e2e";
-import { getTestUser, type TestUserKey } from "@/lib/test/fixtures";
+import {
+  getTestUser,
+  seedTestUsers,
+  type TestUserKey,
+} from "@/lib/test/fixtures";
 
 export const runtime = "nodejs";
 
@@ -20,6 +24,8 @@ export async function GET(request: NextRequest) {
   if (!isTestUserKey(userKey)) {
     return NextResponse.json({ error: "Unknown test user." }, { status: 400 });
   }
+
+  await seedTestUsers();
 
   const response = NextResponse.redirect(new URL(returnTo, request.url));
   response.cookies.set(E2E_AUTH_COOKIE_NAME, getTestUser(userKey).key, {

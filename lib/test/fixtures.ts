@@ -23,6 +23,33 @@ export type TestUserKey = keyof typeof TEST_USERS;
 
 export const TEST_BOOK_VOLUME_ID = "club-test-book";
 
+export async function seedTestUsers() {
+  await sql.begin(async (tx) => {
+    const query = tx as unknown as typeof sql;
+
+    for (const user of Object.values(TEST_USERS)) {
+      await query`
+        insert into bookapp.users (
+          provider,
+          provider_user_id,
+          email,
+          name
+        )
+        values (
+          ${E2E_USER_PROVIDER},
+          ${user.key},
+          ${user.email},
+          ${user.name}
+        )
+        on conflict (provider, provider_user_id)
+        do update set
+          email = excluded.email,
+          name = excluded.name
+      `;
+    }
+  });
+}
+
 export async function resetTestDatabase() {
   await sql.begin(async (tx) => {
     const query = tx as unknown as typeof sql;
@@ -40,23 +67,12 @@ export async function resetTestDatabase() {
         bookapp.users
       restart identity cascade
     `;
+  });
 
-    for (const user of Object.values(TEST_USERS)) {
-      await query`
-        insert into bookapp.users (
-          provider,
-          provider_user_id,
-          email,
-          name
-        )
-        values (
-          ${E2E_USER_PROVIDER},
-          ${user.key},
-          ${user.email},
-          ${user.name}
-        )
-      `;
-    }
+  await seedTestUsers();
+
+  await sql.begin(async (tx) => {
+    const query = tx as unknown as typeof sql;
 
     await query`
       insert into bookapp.books (

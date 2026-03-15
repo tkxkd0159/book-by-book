@@ -1,5 +1,11 @@
 import { expect, test } from "@playwright/test";
 
+import { signInAs } from "./helpers/auth";
+
+test.beforeEach(async ({ page }) => {
+  await signInAs(page, "owner", "/books/search");
+});
+
 test("search button is correctly positioned relative to the search input", async ({
   page,
 }) => {

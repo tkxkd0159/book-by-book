@@ -1,24 +1,12 @@
 import { expect, test } from "@playwright/test";
 
+import { resetApp, signInAs } from "./helpers/auth";
+
 const CLUB_BOOK_URL = "/books/club-test-book";
+const CLUB_DETAIL_URL_PATTERN = /\/clubs\/[0-9a-f-]+(?:\?|$)/i;
 
-async function resetApp(page: Parameters<typeof test>[0]["page"]) {
-  const response = await page.request.get("/api/test/reset");
-  expect(response.ok()).toBeTruthy();
-}
-
-async function signInAs(
-  page: Parameters<typeof test>[0]["page"],
-  user: "owner" | "member" | "stranger",
-  returnTo = "/clubs",
-) {
-  await page.goto(
-    `/api/test/auth?user=${encodeURIComponent(user)}&returnTo=${encodeURIComponent(returnTo)}`,
-  );
-}
-
-test.beforeEach(async ({ page }) => {
-  await resetApp(page);
+test.beforeEach(async ({ request }) => {
+  await resetApp(request);
 });
 
 test("user can create a public club and another user can join it", async ({
@@ -31,7 +19,7 @@ test("user can create a public club and another user can join it", async ({
   await page.getByLabel("Visibility").selectOption("PUBLIC");
   await page.getByRole("button", { name: "Create club" }).click();
 
-  await expect(page).toHaveURL(/\/clubs\/.+/);
+  await expect(page).toHaveURL(CLUB_DETAIL_URL_PATTERN);
   await expect(page.getByRole("heading", { name: "Weekend Readers" })).toBeVisible();
 
   await signInAs(page, "member", "/clubs");
@@ -53,6 +41,7 @@ test("private invite can be created and accepted by the matching user", async ({
   await page.getByLabel("Visibility").selectOption("PRIVATE");
   await page.getByRole("button", { name: "Create club" }).click();
 
+  await expect(page).toHaveURL(CLUB_DETAIL_URL_PATTERN);
   await page.getByRole("link", { name: "Manage invites" }).click();
   await page.getByLabel("Email").fill("member@book-by-book.test");
   await page.getByRole("button", { name: "Create invite" }).click();
@@ -67,9 +56,55 @@ test("private invite can be created and accepted by the matching user", async ({
   await expect(page.getByRole("heading", { name: "Club invitation" })).toBeVisible();
   await page.getByRole("button", { name: "Accept invitation" }).click();
 
-  await expect(page).toHaveURL(/\/clubs\/.+/);
+  await expect(page).toHaveURL(CLUB_DETAIL_URL_PATTERN);
   await expect(page.getByText("Invitation accepted.")).toBeVisible();
   await expect(page.getByText("MEMBER", { exact: true })).toBeVisible();
+});
+
+test("member cannot access invite management for a club they joined", async ({
+  page,
+}) => {
+  await signInAs(page, "owner", "/clubs/new");
+
+  await page.getByLabel("Name").fill("Invite Guard Club");
+  await page.getByLabel("Description").fill("Admin access should stay restricted.");
+  await page.getByLabel("Visibility").selectOption("PUBLIC");
+  await page.getByRole("button", { name: "Create club" }).click();
+
+  await expect(page).toHaveURL(CLUB_DETAIL_URL_PATTERN);
+  await expect(
+    page.getByRole("heading", { name: "Invite Guard Club" }),
+  ).toBeVisible();
+  const clubPath = new URL(page.url()).pathname;
+  const inviteUrl = `${clubPath}/invite`;
+
+  await signInAs(page, "member", "/clubs");
+  await page.goto(clubPath);
+
+  await page.getByRole("button", { name: "Join club" }).click();
+  await expect(page.getByText("You joined the club.")).toBeVisible();
+  await expect(
+    page.getByRole("link", { name: "Manage invites" }),
+  ).toHaveCount(0);
+
+  const response = await page.goto(inviteUrl);
+  expect(response?.status()).toBe(404);
+  await expect(page.getByText("404")).toBeVisible();
+});
+
+test("private clubs stay out of discovery for non-members", async ({ page }) => {
+  await signInAs(page, "owner", "/clubs/new");
+
+  await page.getByLabel("Name").fill("Stealth Readers");
+  await page.getByLabel("Description").fill("This club should stay private.");
+  await page.getByLabel("Visibility").selectOption("PRIVATE");
+  await page.getByRole("button", { name: "Create club" }).click();
+
+  await expect(page).toHaveURL(CLUB_DETAIL_URL_PATTERN);
+
+  await signInAs(page, "stranger", "/clubs");
+  await expect(page.getByRole("heading", { name: "Discover Public Clubs" })).toBeVisible();
+  await expect(page.getByText("Stealth Readers")).toHaveCount(0);
 });
 
 test("club admin can add, move, and remove a book in section management", async ({
@@ -82,7 +117,7 @@ test("club admin can add, move, and remove a book in section management", async 
   await page.getByLabel("Visibility").selectOption("PUBLIC");
   await page.getByRole("button", { name: "Create club" }).click();
 
-  await expect(page).toHaveURL(/\/clubs\/.+/);
+  await expect(page).toHaveURL(CLUB_DETAIL_URL_PATTERN);
   await expect(
     page.getByRole("heading", { name: "Section Operators" }),
   ).toBeVisible();
