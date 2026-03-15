@@ -44,4 +44,14 @@ type BookSearchPage = {
   hasNextPage: boolean;
 };
 
-export type { BookSearchItem, BookSearchMode, BookSearchPage, NormalizedBook };
+type BookDetail = Omit<NormalizedBook, "rawGoogleJson"> & {
+  persisted: boolean;
+};
+
+export type {
+  BookDetail,
+  BookSearchItem,
+  BookSearchMode,
+  BookSearchPage,
+  NormalizedBook,
+};

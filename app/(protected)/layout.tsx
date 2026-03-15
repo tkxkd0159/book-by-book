@@ -3,14 +3,11 @@ import Link from "next/link";
 import ProfileMenu from "@/components/auth/profile-menu";
 import { Badge } from "@/components/ui/badge";
 import { buttonStyles } from "@/components/ui/button";
-import { getAuthSession, getCurrentUser } from "@/lib/auth/server";
+import { requireAuthSession } from "@/lib/auth/server";
 
 export default async function ProtectedLayout({ children }: Props.Layout) {
-  const session = await getAuthSession();
-  const currentUser = await getCurrentUser();
-  const userName = currentUser?.name ?? session?.user?.name ?? null;
-  const userEmail = currentUser?.email ?? session?.user?.email ?? null;
-  const userImageUrl = currentUser?.imageUrl ?? session?.user?.image ?? null;
+  const session = await requireAuthSession();
+  const sessionUser = session.user;
 
   return (
     <div className="min-h-screen">
@@ -37,9 +34,9 @@ export default async function ProtectedLayout({ children }: Props.Layout) {
               Clubs
             </Link>
             <ProfileMenu
-              name={userName}
-              email={userEmail}
-              imageUrl={userImageUrl}
+              name={sessionUser.name}
+              email={sessionUser.email}
+              imageUrl={sessionUser.image}
             />
           </nav>
         </div>

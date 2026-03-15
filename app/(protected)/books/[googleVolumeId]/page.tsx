@@ -2,13 +2,15 @@ import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
+import { importBookAction } from "@/app/(protected)/books/search/actions";
+import { ImportBookButton } from "@/components/books/import-book-button";
 import { AddBookToClubForm } from "@/components/clubs/add-book-to-club-form";
 import { Badge } from "@/components/ui/badge";
 import { buttonStyles } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { requireCurrentUser } from "@/lib/auth/server";
-import { ensureBookInDatabase } from "@/lib/books/repository";
+import { getCurrentUser } from "@/lib/auth/server";
 import { listManageableClubsForUser } from "@/lib/clubs/repository";
+import { resolveBookDetail } from "@/lib/books/volume-details";
 
 type BookDetailPageProps = {
   params: Promise<{ googleVolumeId: string }>;
@@ -32,14 +34,18 @@ export default async function BookDetailPage({
   searchParams,
 }: BookDetailPageProps) {
   const [{ googleVolumeId }, query] = await Promise.all([params, searchParams]);
-  const currentUser = await requireCurrentUser();
-  const book = await ensureBookInDatabase(googleVolumeId);
+  const [currentUser, book] = await Promise.all([
+    getCurrentUser(),
+    resolveBookDetail(googleVolumeId),
+  ]);
 
   if (!book) {
     notFound();
   }
 
-  const manageableClubs = await listManageableClubsForUser(currentUser.id);
+  const manageableClubs = currentUser
+    ? await listManageableClubsForUser(currentUser.id)
+    : [];
   const message = readMessage(query.message);
   const error = readMessage(query.error);
 
@@ -84,7 +90,7 @@ export default async function BookDetailPage({
           <div className="space-y-5">
             <header className="space-y-3">
               <div className="flex flex-wrap items-center gap-2">
-                <Badge>ID</Badge>
+                <Badge>{book.persisted ? "Cached locally" : "Live from Google"}</Badge>
                 <code className="rounded-md bg-(--surface) px-2 py-1 text-xs">
                   {book.googleVolumeId}
                 </code>
@@ -162,12 +168,22 @@ export default async function BookDetailPage({
               >
                 Back to search
               </Link>
+              {!book.persisted && currentUser ? (
+                <form action={importBookAction}>
+                  <input
+                    type="hidden"
+                    name="googleVolumeId"
+                    value={book.googleVolumeId}
+                  />
+                  <ImportBookButton size="md" />
+                </form>
+              ) : null}
               {book.infoLink ? (
                 <a
                   href={book.infoLink}
                   target="_blank"
                   rel="noreferrer"
-                  className={buttonStyles({})}
+                  className={buttonStyles({ variant: "secondary" })}
                 >
                   View on Google Books
                 </a>
@@ -182,14 +198,18 @@ export default async function BookDetailPage({
           <div className="space-y-2">
             <h2 className="text-xl font-semibold">Add to a club</h2>
             <p className="text-sm text-(--muted)">
-              Place this book into one of your club reading sections.
+              {currentUser
+                ? "Place this book into one of your club reading sections."
+                : "An active app account is required to import this book or add it to a club."}
             </p>
           </div>
 
-          <AddBookToClubForm
-            googleVolumeId={book.googleVolumeId}
-            clubs={manageableClubs}
-          />
+          {currentUser ? (
+            <AddBookToClubForm
+              googleVolumeId={book.googleVolumeId}
+              clubs={manageableClubs}
+            />
+          ) : null}
         </CardContent>
       </Card>
 

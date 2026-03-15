@@ -9,7 +9,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { resolveAuthErrorMessage } from "@/lib/auth/error-messages";
-import { getAuthSession } from "@/lib/auth/server";
+import { getCurrentUser } from "@/lib/auth/server";
 
 function extractSearchParam(value: string | string[] | undefined) {
   if (Array.isArray(value)) {
@@ -28,8 +28,8 @@ function normalizeCallbackUrl(value: string) {
 }
 
 export default async function SignInPage({ searchParams }: Props.Page) {
-  const session = await getAuthSession();
-  if (session) {
+  const currentUser = await getCurrentUser();
+  if (currentUser) {
     redirect("/books/search");
   }
 

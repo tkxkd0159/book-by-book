@@ -7,6 +7,8 @@ import {
   upsertGoogleOAuthUser,
 } from "@/lib/auth/users";
 
+const SESSION_MAX_AGE_SECONDS = 14 * 24 * 60 * 60;
+
 function readRequiredEnv(name: "GOOGLE_CLIENT_ID" | "GOOGLE_CLIENT_SECRET") {
   const value = process.env[name];
   if (!value) {
@@ -21,6 +23,10 @@ export const authOptions: NextAuthOptions = {
   secret: resolveAuthSecret(),
   session: {
     strategy: "jwt",
+    maxAge: SESSION_MAX_AGE_SECONDS,
+  },
+  jwt: {
+    maxAge: SESSION_MAX_AGE_SECONDS,
   },
   pages: {
     signIn: "/signin",

@@ -3,16 +3,29 @@
 import { useFormStatus } from "react-dom";
 
 import { Button } from "@/components/ui/button";
+import type { ButtonProps } from "@/components/ui/button";
 
 type ImportBookButtonProps = {
   className?: string;
+  size?: ButtonProps["size"];
+  variant?: ButtonProps["variant"];
 };
 
-export function ImportBookButton({ className }: ImportBookButtonProps) {
+export function ImportBookButton({
+  className,
+  size = "sm",
+  variant = "default",
+}: ImportBookButtonProps) {
   const { pending } = useFormStatus();
 
   return (
-    <Button type="submit" size="sm" className={className} disabled={pending}>
+    <Button
+      type="submit"
+      size={size}
+      variant={variant}
+      className={className}
+      disabled={pending}
+    >
       {pending ? (
         <span className="inline-flex items-center gap-2">
           <span

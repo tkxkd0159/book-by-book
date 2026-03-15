@@ -9,11 +9,11 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { getAuthSession } from "@/lib/auth/server";
+import { getCurrentUser } from "@/lib/auth/server";
 
 export default async function Page() {
-  const session = await getAuthSession();
-  if (session) {
+  const currentUser = await getCurrentUser();
+  if (currentUser) {
     redirect("/books/search");
   }
 

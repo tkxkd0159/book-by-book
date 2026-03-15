@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 
+import { getCurrentUser } from "@/lib/auth/server";
 import { ensureBookInDatabase } from "@/lib/books/repository";
+import { primePersistedBookDetailCache } from "@/lib/books/volume-details";
 
 export const runtime = "nodejs";
 
@@ -9,6 +11,11 @@ type ImportBookRequest = {
 };
 
 export async function POST(request: NextRequest) {
+  const currentUser = await getCurrentUser();
+  if (!currentUser) {
+    return NextResponse.json({ error: "Unauthorized." }, { status: 401 });
+  }
+
   let payload: ImportBookRequest;
   try {
     payload = (await request.json()) as ImportBookRequest;
@@ -29,6 +36,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Book not found." }, { status: 404 });
     }
 
+    primePersistedBookDetailCache(book);
     return NextResponse.json({ book });
   } catch (error) {
     console.error(error);

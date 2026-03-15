@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { isRedirectError } from "next/dist/client/components/redirect-error";
 
 import { ensureBookInDatabase } from "@/lib/books/repository";
+import { primePersistedBookDetailCache } from "@/lib/books/volume-details";
 import { ClubError, isClubError } from "@/lib/clubs/errors";
 import {
   acceptClubInvitation,
@@ -242,6 +243,7 @@ export async function addBookToClubFromVolumeAction(formData: FormData) {
       throw new ClubError("NOT_FOUND", "Book not found.");
     }
 
+    primePersistedBookDetailCache(book);
     await addBookToClub({
       clubId,
       bookId: book.id,
