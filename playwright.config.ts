@@ -51,7 +51,10 @@ export default defineConfig({
     reuseExistingServer: !process.env.CI,
     timeout: 120_000,
     env: {
+      DATABASE_URL:
+        "postgresql://postgres:postgres@localhost:54329/book_by_book_local",
       E2E_BYPASS_AUTH: "1",
+      NEXTAUTH_URL: e2eBaseUrl,
     },
   },
 });

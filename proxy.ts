@@ -5,7 +5,7 @@ import { resolveAuthSecret } from "@/lib/auth/secret";
 
 const PUBLIC_PAGE_PATHS = new Set(["/", "/signin", "/auth/error"]);
 const AUTH_API_PREFIX = "/api/auth";
-const PUBLIC_API_PATHS = new Set<string>([]);
+const PUBLIC_API_PATHS = new Set<string>(["/api/test/auth", "/api/test/reset"]);
 
 function isApiPath(pathname: string) {
   return pathname.startsWith("/api/");
@@ -20,7 +20,11 @@ function isPublicPath(pathname: string) {
     return true;
   }
 
-  if (isApiPath(pathname) && PUBLIC_API_PATHS.has(pathname)) {
+  if (
+    isApiPath(pathname) &&
+    PUBLIC_API_PATHS.has(pathname) &&
+    process.env.E2E_BYPASS_AUTH === "1"
+  ) {
     return true;
   }
 

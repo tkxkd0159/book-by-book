@@ -20,7 +20,7 @@ export default async function ProtectedLayout({ children }: Props.Layout) {
             <Link href="/books/search" className="text-lg font-semibold">
               Book by Book
             </Link>
-            <Badge>Milestone 1</Badge>
+            <Badge>Milestone 2</Badge>
           </div>
 
           <nav className="relative z-50 flex items-center gap-2">
@@ -29,6 +29,12 @@ export default async function ProtectedLayout({ children }: Props.Layout) {
               className={buttonStyles({ variant: "ghost", size: "sm" })}
             >
               Search
+            </Link>
+            <Link
+              href="/clubs"
+              className={buttonStyles({ variant: "ghost", size: "sm" })}
+            >
+              Clubs
             </Link>
             <ProfileMenu
               name={userName}

@@ -2,31 +2,62 @@ import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
+import { AddBookToClubForm } from "@/components/clubs/add-book-to-club-form";
 import { Badge } from "@/components/ui/badge";
 import { buttonStyles } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { requireCurrentUser } from "@/lib/auth/server";
 import { ensureBookInDatabase } from "@/lib/books/repository";
+import { listManageableClubsForUser } from "@/lib/clubs/repository";
 
 type BookDetailPageProps = {
   params: Promise<{ googleVolumeId: string }>;
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
 };
 
 function fallbackText(value: string | null | undefined, fallback = "N/A") {
   return value && value.trim().length > 0 ? value : fallback;
 }
 
-export default async function BookDetailPage({ params }: BookDetailPageProps) {
-  const { googleVolumeId } = await params;
+function readMessage(value: string | string[] | undefined) {
+  if (Array.isArray(value)) {
+    return value[0] ?? null;
+  }
+
+  return value ?? null;
+}
+
+export default async function BookDetailPage({
+  params,
+  searchParams,
+}: BookDetailPageProps) {
+  const [{ googleVolumeId }, query] = await Promise.all([params, searchParams]);
+  const currentUser = await requireCurrentUser();
   const book = await ensureBookInDatabase(googleVolumeId);
 
   if (!book) {
     notFound();
   }
 
+  const manageableClubs = await listManageableClubsForUser(currentUser.id);
+  const message = readMessage(query.message);
+  const error = readMessage(query.error);
+
   const description = book.description;
 
   return (
     <article className="space-y-6">
+      {message ? (
+        <p className="rounded-xl border border-[#b9d6cf] bg-[#eef9f5] px-4 py-3 text-sm text-[#125547]">
+          {message}
+        </p>
+      ) : null}
+      {error ? (
+        <p className="rounded-xl border border-[#d39e95] bg-[#fff2ef] px-4 py-3 text-sm text-[#7e1f14]">
+          {error}
+        </p>
+      ) : null}
+
       <Card className="relative overflow-hidden border-2 border-(--border) bg-(--surface-strong)">
         <div className="pointer-events-none absolute -right-24 -top-24 h-72 w-72 rounded-full bg-(--accent)/10 blur-3xl" />
         <div className="pointer-events-none absolute -bottom-28 left-4 h-56 w-56 rounded-full bg-[#c78d42]/10 blur-3xl" />
@@ -143,6 +174,22 @@ export default async function BookDetailPage({ params }: BookDetailPageProps) {
               ) : null}
             </div>
           </div>
+        </CardContent>
+      </Card>
+
+      <Card className="border-(--border)/90">
+        <CardContent className="space-y-5 p-7 sm:p-8">
+          <div className="space-y-2">
+            <h2 className="text-xl font-semibold">Add to a club</h2>
+            <p className="text-sm text-(--muted)">
+              Place this book into one of your club reading sections.
+            </p>
+          </div>
+
+          <AddBookToClubForm
+            googleVolumeId={book.googleVolumeId}
+            clubs={manageableClubs}
+          />
         </CardContent>
       </Card>
 
