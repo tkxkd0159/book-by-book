@@ -91,6 +91,12 @@ REMOVE_VOLUME=1
 pnpm dev
 ```
 
+When you run `npm start` or `pnpm start`, a `prestart` hook now verifies that local PostgreSQL is reachable at `localhost:54329` when `DATABASE_URL` targets the local dev database. If it is not running, start it with:
+
+```bash
+./scripts/setup-local-postgres.sh
+```
+
 ## Quality Gates
 
 ```bash
