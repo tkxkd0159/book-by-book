@@ -25,9 +25,73 @@ type BookRecord = {
   previewLink: string | null;
   infoLink: string | null;
   canonicalLink: string | null;
+  createdAt: Date;
+  updatedAt: Date;
   rawGoogleJson: unknown;
+};
+
+type ClubVisibility = "PUBLIC" | "PRIVATE";
+
+type ClubMemberRole = "OWNER" | "ADMIN" | "MEMBER";
+
+type ClubInvitationStatus = "PENDING" | "ACCEPTED" | "REVOKED" | "EXPIRED";
+
+type ClubBookStatus = "WANT_TO_READ" | "READING" | "READ";
+
+type ClubRecord = {
+  id: string;
+  name: string;
+  description: string | null;
+  visibility: ClubVisibility;
+  createdById: string;
   createdAt: Date;
   updatedAt: Date;
 };
 
-export type { AuthUser, BookRecord };
+type ClubMemberRecord = {
+  id: string;
+  clubId: string;
+  userId: string;
+  role: ClubMemberRole;
+  joinedAt: Date;
+};
+
+type ClubInvitationRecord = {
+  id: string;
+  clubId: string;
+  invitedById: string;
+  invitedUserId: string | null;
+  invitedEmail: string | null;
+  status: ClubInvitationStatus;
+  tokenHash: string;
+  expiresAt: Date;
+  createdAt: Date;
+  acceptedAt: Date | null;
+  updatedAt: Date;
+};
+
+type ClubBookRecord = {
+  id: string;
+  clubId: string;
+  bookId: string;
+  status: ClubBookStatus;
+  addedById: string;
+  sortOrder: number;
+  addedAt: Date;
+  removedAt: Date | null;
+  createdAt: Date;
+  updatedAt: Date;
+};
+
+export type {
+  AuthUser,
+  BookRecord,
+  ClubBookRecord,
+  ClubBookStatus,
+  ClubInvitationRecord,
+  ClubInvitationStatus,
+  ClubMemberRecord,
+  ClubMemberRole,
+  ClubRecord,
+  ClubVisibility,
+};

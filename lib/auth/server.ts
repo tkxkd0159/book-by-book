@@ -1,12 +1,23 @@
 import type { Session } from "next-auth";
 import { redirect } from "next/navigation";
 
+import { createE2ESession, getE2ECurrentUser } from "@/lib/auth/e2e";
 import { getAuthSessionSafe } from "@/lib/auth/session";
 import { findUserByEmail, findUserById } from "@/lib/auth/users";
 import type { AuthUser } from "@/types/db";
 
 export async function getAuthSession() {
-  return getAuthSessionSafe();
+  const session = await getAuthSessionSafe();
+  if (session?.user) {
+    return session;
+  }
+
+  const e2eUser = await getE2ECurrentUser();
+  if (e2eUser) {
+    return createE2ESession(e2eUser);
+  }
+
+  return null;
 }
 
 export async function getCurrentUser(): Promise<AuthUser | null> {

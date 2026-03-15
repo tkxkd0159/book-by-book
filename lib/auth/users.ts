@@ -80,6 +80,27 @@ export async function findUserByProviderAccount(
   return user ?? null;
 }
 
+export async function findUserByProviderIdentity(
+  provider: string,
+  providerUserId: string,
+): Promise<AuthUser | null> {
+  const [user] = await sql<UserRow[]>`
+    select
+      id::text as id,
+      provider,
+      provider_user_id as "providerUserId",
+      email::text as email,
+      name,
+      image_url as "imageUrl"
+    from bookapp.users
+    where provider = ${provider}
+      and provider_user_id = ${providerUserId}
+    limit 1
+  `;
+
+  return user ?? null;
+}
+
 export async function upsertGoogleOAuthUser(
   input: UpsertGoogleOAuthUserInput,
 ): Promise<AuthUser> {
