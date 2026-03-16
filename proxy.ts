@@ -1,64 +1,65 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getToken } from "next-auth/jwt";
 
+import { E2E_AUTH_COOKIE_NAME } from "@/lib/auth/constants";
 import { resolveAuthSecret } from "@/lib/auth/secret";
 
 const PUBLIC_PAGE_PATHS = new Set(["/", "/signin", "/auth/error"]);
-const AUTH_API_PREFIX = "/api/auth";
-const PUBLIC_API_PATHS = new Set<string>(["/api/test/auth", "/api/test/reset"]);
+const AUTH_API_PATH = "/api/auth";
+const E2E_PUBLIC_API_PATHS = new Set(["/api/test/auth", "/api/test/reset"]);
+const PROTECTED_PAGE_PREFIXES = ["/books", "/clubs", "/me"];
 
-function isApiPath(pathname: string) {
-  return pathname.startsWith("/api/");
+function hasPathPrefix(pathname: string, prefix: string) {
+  return pathname === prefix || pathname.startsWith(`${prefix}/`);
 }
 
 function isPublicPath(pathname: string) {
-  if (PUBLIC_PAGE_PATHS.has(pathname)) {
-    return true;
-  }
+  return (
+    PUBLIC_PAGE_PATHS.has(pathname) ||
+    hasPathPrefix(pathname, AUTH_API_PATH) ||
+    (process.env.E2E_BYPASS_AUTH === "1" &&
+      E2E_PUBLIC_API_PATHS.has(pathname))
+  );
+}
 
-  if (pathname.startsWith(AUTH_API_PREFIX)) {
-    return true;
-  }
-
-  if (
-    isApiPath(pathname) &&
-    PUBLIC_API_PATHS.has(pathname) &&
-    process.env.E2E_BYPASS_AUTH === "1"
-  ) {
-    return true;
-  }
-
-  return false;
+function isProtectedPagePath(pathname: string) {
+  return PROTECTED_PAGE_PREFIXES.some((prefix) =>
+    hasPathPrefix(pathname, prefix),
+  );
 }
 
 function createSignInRedirect(request: NextRequest) {
   const signInUrl = new URL("/signin", request.url);
   const callbackUrl = `${request.nextUrl.pathname}${request.nextUrl.search}`;
-  signInUrl.searchParams.set("callbackUrl", callbackUrl || "/books/search");
+  signInUrl.searchParams.set("callbackUrl", callbackUrl);
   return NextResponse.redirect(signInUrl);
 }
 
-export async function proxy(request: NextRequest) {
-  if (process.env.E2E_BYPASS_AUTH === "1") {
-    return NextResponse.next();
+async function hasOptimisticSession(request: NextRequest) {
+  if (
+    process.env.E2E_BYPASS_AUTH === "1" &&
+    request.cookies.get(E2E_AUTH_COOKIE_NAME)?.value
+  ) {
+    return true;
   }
 
-  const pathname = request.nextUrl.pathname;
   const token = await getToken({
     req: request,
     secret: resolveAuthSecret(),
   });
 
-  if (isPublicPath(pathname)) {
+  return Boolean(token);
+}
+
+export async function proxy(request: NextRequest) {
+  const pathname = request.nextUrl.pathname;
+
+  if (isPublicPath(pathname) || !isProtectedPagePath(pathname)) {
     return NextResponse.next();
   }
 
-  if (token) {
+  if (await hasOptimisticSession(request)) {
     return NextResponse.next();
-  }
-
-  if (isApiPath(pathname)) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
   return createSignInRedirect(request);
