@@ -1,6 +1,6 @@
 import { ArrowLeft, ArrowRight, BookOpen, Trash2 } from "lucide-react";
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { forbidden, notFound } from "next/navigation";
 
 import { deleteThreadAction } from "@/app/(protected)/clubs/actions";
 import { PostActions } from "@/components/threads/post-actions";
@@ -10,7 +10,8 @@ import { Badge } from "@/components/ui/badge";
 import { Button, buttonStyles } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { getCurrentUser } from "@/lib/auth/server";
-import { isClubAdmin } from "@/lib/clubs/permissions";
+import { isClubAdmin, isClubMember } from "@/lib/clubs/permissions";
+import { findClubDetail } from "@/lib/clubs/repository";
 import { canDeleteThreads } from "@/lib/threads/permissions";
 import {
   CLUB_BOOK_STATUS_BADGE_VARIANTS,
@@ -79,6 +80,16 @@ export default async function ThreadDetailPage({
   const page = readPage(query.page);
   const message = readMessage(query.message);
   const error = readMessage(query.error);
+  const club = await findClubDetail(clubId, currentUser.id);
+
+  if (!club) {
+    notFound();
+  }
+
+  if (!isClubMember(club.currentUserRole)) {
+    forbidden();
+  }
+
   const detail = await loadThreadDetailData({
     clubId,
     threadId,

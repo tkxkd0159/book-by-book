@@ -44,3 +44,51 @@ body {
   color: var(--accent-strong);
   box-shadow: 0 0 0 1px color-mix(in oklab, var(--accent) 28%, transparent);
 }
+
+.forbidden-glow {
+  animation: forbidden-pulse 8s ease-in-out infinite;
+}
+
+.forbidden-book {
+  animation: forbidden-float 5.5s ease-in-out infinite;
+  transform-origin: center;
+}
+
+.forbidden-book-2 {
+  animation-delay: -1.8s;
+}
+
+.forbidden-book-3 {
+  animation-delay: -3.2s;
+}
+
+@keyframes forbidden-float {
+  0%,
+  100% {
+    transform: translateY(0) rotate(0deg);
+  }
+
+  50% {
+    transform: translateY(-10px) rotate(2deg);
+  }
+}
+
+@keyframes forbidden-pulse {
+  0%,
+  100% {
+    opacity: 0.7;
+    transform: scale(1);
+  }
+
+  50% {
+    opacity: 1;
+    transform: scale(1.06);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .forbidden-glow,
+  .forbidden-book {
+    animation: none;
+  }
+}

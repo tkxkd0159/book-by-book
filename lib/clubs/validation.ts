@@ -1,4 +1,4 @@
-import type { ClubBookStatus, ClubVisibility } from "@/types/db";
+import type { ClubBookStatus, ClubMemberRole, ClubVisibility } from "@/types/db";
 
 import { ClubError } from "@/lib/clubs/errors";
 
@@ -106,6 +106,17 @@ export function parseInternalId(
   }
 
   return normalized;
+}
+
+export function parseManageableClubMemberRole(
+  value: FormDataEntryValue | string | null | undefined,
+): Extract<ClubMemberRole, "ADMIN" | "MEMBER"> {
+  const normalized = readString(value).trim().toUpperCase();
+  if (normalized === "ADMIN" || normalized === "MEMBER") {
+    return normalized;
+  }
+
+  throw new ClubError("VALIDATION", "Choose a valid member role.");
 }
 
 export function parseSafeReturnTo(

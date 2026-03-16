@@ -1,7 +1,7 @@
 import Image from "next/image";
 import { ArrowLeft, BookOpen } from "lucide-react";
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { forbidden, notFound } from "next/navigation";
 
 import { ClubBookThreadList } from "@/components/threads/club-book-thread-list";
 import { StartThreadModal } from "@/components/threads/start-thread-modal";
@@ -9,7 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { buttonStyles } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { getCurrentUser } from "@/lib/auth/server";
-import { isClubAdmin } from "@/lib/clubs/permissions";
+import { isClubAdmin, isClubMember } from "@/lib/clubs/permissions";
 import {
   CLUB_BOOK_STATUS_BADGE_VARIANTS,
   CLUB_BOOK_STATUS_LABELS,
@@ -28,7 +28,6 @@ type ClubBookDiscussionPageProps = {
 };
 
 type ClubBookDiscussionData = {
-  club: NonNullable<Awaited<ReturnType<typeof findClubDetail>>>;
   discussion: Awaited<ReturnType<typeof findDiscussionClubBook>>;
   threads: Awaited<ReturnType<typeof listThreadsForClubBook>>;
 };
@@ -60,8 +59,7 @@ async function loadClubBookDiscussionData(input: {
   page: number;
 }): Promise<ClubBookDiscussionData> {
   try {
-    const [club, discussion, threads] = await Promise.all([
-      findClubDetail(input.clubId, input.userId),
+    const [discussion, threads] = await Promise.all([
       findDiscussionClubBook({
         clubId: input.clubId,
         clubBookId: input.clubBookId,
@@ -75,12 +73,7 @@ async function loadClubBookDiscussionData(input: {
       }),
     ]);
 
-    if (!club) {
-      notFound();
-    }
-
     return {
-      club,
       discussion,
       threads,
     };
@@ -106,7 +99,17 @@ export default async function ClubBookDiscussionPage({
   const page = readPage(query.page);
   const message = readMessage(query.message);
   const error = readMessage(query.error);
-  const { club, discussion, threads } = await loadClubBookDiscussionData({
+  const club = await findClubDetail(clubId, currentUser.id);
+
+  if (!club) {
+    notFound();
+  }
+
+  if (!isClubMember(club.currentUserRole)) {
+    forbidden();
+  }
+
+  const { discussion, threads } = await loadClubBookDiscussionData({
     clubId,
     clubBookId,
     userId: currentUser.id,

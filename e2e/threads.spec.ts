@@ -285,3 +285,44 @@ test("club admins can delete threads while members cannot", async ({
   await expect(page.getByText("Thread deleted.")).toBeVisible();
   await expect(page.getByRole("link", { name: "Delete me" })).toHaveCount(0);
 });
+
+test("non-members see forbidden pages for discussion and thread routes", async ({
+  page,
+}) => {
+  await signInAs(page, "owner", "/clubs/new");
+
+  await page.getByLabel("Name").fill("Members Only Discussion Club");
+  await page.getByLabel("Description").fill("Discussion stays inside the club.");
+  await page.getByLabel("Visibility").selectOption("PUBLIC");
+  await page.getByRole("button", { name: "Create club" }).click();
+
+  await expect(page).toHaveURL(/\/clubs\/[0-9a-f-]+(?:\?|$)/i);
+  const clubPath = new URL(page.url()).pathname;
+
+  await addFixtureBookToClub(page, "Members Only Discussion Club");
+
+  await page.goto(clubPath);
+  await openFixtureBookCardDetails(page);
+  await page.getByRole("link", { name: "Discussion" }).click();
+  await expect(page).toHaveURL(/\/clubs\/[0-9a-f-]+\/books\/[0-9a-f-]+(?:\?|$)/i);
+  const discussionUrl = page.url();
+
+  await submitThreadFromModal(page, {
+    title: "Locked chapter talk",
+    body: "Only members should see this thread.",
+  });
+  await expect(page.getByRole("link", { name: "Locked chapter talk" })).toBeVisible();
+  await page.getByRole("link", { name: "Locked chapter talk" }).click();
+  await expect(page).toHaveURL(/\/clubs\/[0-9a-f-]+\/threads\/[0-9a-f-]+(?:\?|$)/i);
+  const threadUrl = page.url();
+
+  await signInAs(page, "stranger", "/clubs");
+
+  const discussionResponse = await page.goto(discussionUrl);
+  expect(discussionResponse?.status()).toBe(403);
+  await expect(page.getByRole("heading", { name: "Forbidden" })).toBeVisible();
+
+  const threadResponse = await page.goto(threadUrl);
+  expect(threadResponse?.status()).toBe(403);
+  await expect(page.getByRole("heading", { name: "Forbidden" })).toBeVisible();
+});

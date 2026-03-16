@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { headers } from "next/headers";
-import { notFound } from "next/navigation";
+import { forbidden, notFound } from "next/navigation";
 
 import {
   createInvitationAction,
@@ -60,8 +60,12 @@ export default async function ClubInvitePage({
   const [{ clubId }, paramsData] = await Promise.all([params, searchParams]);
   const club = await findClubDetail(clubId, currentUser.id);
 
-  if (!club || !isClubAdmin(club.currentUserRole)) {
+  if (!club) {
     notFound();
+  }
+
+  if (!isClubAdmin(club.currentUserRole)) {
+    forbidden();
   }
 
   const invitations = await listClubInvitations(clubId, currentUser.id);

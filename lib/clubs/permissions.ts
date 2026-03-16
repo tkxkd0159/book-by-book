@@ -25,3 +25,33 @@ export function canJoinClub(
 ) {
   return visibility === "PUBLIC" && !isClubMember(role);
 }
+
+export function canLeaveClub(role: ClubMemberRole | null | undefined) {
+  return role === "ADMIN" || role === "MEMBER";
+}
+
+export function canDeleteClub(role: ClubMemberRole | null | undefined) {
+  return isClubOwner(role);
+}
+
+export function canTransferClubOwnership(role: ClubMemberRole | null | undefined) {
+  return isClubOwner(role);
+}
+
+export function canChangeClubMemberRole(
+  actorRole: ClubMemberRole | null | undefined,
+  targetRole: ClubMemberRole,
+) {
+  return isClubOwner(actorRole) && targetRole !== "OWNER";
+}
+
+export function canRemoveClubMember(
+  actorRole: ClubMemberRole | null | undefined,
+  targetRole: ClubMemberRole,
+) {
+  if (isClubOwner(actorRole)) {
+    return targetRole !== "OWNER";
+  }
+
+  return actorRole === "ADMIN" && targetRole === "MEMBER";
+}

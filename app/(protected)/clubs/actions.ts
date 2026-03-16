@@ -9,13 +9,18 @@ import { ClubError, isClubError } from "@/lib/clubs/errors";
 import {
   acceptClubInvitation,
   addBookToClub,
+  changeClubMemberRole,
   createClub,
   createClubInvitation,
+  deleteClub,
   joinPublicClub,
+  leaveClub,
   listManageableClubBookTargetsForGoogleVolumeId,
   moveClubBook,
+  removeClubMember,
   removeClubBook,
   revokeClubInvitation,
+  transferClubOwnership,
 } from "@/lib/clubs/repository";
 import { createThread } from "@/lib/threads/repository";
 import {
@@ -30,6 +35,7 @@ import { isThreadError } from "@/lib/threads/errors";
 import {
   parseClubBookStatus,
   parseClubDescription,
+  parseManageableClubMemberRole,
   parseClubName,
   parseClubVisibility,
   parseInternalId,
@@ -122,6 +128,115 @@ export async function joinClubAction(formData: FormData) {
     revalidatePath("/clubs");
     revalidatePath(`/clubs/${clubId}`);
     redirect(appendMessage(returnTo, "message", "You joined the club."));
+  } catch (error) {
+    rethrowIfRedirect(error);
+    redirect(appendMessage(returnTo, "error", getErrorMessage(error)));
+  }
+}
+
+export async function leaveClubAction(formData: FormData) {
+  const currentUser = await requireCurrentUser();
+  const clubId = parseInternalId(formData.get("clubId"), "Club");
+  const returnTo = parseSafeReturnTo(formData.get("returnTo"), `/clubs/${clubId}`);
+
+  try {
+    await leaveClub({
+      clubId,
+      userId: currentUser.id,
+    });
+    revalidatePath("/clubs");
+    revalidatePath(`/clubs/${clubId}`);
+    revalidatePath(`/clubs/${clubId}/invite`);
+    redirect(appendMessage("/clubs", "message", "You left the club."));
+  } catch (error) {
+    rethrowIfRedirect(error);
+    redirect(appendMessage(returnTo, "error", getErrorMessage(error)));
+  }
+}
+
+export async function changeClubMemberRoleAction(formData: FormData) {
+  const currentUser = await requireCurrentUser();
+  const clubId = parseInternalId(formData.get("clubId"), "Club");
+  const targetUserId = parseInternalId(formData.get("targetUserId"), "Member");
+  const nextRole = parseManageableClubMemberRole(formData.get("nextRole"));
+  const returnTo = parseSafeReturnTo(formData.get("returnTo"), `/clubs/${clubId}`);
+
+  try {
+    await changeClubMemberRole({
+      clubId,
+      targetUserId,
+      changedById: currentUser.id,
+      nextRole,
+    });
+    revalidatePath("/clubs");
+    revalidatePath(`/clubs/${clubId}`);
+    revalidatePath(`/clubs/${clubId}/invite`);
+    redirect(appendMessage(returnTo, "message", "Member role updated."));
+  } catch (error) {
+    rethrowIfRedirect(error);
+    redirect(appendMessage(returnTo, "error", getErrorMessage(error)));
+  }
+}
+
+export async function removeClubMemberAction(formData: FormData) {
+  const currentUser = await requireCurrentUser();
+  const clubId = parseInternalId(formData.get("clubId"), "Club");
+  const targetUserId = parseInternalId(formData.get("targetUserId"), "Member");
+  const returnTo = parseSafeReturnTo(formData.get("returnTo"), `/clubs/${clubId}`);
+
+  try {
+    await removeClubMember({
+      clubId,
+      targetUserId,
+      removedById: currentUser.id,
+    });
+    revalidatePath("/clubs");
+    revalidatePath(`/clubs/${clubId}`);
+    revalidatePath(`/clubs/${clubId}/invite`);
+    redirect(appendMessage(returnTo, "message", "Member removed."));
+  } catch (error) {
+    rethrowIfRedirect(error);
+    redirect(appendMessage(returnTo, "error", getErrorMessage(error)));
+  }
+}
+
+export async function transferClubOwnershipAction(formData: FormData) {
+  const currentUser = await requireCurrentUser();
+  const clubId = parseInternalId(formData.get("clubId"), "Club");
+  const nextOwnerUserId = parseInternalId(
+    formData.get("nextOwnerUserId"),
+    "Next owner",
+  );
+  const returnTo = parseSafeReturnTo(formData.get("returnTo"), `/clubs/${clubId}`);
+
+  try {
+    await transferClubOwnership({
+      clubId,
+      nextOwnerUserId,
+      transferredById: currentUser.id,
+    });
+    revalidatePath("/clubs");
+    revalidatePath(`/clubs/${clubId}`);
+    revalidatePath(`/clubs/${clubId}/invite`);
+    redirect(appendMessage(returnTo, "message", "Ownership transferred."));
+  } catch (error) {
+    rethrowIfRedirect(error);
+    redirect(appendMessage(returnTo, "error", getErrorMessage(error)));
+  }
+}
+
+export async function deleteClubAction(formData: FormData) {
+  const currentUser = await requireCurrentUser();
+  const clubId = parseInternalId(formData.get("clubId"), "Club");
+  const returnTo = parseSafeReturnTo(formData.get("returnTo"), `/clubs/${clubId}`);
+
+  try {
+    await deleteClub({
+      clubId,
+      deletedById: currentUser.id,
+    });
+    revalidatePath("/clubs");
+    redirect(appendMessage("/clubs", "message", "Club deleted."));
   } catch (error) {
     rethrowIfRedirect(error);
     redirect(appendMessage(returnTo, "error", getErrorMessage(error)));

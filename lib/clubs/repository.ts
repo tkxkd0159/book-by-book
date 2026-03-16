@@ -35,6 +35,15 @@ type ClubMemberRow = {
   joinedAt: Date;
 };
 
+type ClubMemberSummaryRow = {
+  userId: string;
+  name: string | null;
+  email: string | null;
+  imageUrl: string | null;
+  role: ClubMemberRole;
+  joinedAt: Date;
+};
+
 type ClubInvitationRow = {
   id: string;
   clubId: string;
@@ -97,6 +106,15 @@ export type ClubSummary = ClubRecord & {
 
 export type ClubDetail = ClubSummary;
 
+export type ClubMemberSummary = {
+  userId: string;
+  name: string | null;
+  email: string | null;
+  imageUrl: string | null;
+  role: ClubMemberRole;
+  joinedAt: Date;
+};
+
 export type ClubInvitationWithClub = ClubInvitationRecord & {
   clubName: string;
   clubVisibility: ClubVisibility;
@@ -141,6 +159,10 @@ function mapClub(row: ClubRow): ClubRecord {
 }
 
 function mapClubMember(row: ClubMemberRow): ClubMemberRecord {
+  return row;
+}
+
+function mapClubMemberSummary(row: ClubMemberSummaryRow): ClubMemberSummary {
   return row;
 }
 
@@ -439,6 +461,40 @@ export async function findClubDetail(clubId: string, userId: string) {
   return club ? mapClubSummary(club) : null;
 }
 
+export async function listClubMembers(clubId: string, viewerId: string) {
+  const membership = await getMembershipForUpdate(sql, clubId, viewerId);
+  if (!membership || !isClubMember(membership.role)) {
+    throw new ClubError(
+      membership ? "FORBIDDEN" : "NOT_FOUND",
+      "Only club members can view the member list.",
+    );
+  }
+
+  const rows = await sql<ClubMemberSummaryRow[]>`
+    select
+      club_members.user_id::text as "userId",
+      users.name,
+      users.email::text as email,
+      users.image_url as "imageUrl",
+      club_members.role,
+      club_members.joined_at as "joinedAt"
+    from bookapp.club_members
+    join bookapp.users on users.id = club_members.user_id
+    where club_members.club_id = ${clubId}::uuid
+    order by
+      case club_members.role
+        when 'OWNER' then 0
+        when 'ADMIN' then 1
+        else 2
+      end,
+      club_members.joined_at asc,
+      coalesce(users.name, users.email::text, '') asc,
+      club_members.user_id asc
+  `;
+
+  return rows.map(mapClubMemberSummary);
+}
+
 export async function createClub(input: {
   createdById: string;
   name: string;
@@ -524,6 +580,276 @@ export async function joinPublicClub(input: { clubId: string; userId: string }) 
     }
 
     return membership;
+  });
+}
+
+export async function leaveClub(input: { clubId: string; userId: string }) {
+  return sql.begin(async (tx) => {
+    const query = asQueryExecutor(tx);
+    const membership = await getMembershipForUpdate(
+      query,
+      input.clubId,
+      input.userId,
+    );
+
+    if (!membership) {
+      throw new ClubError("NOT_FOUND", "Club membership not found.");
+    }
+
+    if (membership.role === "OWNER") {
+      throw new ClubError(
+        "FORBIDDEN",
+        "Transfer ownership or delete the club before leaving.",
+      );
+    }
+
+    const [removedMembership] = await query<ClubMemberRow[]>`
+      delete from bookapp.club_members
+      where club_id = ${input.clubId}::uuid
+        and user_id = ${input.userId}::uuid
+      returning
+        id::text as id,
+        club_id::text as "clubId",
+        user_id::text as "userId",
+        role,
+        joined_at as "joinedAt"
+    `;
+
+    if (!removedMembership) {
+      throw new ClubError("CONFLICT", "Unable to leave the club right now.");
+    }
+
+    return mapClubMember(removedMembership);
+  });
+}
+
+export async function changeClubMemberRole(input: {
+  clubId: string;
+  targetUserId: string;
+  changedById: string;
+  nextRole: Extract<ClubMemberRole, "ADMIN" | "MEMBER">;
+}) {
+  return sql.begin(async (tx) => {
+    const query = asQueryExecutor(tx);
+    const membership = await getMembershipForUpdate(
+      query,
+      input.clubId,
+      input.changedById,
+    );
+    if (!membership || membership.role !== "OWNER") {
+      throw new ClubError(
+        membership ? "FORBIDDEN" : "NOT_FOUND",
+        "Only the club owner can change member roles.",
+      );
+    }
+
+    const targetMembership = await getMembershipForUpdate(
+      query,
+      input.clubId,
+      input.targetUserId,
+    );
+    if (!targetMembership) {
+      throw new ClubError("NOT_FOUND", "Club member not found.");
+    }
+
+    if (targetMembership.role === "OWNER") {
+      throw new ClubError(
+        "FORBIDDEN",
+        "Transfer ownership instead of changing the owner's role.",
+      );
+    }
+
+    if (targetMembership.role === input.nextRole) {
+      return targetMembership;
+    }
+
+    const [updatedMembership] = await query<ClubMemberRow[]>`
+      update bookapp.club_members
+      set role = ${input.nextRole}
+      where club_id = ${input.clubId}::uuid
+        and user_id = ${input.targetUserId}::uuid
+      returning
+        id::text as id,
+        club_id::text as "clubId",
+        user_id::text as "userId",
+        role,
+        joined_at as "joinedAt"
+    `;
+
+    if (!updatedMembership) {
+      throw new ClubError("CONFLICT", "Unable to update the member role.");
+    }
+
+    return mapClubMember(updatedMembership);
+  });
+}
+
+export async function removeClubMember(input: {
+  clubId: string;
+  targetUserId: string;
+  removedById: string;
+}) {
+  return sql.begin(async (tx) => {
+    const query = asQueryExecutor(tx);
+    const membership = await getMembershipForUpdate(
+      query,
+      input.clubId,
+      input.removedById,
+    );
+    if (!membership) {
+      throw new ClubError("NOT_FOUND", "Club membership not found.");
+    }
+
+    const targetMembership = await getMembershipForUpdate(
+      query,
+      input.clubId,
+      input.targetUserId,
+    );
+    if (!targetMembership) {
+      throw new ClubError("NOT_FOUND", "Club member not found.");
+    }
+
+    if (targetMembership.role === "OWNER") {
+      throw new ClubError(
+        "FORBIDDEN",
+        "Transfer ownership before removing the club owner.",
+      );
+    }
+
+    if (membership.role === "ADMIN" && targetMembership.role !== "MEMBER") {
+      throw new ClubError(
+        "FORBIDDEN",
+        "Only the club owner can remove admins.",
+      );
+    }
+
+    if (membership.role !== "OWNER" && membership.role !== "ADMIN") {
+      throw new ClubError("FORBIDDEN", "Only club admins can remove members.");
+    }
+
+    const [removedMembership] = await query<ClubMemberRow[]>`
+      delete from bookapp.club_members
+      where club_id = ${input.clubId}::uuid
+        and user_id = ${input.targetUserId}::uuid
+      returning
+        id::text as id,
+        club_id::text as "clubId",
+        user_id::text as "userId",
+        role,
+        joined_at as "joinedAt"
+    `;
+
+    if (!removedMembership) {
+      throw new ClubError("CONFLICT", "Unable to remove the member.");
+    }
+
+    return mapClubMember(removedMembership);
+  });
+}
+
+export async function transferClubOwnership(input: {
+  clubId: string;
+  nextOwnerUserId: string;
+  transferredById: string;
+}) {
+  return sql.begin(async (tx) => {
+    const query = asQueryExecutor(tx);
+    const membership = await getMembershipForUpdate(
+      query,
+      input.clubId,
+      input.transferredById,
+    );
+    if (!membership || membership.role !== "OWNER") {
+      throw new ClubError(
+        membership ? "FORBIDDEN" : "NOT_FOUND",
+        "Only the club owner can transfer ownership.",
+      );
+    }
+
+    const nextOwnerMembership = await getMembershipForUpdate(
+      query,
+      input.clubId,
+      input.nextOwnerUserId,
+    );
+    if (!nextOwnerMembership) {
+      throw new ClubError("NOT_FOUND", "Club member not found.");
+    }
+
+    if (nextOwnerMembership.role !== "ADMIN") {
+      throw new ClubError(
+        "FORBIDDEN",
+        "Ownership can only be transferred to an admin.",
+      );
+    }
+
+    const [updatedClub] = await query<ClubRow[]>`
+      update bookapp.clubs
+      set
+        created_by_id = ${input.nextOwnerUserId}::uuid,
+        updated_at = now()
+      where id = ${input.clubId}::uuid
+      returning
+        id::text as id,
+        name,
+        description,
+        visibility,
+        created_by_id::text as "createdById",
+        created_at as "createdAt",
+        updated_at as "updatedAt"
+    `;
+
+    if (!updatedClub) {
+      throw new ClubError("NOT_FOUND", "Club not found.");
+    }
+
+    await query`
+      update bookapp.club_members
+      set role = case
+        when user_id = ${input.transferredById}::uuid then 'ADMIN'
+        when user_id = ${input.nextOwnerUserId}::uuid then 'OWNER'
+        else role
+      end
+      where club_id = ${input.clubId}::uuid
+        and user_id in (${input.transferredById}::uuid, ${input.nextOwnerUserId}::uuid)
+    `;
+
+    return mapClub(updatedClub);
+  });
+}
+
+export async function deleteClub(input: { clubId: string; deletedById: string }) {
+  return sql.begin(async (tx) => {
+    const query = asQueryExecutor(tx);
+    const membership = await getMembershipForUpdate(
+      query,
+      input.clubId,
+      input.deletedById,
+    );
+    if (!membership || membership.role !== "OWNER") {
+      throw new ClubError(
+        membership ? "FORBIDDEN" : "NOT_FOUND",
+        "Only the club owner can delete the club.",
+      );
+    }
+
+    const [deletedClub] = await query<ClubRow[]>`
+      delete from bookapp.clubs
+      where id = ${input.clubId}::uuid
+      returning
+        id::text as id,
+        name,
+        description,
+        visibility,
+        created_by_id::text as "createdById",
+        created_at as "createdAt",
+        updated_at as "updatedAt"
+    `;
+
+    if (!deletedClub) {
+      throw new ClubError("NOT_FOUND", "Club not found.");
+    }
+
+    return mapClub(deletedClub);
   });
 }
 

@@ -24,6 +24,10 @@ async function openFixtureBookCardDetails(page: import("@playwright/test").Page)
     .click();
 }
 
+async function openMembersTab(page: import("@playwright/test").Page) {
+  await page.getByRole("link", { name: /^Members$/ }).click();
+}
+
 test("user can create a public club and another user can join it", async ({
   page,
 }) => {
@@ -43,12 +47,21 @@ test("user can create a public club and another user can join it", async ({
   await expect(page.getByRole("button", { name: "Open club" })).toHaveCount(0);
   await page.getByRole("link", { name: "Open Weekend Readers" }).click();
   await expect(page).toHaveURL(CLUB_DETAIL_URL_PATTERN);
+  await expect(page.getByRole("link", { name: /^Reading board$/ })).toBeVisible();
+  await expect(page.getByRole("link", { name: /^Members$/ })).toHaveCount(0);
 
   await page.goto("/clubs");
   await page.getByRole("button", { name: "Join club" }).click();
 
   await expect(page.getByText("You joined the club.")).toBeVisible();
-  await expect(page.getByText("MEMBER", { exact: true })).toBeVisible();
+  await page.getByRole("link", { name: "Open Weekend Readers" }).click();
+  await expect(page).toHaveURL(CLUB_DETAIL_URL_PATTERN);
+  await expect(page.getByRole("button", { name: "Leave club" })).toBeVisible();
+  await openMembersTab(page);
+  await expect(page).toHaveURL(/\/clubs\/[0-9a-f-]+\?tab=members/i);
+  await expect(page.getByRole("heading", { name: "Members" })).toBeVisible();
+  await expect(page.getByText("Owner Reader")).toBeVisible();
+  await expect(page.getByText("Member Reader")).toBeVisible();
 });
 
 test("club creation is throttled per user after the configured limit", async ({
@@ -112,7 +125,10 @@ test("private invite can be created and accepted by the matching user", async ({
 
   await expect(page).toHaveURL(CLUB_DETAIL_URL_PATTERN);
   await expect(page.getByText("Invitation accepted.")).toBeVisible();
-  await expect(page.getByText("MEMBER", { exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Leave club" })).toBeVisible();
+  await openMembersTab(page);
+  await expect(page).toHaveURL(/\/clubs\/[0-9a-f-]+\?tab=members/i);
+  await expect(page.getByRole("heading", { name: "Members" })).toBeVisible();
 });
 
 test("member cannot access invite management for a club they joined", async ({
@@ -142,8 +158,8 @@ test("member cannot access invite management for a club they joined", async ({
   ).toHaveCount(0);
 
   const response = await page.goto(inviteUrl);
-  expect(response?.status()).toBe(404);
-  await expect(page.getByText("404")).toBeVisible();
+  expect(response?.status()).toBe(403);
+  await expect(page.getByRole("heading", { name: "Forbidden" })).toBeVisible();
 });
 
 test("private clubs stay out of discovery for non-members", async ({ page }) => {
@@ -155,10 +171,107 @@ test("private clubs stay out of discovery for non-members", async ({ page }) => 
   await page.getByRole("button", { name: "Create club" }).click();
 
   await expect(page).toHaveURL(CLUB_DETAIL_URL_PATTERN);
+  const clubPath = new URL(page.url()).pathname;
 
   await signInAs(page, "stranger", "/clubs");
   await expect(page.getByRole("heading", { name: "Discover Public Clubs" })).toBeVisible();
   await expect(page.getByText("Stealth Readers")).toHaveCount(0);
+
+  const response = await page.goto(clubPath);
+  expect(response?.status()).toBe(403);
+  await expect(page.getByRole("heading", { name: "Forbidden" })).toBeVisible();
+});
+
+test("member can leave a public club and see it in discovery again", async ({
+  page,
+}) => {
+  await signInAs(page, "owner", "/clubs/new");
+
+  await page.getByLabel("Name").fill("Drop-In Readers");
+  await page.getByLabel("Description").fill("Members can come and go.");
+  await page.getByLabel("Visibility").selectOption("PUBLIC");
+  await page.getByRole("button", { name: "Create club" }).click();
+
+  await expect(page).toHaveURL(CLUB_DETAIL_URL_PATTERN);
+  const clubPath = new URL(page.url()).pathname;
+
+  await signInAs(page, "member", clubPath);
+  await page.getByRole("button", { name: "Join club" }).click();
+  await expect(page.getByText("You joined the club.")).toBeVisible();
+  await expect(page.getByRole("button", { name: "Leave club" })).toBeVisible();
+
+  await page.getByRole("button", { name: "Leave club" }).click();
+  await expect(page).toHaveURL(/\/clubs\?message=/);
+  await expect(page.getByText("You left the club.")).toBeVisible();
+  await expect(page.getByText("Drop-In Readers")).toBeVisible();
+  await expect(page.getByRole("button", { name: "Join club" })).toBeVisible();
+});
+
+test("owner can promote a member, transfer ownership, and then leave", async ({
+  page,
+}) => {
+  await signInAs(page, "owner", "/clubs/new");
+
+  await page.getByLabel("Name").fill("Relay Readers");
+  await page.getByLabel("Description").fill("Ownership can pass to another admin.");
+  await page.getByLabel("Visibility").selectOption("PUBLIC");
+  await page.getByRole("button", { name: "Create club" }).click();
+
+  await expect(page).toHaveURL(CLUB_DETAIL_URL_PATTERN);
+  const clubPath = new URL(page.url()).pathname;
+
+  await openMembersTab(page);
+  await expect(page).toHaveURL(/\/clubs\/[0-9a-f-]+\?tab=members/i);
+  await expect(page.getByText("Owners cannot leave directly.")).toBeVisible();
+  await expect(page.getByRole("button", { name: "Leave club" })).toHaveCount(0);
+
+  await signInAs(page, "member", clubPath);
+  await page.getByRole("button", { name: "Join club" }).click();
+  await expect(page.getByText("You joined the club.")).toBeVisible();
+
+  await signInAs(page, "owner", clubPath);
+  await openMembersTab(page);
+  await page.getByRole("button", { name: "Make Member Reader an admin" }).click();
+  await expect(page.getByText("Member role updated.")).toBeVisible();
+  await page.getByRole("link", { name: /^Admins 1$/ }).click();
+  await expect(page).toHaveURL(/\/clubs\/[0-9a-f-]+\?tab=members&role=ADMIN/i);
+  await expect(page.getByText("Member Reader")).toBeVisible();
+  await expect(page.getByText("Owner Reader")).toHaveCount(0);
+
+  await page
+    .getByRole("button", { name: "Transfer ownership to Member Reader" })
+    .click();
+  await expect(page.getByText("Ownership transferred.")).toBeVisible();
+  await expect(page.getByRole("button", { name: "Delete club" })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Leave club" })).toBeVisible();
+
+  await page.getByRole("button", { name: "Leave club" }).click();
+  await expect(page).toHaveURL(/\/clubs\?message=/);
+  await expect(page.getByText("You left the club.")).toBeVisible();
+
+  await signInAs(page, "member", clubPath);
+  await openMembersTab(page);
+  await expect(page.getByRole("button", { name: "Delete club" })).toBeVisible();
+  await expect(page.getByText("Owners cannot leave directly.")).toBeVisible();
+  await expect(page.getByRole("button", { name: "Leave club" })).toHaveCount(0);
+});
+
+test("owner can delete a club", async ({ page }) => {
+  await signInAs(page, "owner", "/clubs/new");
+
+  await page.getByLabel("Name").fill("Closing Chapter Club");
+  await page.getByLabel("Description").fill("This club will be deleted.");
+  await page.getByLabel("Visibility").selectOption("PUBLIC");
+  await page.getByRole("button", { name: "Create club" }).click();
+
+  await expect(page).toHaveURL(CLUB_DETAIL_URL_PATTERN);
+  await openMembersTab(page);
+  await expect(page.getByRole("button", { name: "Delete club" })).toBeVisible();
+
+  await page.getByRole("button", { name: "Delete club" }).click();
+  await expect(page).toHaveURL(/\/clubs\?message=/);
+  await expect(page.getByText("Club deleted.")).toBeVisible();
+  await expect(page.getByText("Closing Chapter Club")).toHaveCount(0);
 });
 
 test("club admin can add, move, and remove a book in section management", async ({

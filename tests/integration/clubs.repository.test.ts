@@ -4,17 +4,23 @@ import { findUserByProviderIdentity } from "@/lib/auth/users";
 import {
   acceptClubInvitation,
   addBookToClub,
+  changeClubMemberRole,
   createClub,
   createClubInvitation,
+  deleteClub,
   findClubDetail,
   findInvitationByToken,
   joinPublicClub,
+  leaveClub,
   listClubBooks,
+  listClubMembers,
   listManageableClubBookTargetsByGoogleVolumeIds,
   listDiscoverablePublicClubs,
   listUserClubs,
   moveClubBook,
+  removeClubMember,
   removeClubBook,
+  transferClubOwnership,
 } from "@/lib/clubs/repository";
 import { resetTestDatabase, TEST_BOOK_VOLUME_ID } from "@/lib/test/fixtures";
 import { E2E_USER_PROVIDER } from "@/lib/auth/e2e";
@@ -388,5 +394,182 @@ describe("club repository integration", () => {
     expect(clubBooks).toHaveLength(1);
     expect(clubBooks[0]?.id).toBe(originalClubBook.id);
     expect(clubBooks[0]?.status).toBe("WANT_TO_READ");
+  });
+
+  it("lists members in role order and lets non-owners leave", async () => {
+    const owner = await getRequiredUser("owner");
+    const member = await getRequiredUser("member");
+    const stranger = await getRequiredUser("stranger");
+
+    const club = await createClub({
+      createdById: owner.id,
+      name: "Roster Club",
+      description: null,
+      visibility: "PUBLIC",
+    });
+
+    await joinPublicClub({
+      clubId: club.id,
+      userId: member.id,
+    });
+    await joinPublicClub({
+      clubId: club.id,
+      userId: stranger.id,
+    });
+    await changeClubMemberRole({
+      clubId: club.id,
+      targetUserId: member.id,
+      changedById: owner.id,
+      nextRole: "ADMIN",
+    });
+
+    const members = await listClubMembers(club.id, owner.id);
+    expect(
+      members.map((clubMember) => ({
+        userId: clubMember.userId,
+        role: clubMember.role,
+      })),
+    ).toEqual([
+      { userId: owner.id, role: "OWNER" },
+      { userId: member.id, role: "ADMIN" },
+      { userId: stranger.id, role: "MEMBER" },
+    ]);
+
+    const departedMembership = await leaveClub({
+      clubId: club.id,
+      userId: stranger.id,
+    });
+    expect(departedMembership.role).toBe("MEMBER");
+
+    const detail = await findClubDetail(club.id, owner.id);
+    expect(detail?.memberCount).toBe(2);
+  });
+
+  it("lets admins remove members but keeps role changes owner-only", async () => {
+    const owner = await getRequiredUser("owner");
+    const member = await getRequiredUser("member");
+    const stranger = await getRequiredUser("stranger");
+
+    const club = await createClub({
+      createdById: owner.id,
+      name: "Management Club",
+      description: null,
+      visibility: "PUBLIC",
+    });
+
+    await joinPublicClub({
+      clubId: club.id,
+      userId: member.id,
+    });
+    await joinPublicClub({
+      clubId: club.id,
+      userId: stranger.id,
+    });
+    await changeClubMemberRole({
+      clubId: club.id,
+      targetUserId: member.id,
+      changedById: owner.id,
+      nextRole: "ADMIN",
+    });
+
+    await expect(
+      changeClubMemberRole({
+        clubId: club.id,
+        targetUserId: stranger.id,
+        changedById: member.id,
+        nextRole: "ADMIN",
+      }),
+    ).rejects.toMatchObject({
+      code: "FORBIDDEN",
+      message: "Only the club owner can change member roles.",
+    });
+
+    const removedMembership = await removeClubMember({
+      clubId: club.id,
+      targetUserId: stranger.id,
+      removedById: member.id,
+    });
+    expect(removedMembership.role).toBe("MEMBER");
+
+    const remainingMembers = await listClubMembers(club.id, owner.id);
+    expect(
+      remainingMembers.map((clubMember) => ({
+        userId: clubMember.userId,
+        role: clubMember.role,
+      })),
+    ).toEqual([
+      { userId: owner.id, role: "OWNER" },
+      { userId: member.id, role: "ADMIN" },
+    ]);
+  });
+
+  it("blocks owner leave, supports ownership transfer, and reserves deletion for owners", async () => {
+    const owner = await getRequiredUser("owner");
+    const member = await getRequiredUser("member");
+
+    const club = await createClub({
+      createdById: owner.id,
+      name: "Ownership Club",
+      description: null,
+      visibility: "PUBLIC",
+    });
+
+    await joinPublicClub({
+      clubId: club.id,
+      userId: member.id,
+    });
+    await changeClubMemberRole({
+      clubId: club.id,
+      targetUserId: member.id,
+      changedById: owner.id,
+      nextRole: "ADMIN",
+    });
+
+    await expect(
+      leaveClub({
+        clubId: club.id,
+        userId: owner.id,
+      }),
+    ).rejects.toMatchObject({
+      code: "FORBIDDEN",
+      message: "Transfer ownership or delete the club before leaving.",
+    });
+
+    const transferredClub = await transferClubOwnership({
+      clubId: club.id,
+      nextOwnerUserId: member.id,
+      transferredById: owner.id,
+    });
+    expect(transferredClub.createdById).toBe(member.id);
+
+    const members = await listClubMembers(club.id, member.id);
+    expect(
+      members.map((clubMember) => ({
+        userId: clubMember.userId,
+        role: clubMember.role,
+      })),
+    ).toEqual([
+      { userId: member.id, role: "OWNER" },
+      { userId: owner.id, role: "ADMIN" },
+    ]);
+
+    await expect(
+      deleteClub({
+        clubId: club.id,
+        deletedById: owner.id,
+      }),
+    ).rejects.toMatchObject({
+      code: "FORBIDDEN",
+      message: "Only the club owner can delete the club.",
+    });
+
+    await deleteClub({
+      clubId: club.id,
+      deletedById: member.id,
+    });
+
+    expect(await findClubDetail(club.id, member.id)).toBeNull();
+    expect(await listUserClubs(owner.id)).toEqual([]);
+    expect(await listUserClubs(member.id)).toEqual([]);
   });
 });
