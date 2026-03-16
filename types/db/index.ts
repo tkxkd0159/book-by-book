@@ -83,6 +83,31 @@ type ClubBookRecord = {
   updatedAt: Date;
 };
 
+type ThreadRecord = {
+  id: string;
+  clubId: string;
+  clubBookId: string;
+  bookId: string;
+  authorId: string;
+  title: string;
+  body: string | null;
+  isLocked: boolean;
+  isPinned: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+  deletedAt: Date | null;
+};
+
+type ThreadPostRecord = {
+  id: string;
+  threadId: string;
+  authorId: string;
+  body: string;
+  createdAt: Date;
+  updatedAt: Date;
+  deletedAt: Date | null;
+};
+
 export type {
   AuthUser,
   BookRecord,
@@ -94,4 +119,6 @@ export type {
   ClubMemberRole,
   ClubRecord,
   ClubVisibility,
+  ThreadPostRecord,
+  ThreadRecord,
 };
