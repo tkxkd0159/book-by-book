@@ -1,3 +1,4 @@
+import { ArrowRightLeft, BookOpen, ChevronDown, MessageSquare, Trash2 } from "lucide-react";
 import Link from "next/link";
 
 import {
@@ -50,12 +51,10 @@ export function ClubBookCard({
           </p>
         </div>
 
-        <span
+        <ChevronDown
           aria-hidden
-          className="mt-1 text-sm text-(--muted) transition-transform duration-200 group-open:rotate-180"
-        >
-          v
-        </span>
+          className="mt-1 h-4 w-4 shrink-0 text-(--muted) transition-transform duration-200 group-open:rotate-180"
+        />
       </summary>
 
       <div className="space-y-4 border-t border-(--border)/70 px-4 py-4">
@@ -64,12 +63,14 @@ export function ClubBookCard({
             href={`/books/${encodeURIComponent(clubBook.book.googleVolumeId)}`}
             className={buttonStyles({ variant: "secondary", size: "sm" })}
           >
+            <BookOpen aria-hidden className="h-4 w-4 shrink-0" />
             Book details
           </Link>
           <Link
             href={`/clubs/${clubId}/books/${clubBook.id}`}
             className={buttonStyles({ size: "sm" })}
           >
+            <MessageSquare aria-hidden className="h-4 w-4 shrink-0" />
             Discussion
           </Link>
         </div>
@@ -98,6 +99,7 @@ export function ClubBookCard({
               </label>
               <div className="flex items-end gap-2">
                 <Button type="submit" size="sm">
+                  <ArrowRightLeft aria-hidden className="h-4 w-4 shrink-0" />
                   Move
                 </Button>
               </div>
@@ -107,6 +109,7 @@ export function ClubBookCard({
               <input type="hidden" name="clubId" value={clubId} />
               <input type="hidden" name="clubBookId" value={clubBook.id} />
               <Button type="submit" variant="destructive" size="sm">
+                <Trash2 aria-hidden className="h-4 w-4 shrink-0" />
                 Remove
               </Button>
             </form>

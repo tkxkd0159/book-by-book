@@ -29,7 +29,7 @@ test("book detail shows an empty add-book modal when the user manages no clubs",
   await page.getByRole("button", { name: "Add Book" }).click();
 
   const dialog = page.getByRole("dialog");
-  await expect(page.locator("body > [data-book-add-modal-root]")).toBeVisible();
+  await expect(page.locator('body > [data-modal-root="book-add"]')).toBeVisible();
   await expect(dialog).toBeVisible();
   await expect(
     dialog.getByText(
@@ -65,7 +65,7 @@ test("book detail can add a book to multiple clubs and then shows them as alread
   await expect(dialog.getByLabel("Modal Club One")).toBeDisabled();
   await expect(dialog.getByLabel("Modal Club Two")).toBeDisabled();
   await expect(dialog.getByRole("button", { name: "Add Book" })).toBeDisabled();
-  await dialog.getByRole("button", { name: "Close" }).click();
+  await dialog.getByRole("button", { name: "Close add-book modal" }).click();
 
   await page.goto(firstClubUrl);
   await expect(page.getByText("The Test-Driven Book Club")).toBeVisible();
@@ -85,12 +85,15 @@ test("search results use the same add-book modal flow", async ({ page }) => {
 
   await page.getByRole("button", { name: "Add Book" }).first().click();
   const dialog = page.getByRole("dialog");
-  await expect(page.locator("body > [data-book-add-modal-root]")).toBeVisible();
+  await expect(page.locator('body > [data-modal-root="book-add"]')).toBeVisible();
   await expect(dialog).toBeVisible();
   await dialog.getByLabel("Search Modal Club").check();
   await dialog.getByRole("button", { name: "Add Book" }).click();
 
   await expect(page.getByText("Book added to 1 club.")).toBeVisible();
+  await expect(
+    page.getByText("Already added to every club you manage."),
+  ).toHaveCount(0);
 
   await page.goto(clubUrl);
   await expect(page.getByText(firstResultTitle!)).toBeVisible();

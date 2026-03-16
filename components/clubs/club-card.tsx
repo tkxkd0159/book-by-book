@@ -1,7 +1,13 @@
+import { UserPlus } from "lucide-react";
 import Link from "next/link";
 
 import { joinClubAction } from "@/app/(protected)/clubs/actions";
-import { CLUB_VISIBILITY_LABELS } from "@/lib/clubs/presentation";
+import {
+  CLUB_MEMBER_COUNT_BADGE_VARIANT,
+  CLUB_ROLE_BADGE_VARIANTS,
+  CLUB_VISIBILITY_BADGE_VARIANTS,
+  CLUB_VISIBILITY_LABELS,
+} from "@/lib/clubs/presentation";
 import type { ClubSummary } from "@/lib/clubs/repository";
 import { canJoinClub } from "@/lib/clubs/permissions";
 import { Badge } from "@/components/ui/badge";
@@ -25,14 +31,16 @@ export function ClubCard({ club, returnTo }: ClubCardProps) {
 
       <CardHeader className="relative z-10 space-y-3 pointer-events-none">
         <div className="flex flex-wrap items-center gap-2">
-          <Badge className="bg-(--surface)/85">
+          <Badge variant={CLUB_VISIBILITY_BADGE_VARIANTS[club.visibility]}>
             {CLUB_VISIBILITY_LABELS[club.visibility]}
           </Badge>
-          <Badge className="bg-(--surface)/85">
+          <Badge variant={CLUB_MEMBER_COUNT_BADGE_VARIANT}>
             {club.memberCount} member{club.memberCount === 1 ? "" : "s"}
           </Badge>
           {club.currentUserRole ? (
-            <Badge>{club.currentUserRole}</Badge>
+            <Badge variant={CLUB_ROLE_BADGE_VARIANTS[club.currentUserRole]}>
+              {club.currentUserRole}
+            </Badge>
           ) : null}
         </div>
         <CardTitle className="text-2xl transition-transform duration-200 group-hover:translate-x-0.5 group-focus-within:translate-x-0.5">
@@ -51,10 +59,12 @@ export function ClubCard({ club, returnTo }: ClubCardProps) {
               <input type="hidden" name="clubId" value={club.id} />
               <input type="hidden" name="returnTo" value={returnTo} />
               <button className={buttonStyles({})} type="submit">
+                <UserPlus aria-hidden className="h-4 w-4 shrink-0" />
                 Join club
               </button>
             </form>
           ) : null}
+
         </div>
       </CardContent>
     </Card>

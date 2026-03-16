@@ -1,0 +1,192 @@
+import { beforeEach, describe, expect, it, vi } from "vitest";
+
+const redirectMock = vi.fn((location: string) => {
+  throw new Error(`NEXT_REDIRECT:${location}`);
+});
+const revalidatePathMock = vi.fn();
+const requireCurrentUserMock = vi.fn();
+const enforceMutationRateLimitMock = vi.fn();
+const createClubMock = vi.fn();
+const addBookToClubMock = vi.fn();
+const ensureBookInDatabaseMock = vi.fn();
+const listManageableClubBookTargetsForGoogleVolumeIdMock = vi.fn();
+const createThreadMock = vi.fn();
+
+vi.mock("next/navigation", () => ({
+  redirect: redirectMock,
+}));
+
+vi.mock("next/cache", () => ({
+  revalidatePath: revalidatePathMock,
+}));
+
+vi.mock("next/dist/client/components/redirect-error", () => ({
+  isRedirectError: (error: unknown) =>
+    error instanceof Error && error.message.startsWith("NEXT_REDIRECT:"),
+}));
+
+vi.mock("@/lib/auth/server", () => ({
+  requireCurrentUser: requireCurrentUserMock,
+}));
+
+vi.mock("@/lib/books/repository", () => ({
+  ensureBookInDatabase: ensureBookInDatabaseMock,
+}));
+
+vi.mock("@/lib/rate-limit/mutation", async () => {
+  const actual =
+    await vi.importActual<typeof import("@/lib/rate-limit/mutation")>(
+      "@/lib/rate-limit/mutation",
+    );
+
+  return {
+    ...actual,
+    enforceMutationRateLimit: enforceMutationRateLimitMock,
+  };
+});
+
+vi.mock("@/lib/clubs/repository", async () => {
+  const actual =
+    await vi.importActual<typeof import("@/lib/clubs/repository")>(
+      "@/lib/clubs/repository",
+    );
+
+  return {
+    ...actual,
+    createClub: createClubMock,
+    addBookToClub: addBookToClubMock,
+    listManageableClubBookTargetsForGoogleVolumeId:
+      listManageableClubBookTargetsForGoogleVolumeIdMock,
+  };
+});
+
+vi.mock("@/lib/threads/repository", async () => {
+  const actual =
+    await vi.importActual<typeof import("@/lib/threads/repository")>(
+      "@/lib/threads/repository",
+    );
+
+  return {
+    ...actual,
+    createThread: createThreadMock,
+  };
+});
+
+describe("server action mutation rate limits", () => {
+  beforeEach(() => {
+    vi.resetModules();
+    vi.clearAllMocks();
+    requireCurrentUserMock.mockResolvedValue({ id: "user-123" });
+  });
+
+  it("blocks createClubAction before creating a club", async () => {
+    const { MutationRateLimitError } = await import("@/lib/rate-limit/mutation");
+    enforceMutationRateLimitMock.mockRejectedValue(
+      new MutationRateLimitError("create-club", {
+        action: "create-club",
+        allowed: false,
+        limit: 3,
+        remaining: 0,
+        retryAfterSeconds: 600,
+        resetAt: "2026-03-17T00:10:00.000Z",
+      }),
+    );
+
+    const { createClubAction } = await import("@/app/(protected)/clubs/actions");
+
+    const formData = new FormData();
+    formData.set("name", "Rate Limited Club");
+    formData.set("description", "blocked");
+    formData.set("visibility", "PUBLIC");
+
+    await expect(createClubAction(formData)).rejects.toThrow(
+      "NEXT_REDIRECT:/clubs/new?error=You%27re+creating+clubs+too+quickly.+Please+wait+about+10+minutes+and+try+again.",
+    );
+    expect(createClubMock).not.toHaveBeenCalled();
+  });
+
+  it("blocks addBookToClubAction before mutating club books", async () => {
+    const { MutationRateLimitError } = await import("@/lib/rate-limit/mutation");
+    enforceMutationRateLimitMock.mockRejectedValue(
+      new MutationRateLimitError("add-book", {
+        action: "add-book",
+        allowed: false,
+        limit: 20,
+        remaining: 0,
+        retryAfterSeconds: 60,
+        resetAt: "2026-03-17T00:01:00.000Z",
+      }),
+    );
+
+    const { addBookToClubAction } = await import("@/app/(protected)/clubs/actions");
+
+    const formData = new FormData();
+    formData.set("clubId", "club-123");
+    formData.set("bookId", "book-123");
+    formData.set("status", "WANT_TO_READ");
+    formData.set("returnTo", "/clubs/club-123");
+
+    await expect(addBookToClubAction(formData)).rejects.toThrow(
+      "NEXT_REDIRECT:/clubs/club-123?error=You%27re+adding+books+too+quickly.+Please+wait+about+1+minute+and+try+again.",
+    );
+    expect(addBookToClubMock).not.toHaveBeenCalled();
+  });
+
+  it("blocks addBookToClubsFromVolumeAction before importing and adding the book", async () => {
+    const { MutationRateLimitError } = await import("@/lib/rate-limit/mutation");
+    enforceMutationRateLimitMock.mockRejectedValue(
+      new MutationRateLimitError("add-book", {
+        action: "add-book",
+        allowed: false,
+        limit: 20,
+        remaining: 0,
+        retryAfterSeconds: 60,
+        resetAt: "2026-03-17T00:01:00.000Z",
+      }),
+    );
+
+    const { addBookToClubsFromVolumeAction } = await import(
+      "@/app/(protected)/clubs/actions"
+    );
+
+    const formData = new FormData();
+    formData.set("googleVolumeId", "club-test-book");
+    formData.set("returnTo", "/books/club-test-book");
+    formData.append("clubId", "club-1");
+
+    await expect(addBookToClubsFromVolumeAction(formData)).rejects.toThrow(
+      "NEXT_REDIRECT:/books/club-test-book?error=You%27re+adding+books+too+quickly.+Please+wait+about+1+minute+and+try+again.",
+    );
+    expect(ensureBookInDatabaseMock).not.toHaveBeenCalled();
+    expect(addBookToClubMock).not.toHaveBeenCalled();
+    expect(listManageableClubBookTargetsForGoogleVolumeIdMock).not.toHaveBeenCalled();
+  });
+
+  it("blocks createThreadAction before creating a thread", async () => {
+    const { MutationRateLimitError } = await import("@/lib/rate-limit/mutation");
+    enforceMutationRateLimitMock.mockRejectedValue(
+      new MutationRateLimitError("start-thread", {
+        action: "start-thread",
+        allowed: false,
+        limit: 10,
+        remaining: 0,
+        retryAfterSeconds: 600,
+        resetAt: "2026-03-17T00:10:00.000Z",
+      }),
+    );
+
+    const { createThreadAction } = await import("@/app/(protected)/clubs/actions");
+
+    const formData = new FormData();
+    formData.set("clubId", "club-123");
+    formData.set("clubBookId", "club-book-123");
+    formData.set("title", "Thread title");
+    formData.set("body", "Thread body");
+    formData.set("returnTo", "/clubs/club-123/books/club-book-123");
+
+    await expect(createThreadAction(formData)).rejects.toThrow(
+      "NEXT_REDIRECT:/clubs/club-123/books/club-book-123?error=You%27re+starting+threads+too+quickly.+Please+wait+about+10+minutes+and+try+again.",
+    );
+    expect(createThreadMock).not.toHaveBeenCalled();
+  });
+});

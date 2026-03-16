@@ -11,6 +11,7 @@ describe("proxy auth gating", () => {
   beforeEach(() => {
     vi.resetModules();
     vi.clearAllMocks();
+    getTokenMock.mockReset();
     process.env.AUTH_SECRET = "test-secret";
     delete process.env.E2E_BYPASS_AUTH;
   });

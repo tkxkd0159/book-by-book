@@ -1,3 +1,4 @@
+import { ArrowLeft, ArrowRight, BookOpen, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
@@ -11,7 +12,10 @@ import { Card, CardContent } from "@/components/ui/card";
 import { getCurrentUser } from "@/lib/auth/server";
 import { isClubAdmin } from "@/lib/clubs/permissions";
 import { canDeleteThreads } from "@/lib/threads/permissions";
-import { CLUB_BOOK_STATUS_LABELS } from "@/lib/clubs/presentation";
+import {
+  CLUB_BOOK_STATUS_BADGE_VARIANTS,
+  CLUB_BOOK_STATUS_LABELS,
+} from "@/lib/clubs/presentation";
 import { ThreadError } from "@/lib/threads/errors";
 import {
   createDiscussionPageHref,
@@ -103,10 +107,14 @@ export default async function ThreadDetailPage({
       <section className="rounded-2xl border border-(--border) bg-(--surface-strong) p-6 shadow-[0_12px_30px_rgba(42,32,18,0.06)]">
         <div className="space-y-4">
           <div className="flex flex-wrap gap-2">
-            <Badge>{CLUB_BOOK_STATUS_LABELS[thread.clubBook.status]}</Badge>
-            {thread.isPinned ? <Badge>Pinned</Badge> : null}
+            <Badge
+              variant={CLUB_BOOK_STATUS_BADGE_VARIANTS[thread.clubBook.status]}
+            >
+              {CLUB_BOOK_STATUS_LABELS[thread.clubBook.status]}
+            </Badge>
+            {thread.isPinned ? <Badge variant="accent">Pinned</Badge> : null}
             {thread.clubBook.removedAt ? (
-              <Badge className="bg-[#fff2ef] text-[#7e1f14]">
+              <Badge variant="destructive">
                 Archived book
               </Badge>
             ) : null}
@@ -132,12 +140,14 @@ export default async function ThreadDetailPage({
               href={`/clubs/${clubId}/books/${thread.clubBook.id}`}
               className={buttonStyles({ variant: "secondary" })}
             >
+              <ArrowLeft aria-hidden className="h-4 w-4 shrink-0" />
               Back to discussion list
             </Link>
             <Link
               href={`/books/${encodeURIComponent(thread.clubBook.book.googleVolumeId)}`}
               className={buttonStyles({ variant: "secondary" })}
             >
+              <BookOpen aria-hidden className="h-4 w-4 shrink-0" />
               Book details
             </Link>
             {canManagePins ? (
@@ -156,6 +166,7 @@ export default async function ThreadDetailPage({
                 <input type="hidden" name="threadId" value={threadId} />
                 <input type="hidden" name="returnTo" value={currentPath} />
                 <Button type="submit" variant="destructive">
+                  <Trash2 aria-hidden className="h-4 w-4 shrink-0" />
                   Delete thread
                 </Button>
               </form>
@@ -230,6 +241,7 @@ export default async function ThreadDetailPage({
                   href={createDiscussionPageHref(basePath, posts.page - 1)}
                   className={buttonStyles({ variant: "secondary", size: "sm" })}
                 >
+                  <ArrowLeft aria-hidden className="h-4 w-4 shrink-0" />
                   Previous
                 </Link>
               ) : null}
@@ -239,6 +251,7 @@ export default async function ThreadDetailPage({
                   className={buttonStyles({ variant: "secondary", size: "sm" })}
                 >
                   Next
+                  <ArrowRight aria-hidden className="h-4 w-4 shrink-0" />
                 </Link>
               ) : null}
             </div>

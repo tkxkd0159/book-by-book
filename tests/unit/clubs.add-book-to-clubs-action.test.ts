@@ -5,6 +5,7 @@ const redirectMock = vi.fn((location: string) => {
 });
 const revalidatePathMock = vi.fn();
 const requireCurrentUserMock = vi.fn();
+const enforceMutationRateLimitMock = vi.fn();
 const ensureBookInDatabaseMock = vi.fn();
 const addBookToClubMock = vi.fn();
 const listManageableClubBookTargetsForGoogleVolumeIdMock = vi.fn();
@@ -25,6 +26,18 @@ vi.mock("next/dist/client/components/redirect-error", () => ({
 vi.mock("@/lib/auth/server", () => ({
   requireCurrentUser: requireCurrentUserMock,
 }));
+
+vi.mock("@/lib/rate-limit/mutation", async () => {
+  const actual =
+    await vi.importActual<typeof import("@/lib/rate-limit/mutation")>(
+      "@/lib/rate-limit/mutation",
+    );
+
+  return {
+    ...actual,
+    enforceMutationRateLimit: enforceMutationRateLimitMock,
+  };
+});
 
 vi.mock("@/lib/books/repository", () => ({
   ensureBookInDatabase: ensureBookInDatabaseMock,
@@ -48,6 +61,9 @@ describe("addBookToClubsFromVolumeAction", () => {
   beforeEach(() => {
     vi.resetModules();
     vi.clearAllMocks();
+    enforceMutationRateLimitMock.mockResolvedValue({
+      allowed: true,
+    });
   });
 
   it("fails before importing when the caller is not authenticated", async () => {

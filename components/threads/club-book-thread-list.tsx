@@ -1,3 +1,4 @@
+import { ArrowLeft, ArrowRight } from "lucide-react";
 import type { PaginatedResult, ThreadSummary } from "@/lib/threads/repository";
 
 import { ThreadCard } from "@/components/threads/thread-card";
@@ -58,6 +59,7 @@ export function ClubBookThreadList({
                 href={createDiscussionPageHref(basePath, threads.page - 1)}
                 className={buttonStyles({ variant: "secondary", size: "sm" })}
               >
+                <ArrowLeft aria-hidden className="h-4 w-4 shrink-0" />
                 Previous
               </Link>
             ) : null}
@@ -67,6 +69,7 @@ export function ClubBookThreadList({
                 className={buttonStyles({ variant: "secondary", size: "sm" })}
               >
                 Next
+                <ArrowRight aria-hidden className="h-4 w-4 shrink-0" />
               </Link>
             ) : null}
           </div>

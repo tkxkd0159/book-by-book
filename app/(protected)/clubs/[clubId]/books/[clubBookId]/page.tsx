@@ -1,15 +1,20 @@
 import Image from "next/image";
+import { ArrowLeft, BookOpen } from "lucide-react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
-import { CreateThreadForm } from "@/components/threads/create-thread-form";
 import { ClubBookThreadList } from "@/components/threads/club-book-thread-list";
+import { StartThreadModal } from "@/components/threads/start-thread-modal";
 import { Badge } from "@/components/ui/badge";
 import { buttonStyles } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { getCurrentUser } from "@/lib/auth/server";
 import { isClubAdmin } from "@/lib/clubs/permissions";
-import { CLUB_BOOK_STATUS_LABELS } from "@/lib/clubs/presentation";
+import {
+  CLUB_BOOK_STATUS_BADGE_VARIANTS,
+  CLUB_BOOK_STATUS_LABELS,
+  CLUB_ROLE_BADGE_VARIANTS,
+} from "@/lib/clubs/presentation";
 import { findClubDetail } from "@/lib/clubs/repository";
 import { ThreadError } from "@/lib/threads/errors";
 import {
@@ -145,12 +150,18 @@ export default async function ClubBookDiscussionPage({
 
             <div className="space-y-3">
               <div className="flex flex-wrap gap-2">
-                <Badge>{CLUB_BOOK_STATUS_LABELS[clubBook.status]}</Badge>
-                <Badge className="bg-(--surface)/85">
+                <Badge
+                  variant={CLUB_BOOK_STATUS_BADGE_VARIANTS[clubBook.status]}
+                >
+                  {CLUB_BOOK_STATUS_LABELS[clubBook.status]}
+                </Badge>
+                <Badge
+                  variant={CLUB_ROLE_BADGE_VARIANTS[discussion.currentUserRole]}
+                >
                   {discussion.currentUserRole}
                 </Badge>
                 {archived ? (
-                  <Badge className="bg-[#fff2ef] text-[#7e1f14]">
+                  <Badge variant="destructive">
                     Archived book
                   </Badge>
                 ) : null}
@@ -179,55 +190,56 @@ export default async function ClubBookDiscussionPage({
               href={`/clubs/${club.id}`}
               className={buttonStyles({ variant: "secondary" })}
             >
+              <ArrowLeft aria-hidden className="h-4 w-4 shrink-0" />
               Back to club
             </Link>
             <Link
               href={`/books/${encodeURIComponent(clubBook.book.googleVolumeId)}`}
               className={buttonStyles({ variant: "secondary" })}
             >
+              <BookOpen aria-hidden className="h-4 w-4 shrink-0" />
               Book details
             </Link>
           </div>
         </div>
       </section>
 
-      <div className="grid gap-6 xl:grid-cols-[minmax(0,1.4fr)_380px]">
-        <section className="space-y-4">
+      <section className="space-y-4">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div className="space-y-1">
             <h2 className="text-2xl font-semibold">Discussion threads</h2>
             <p className="text-sm text-(--muted)">
               Start topic-based conversations for this book inside {club.name}.
             </p>
           </div>
-
-          <ClubBookThreadList
-            clubId={clubId}
-            clubBookId={clubBookId}
-            basePath={`/clubs/${clubId}/books/${clubBookId}`}
-            canManagePins={canManagePins}
-            threads={threads}
-            archived={archived}
-          />
-        </section>
-
-        <Card className="border-(--border)/90">
-          <CardContent className="space-y-5 p-6">
-            <div className="space-y-1">
-              <h2 className="text-xl font-semibold">Start a thread</h2>
-              <p className="text-sm text-(--muted)">
-                Open a focused conversation for reactions, questions, or reading
-                prompts.
-              </p>
-            </div>
-
-            <CreateThreadForm
+          {!archived ? (
+            <StartThreadModal
               clubId={clubId}
               clubBookId={clubBookId}
-              archived={archived}
+              clubName={club.name}
+              bookTitle={clubBook.book.title}
             />
-          </CardContent>
-        </Card>
-      </div>
+          ) : null}
+        </div>
+
+        {archived ? (
+          <Card className="border-[#d7c7a4] bg-[#fff8ec]">
+            <CardContent className="p-4 text-sm text-[#6d4d12]">
+              This club book has been archived. Existing discussion stays
+              readable, but new threads can no longer be created.
+            </CardContent>
+          </Card>
+        ) : null}
+
+        <ClubBookThreadList
+          clubId={clubId}
+          clubBookId={clubBookId}
+          basePath={`/clubs/${clubId}/books/${clubBookId}`}
+          canManagePins={canManagePins}
+          threads={threads}
+          archived={archived}
+        />
+      </section>
     </div>
   );
 }

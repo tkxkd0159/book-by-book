@@ -16,20 +16,21 @@ type AdvancedFilters = {
 
 type BookSearchFormProps = {
   basicQuery: string;
-  titleOnly: boolean;
+  useSearchTerm: boolean;
   advancedFilters: AdvancedFilters;
   isAdvancedOpen: boolean;
 };
 
 export function BookSearchForm({
   basicQuery,
-  titleOnly,
+  useSearchTerm,
   advancedFilters,
   isAdvancedOpen,
 }: BookSearchFormProps) {
   const [advancedOpen, setAdvancedOpen] = useState(isAdvancedOpen);
   const [basicQueryValue, setBasicQueryValue] = useState(basicQuery);
-  const [titleOnlyEnabled, setTitleOnlyEnabled] = useState(titleOnly);
+  const [useSearchTermEnabled, setUseSearchTermEnabled] =
+    useState(useSearchTerm);
   const [advancedValues, setAdvancedValues] = useState(advancedFilters);
 
   function setAdvancedValue(key: keyof AdvancedFilters, value: string) {
@@ -78,7 +79,10 @@ export function BookSearchForm({
               className="mt-4 grid gap-3 sm:grid-cols-2"
             >
               <div className="sm:col-span-2">
-                <label htmlFor="title" className="mb-2 block text-sm font-medium">
+                <label
+                  htmlFor="title"
+                  className="mb-2 block text-sm font-medium"
+                >
                   Title
                 </label>
                 <Input
@@ -94,7 +98,10 @@ export function BookSearchForm({
               </div>
 
               <div>
-                <label htmlFor="author" className="mb-2 block text-sm font-medium">
+                <label
+                  htmlFor="author"
+                  className="mb-2 block text-sm font-medium"
+                >
                   Author
                 </label>
                 <Input
@@ -129,7 +136,10 @@ export function BookSearchForm({
               </div>
 
               <div>
-                <label htmlFor="subject" className="mb-2 block text-sm font-medium">
+                <label
+                  htmlFor="subject"
+                  className="mb-2 block text-sm font-medium"
+                >
                   Subject
                 </label>
                 <Input
@@ -145,7 +155,10 @@ export function BookSearchForm({
               </div>
 
               <div>
-                <label htmlFor="isbn" className="mb-2 block text-sm font-medium">
+                <label
+                  htmlFor="isbn"
+                  className="mb-2 block text-sm font-medium"
+                >
                   ISBN
                 </label>
                 <Input
@@ -162,7 +175,10 @@ export function BookSearchForm({
             </div>
 
             <div className="mt-4 flex justify-end">
-              <Button type="submit" className="h-11 w-full sm:w-auto sm:shrink-0">
+              <Button
+                type="submit"
+                className="h-11 w-full sm:w-auto sm:shrink-0"
+              >
                 Search
               </Button>
             </div>
@@ -182,9 +198,9 @@ export function BookSearchForm({
                     setBasicQueryValue(event.currentTarget.value);
                   }}
                   placeholder={
-                    titleOnlyEnabled
-                      ? "e.g. Harry Potter"
-                      : 'e.g. "Elizabeth Bennet" +Darcy -Austen'
+                    useSearchTermEnabled
+                      ? 'e.g. "Elizabeth+Bennet"+Darcy-Austen'
+                      : "e.g. Harry Potter"
                   }
                   autoComplete="off"
                 />
@@ -198,18 +214,20 @@ export function BookSearchForm({
             <label className="mt-3 inline-flex cursor-pointer items-center gap-2">
               <input
                 type="checkbox"
-                name="titleOnly"
+                name="useSearchTerm"
                 value="1"
-                checked={titleOnlyEnabled}
+                checked={useSearchTermEnabled}
                 onChange={(event) => {
-                  setTitleOnlyEnabled(event.currentTarget.checked);
+                  setUseSearchTermEnabled(event.currentTarget.checked);
                 }}
                 className="peer sr-only"
               />
               <span className="relative h-6 w-11 rounded-full bg-(--border) transition-colors peer-checked:bg-(--accent)">
                 <span className="absolute left-0.5 top-0.5 h-5 w-5 rounded-full bg-white shadow-sm transition-transform peer-checked:translate-x-5" />
               </span>
-              <span className="text-sm text-(--muted)">Title only</span>
+              <span className="text-sm text-(--muted)">
+                Use raw search term
+              </span>
             </label>
           </>
         )}

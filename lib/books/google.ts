@@ -202,8 +202,11 @@ function buildTitleOnlySearchQuery(normalizedQuery: string) {
   return `intitle:"${escaped}"`;
 }
 
-function buildBasicSearchQuery(normalizedQuery: string, titleOnly: boolean) {
-  if (!titleOnly) {
+function buildBasicSearchQuery(
+  normalizedQuery: string,
+  useSearchTerm: boolean,
+) {
+  if (useSearchTerm) {
     return normalizedQuery;
   }
 
@@ -228,13 +231,13 @@ function buildAdvancedSearchQuery(normalizedQuery: string) {
 function buildSearchQuery(
   query: string,
   mode: BookSearchMode,
-  titleOnly: boolean,
+  useSearchTerm: boolean,
 ) {
   if (mode === "advanced") {
     return buildAdvancedSearchQuery(query);
   }
 
-  return buildBasicSearchQuery(query, titleOnly);
+  return buildBasicSearchQuery(query, useSearchTerm);
 }
 
 function clampPageSize(pageSize: number | undefined) {
@@ -264,11 +267,11 @@ export async function searchGoogleBooks(
     page?: number;
     pageSize?: number;
     mode?: BookSearchMode;
-    titleOnly?: boolean;
+    useSearchTerm?: boolean;
   },
 ): Promise<BookSearchPage> {
   const mode = parseSearchMode(options?.mode);
-  const titleOnly = options?.titleOnly === true;
+  const useSearchTerm = options?.useSearchTerm === true;
   const normalizedQuery =
     mode === "advanced"
       ? query.trim().replace(/\s+/g, " ")
@@ -277,7 +280,7 @@ export async function searchGoogleBooks(
   const normalizedGoogleQuery = buildSearchQuery(
     normalizedQuery,
     mode,
-    titleOnly,
+    useSearchTerm,
   );
   const pageSize = clampPageSize(options?.pageSize);
   const page = clampPage(options?.page);

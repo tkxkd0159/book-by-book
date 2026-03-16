@@ -1,3 +1,5 @@
+import { Pin } from "lucide-react";
+
 import { toggleThreadPinAction } from "@/app/(protected)/clubs/actions";
 import { Button } from "@/components/ui/button";
 
@@ -25,6 +27,7 @@ export function PinThreadButton({
       <input type="hidden" name="returnTo" value={returnTo} />
 
       <Button type="submit" variant="secondary" size="sm">
+        <Pin aria-hidden className="h-4 w-4 shrink-0" />
         {isPinned ? "Unpin thread" : "Pin thread"}
       </Button>
     </form>

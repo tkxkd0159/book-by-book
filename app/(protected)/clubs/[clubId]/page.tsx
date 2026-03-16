@@ -1,3 +1,4 @@
+import { ArrowLeft, UserPlus } from "lucide-react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
@@ -6,7 +7,12 @@ import { ClubSectionBoard } from "@/components/clubs/club-section-board";
 import { Badge } from "@/components/ui/badge";
 import { buttonStyles } from "@/components/ui/button";
 import { canJoinClub, canViewClub, isClubAdmin } from "@/lib/clubs/permissions";
-import { CLUB_VISIBILITY_LABELS } from "@/lib/clubs/presentation";
+import {
+  CLUB_MEMBER_COUNT_BADGE_VARIANT,
+  CLUB_ROLE_BADGE_VARIANTS,
+  CLUB_VISIBILITY_BADGE_VARIANTS,
+  CLUB_VISIBILITY_LABELS,
+} from "@/lib/clubs/presentation";
 import { getCurrentUser } from "@/lib/auth/server";
 import { findClubDetail, listClubBooks } from "@/lib/clubs/repository";
 
@@ -52,13 +58,17 @@ export default async function ClubDetailPage({
         <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
           <div className="space-y-3">
             <div className="flex flex-wrap gap-2">
-              <Badge className="bg-(--surface)/85">
+              <Badge variant={CLUB_VISIBILITY_BADGE_VARIANTS[club.visibility]}>
                 {CLUB_VISIBILITY_LABELS[club.visibility]}
               </Badge>
-              <Badge className="bg-(--surface)/85">
+              <Badge variant={CLUB_MEMBER_COUNT_BADGE_VARIANT}>
                 {club.memberCount} member{club.memberCount === 1 ? "" : "s"}
               </Badge>
-              {club.currentUserRole ? <Badge>{club.currentUserRole}</Badge> : null}
+              {club.currentUserRole ? (
+                <Badge variant={CLUB_ROLE_BADGE_VARIANTS[club.currentUserRole]}>
+                  {club.currentUserRole}
+                </Badge>
+              ) : null}
             </div>
             <h1 className="text-3xl font-semibold sm:text-4xl">{club.name}</h1>
             <p className="max-w-3xl text-(--muted)">
@@ -68,6 +78,7 @@ export default async function ClubDetailPage({
 
           <div className="flex flex-wrap gap-2">
             <Link href="/clubs" className={buttonStyles({ variant: "secondary" })}>
+              <ArrowLeft aria-hidden className="h-4 w-4 shrink-0" />
               Back to clubs
             </Link>
             {canManage ? (
@@ -80,6 +91,7 @@ export default async function ClubDetailPage({
                 <input type="hidden" name="clubId" value={club.id} />
                 <input type="hidden" name="returnTo" value={`/clubs/${club.id}`} />
                 <button type="submit" className={buttonStyles({})}>
+                  <UserPlus aria-hidden className="h-4 w-4 shrink-0" />
                   Join club
                 </button>
               </form>

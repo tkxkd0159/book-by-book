@@ -1,3 +1,4 @@
+import { Pin } from "lucide-react";
 import Link from "next/link";
 
 import { PinThreadButton } from "@/components/threads/pin-thread-button";
@@ -36,8 +37,13 @@ export function ThreadCard({
       <CardContent className="space-y-4 p-5">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex flex-wrap items-center gap-2">
-            {thread.isPinned ? <Badge>Pinned</Badge> : null}
-            <Badge className="bg-(--surface-strong)">
+            {thread.isPinned ? (
+              <Badge variant="accent">
+                <Pin aria-hidden className="h-3.5 w-3.5 shrink-0" />
+                Pinned
+              </Badge>
+            ) : null}
+            <Badge variant="neutral">
               {thread.postCount} repl{thread.postCount === 1 ? "y" : "ies"}
             </Badge>
           </div>

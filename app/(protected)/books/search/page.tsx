@@ -7,7 +7,6 @@ import { Badge } from "@/components/ui/badge";
 import { buttonStyles } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { requireCurrentUser } from "@/lib/auth/server";
-import { summarizeManageableClubBookTargets } from "@/lib/clubs/book-targets";
 import {
   GoogleBooksQueryValidationError,
   searchGoogleBooks,
@@ -113,7 +112,7 @@ function createSearchHref(
   page: number,
   searchMode: BookSearchMode,
   basicQuery: string,
-  titleOnly: boolean,
+  useSearchTerm: boolean,
   advancedFilters: AdvancedFilters,
 ) {
   const params = new URLSearchParams();
@@ -129,8 +128,8 @@ function createSearchHref(
     if (basicQuery) {
       params.set("q", basicQuery);
     }
-    if (titleOnly && basicQuery) {
-      params.set("titleOnly", "1");
+    if (useSearchTerm && basicQuery) {
+      params.set("useSearchTerm", "1");
     }
   }
 
@@ -167,7 +166,7 @@ export default async function BookSearchPage({ searchParams }: Props.Page) {
   const currentUser = await requireCurrentUser();
   const params = await searchParams;
   const basicQuery = getParam(params.q).trim();
-  const titleOnly = parseBooleanParam(params.titleOnly);
+  const useSearchTerm = parseBooleanParam(params.useSearchTerm);
   const advancedRequested = parseBooleanParam(params.advanced);
   const advancedFilters = readAdvancedFilters(params);
   const hasAdvancedFilters = hasAnyAdvancedFilter(advancedFilters);
@@ -188,7 +187,7 @@ export default async function BookSearchPage({ searchParams }: Props.Page) {
         page: requestedPage,
         pageSize: SEARCH_PAGE_SIZE,
         mode: searchMode,
-        titleOnly,
+        useSearchTerm,
       }).catch((error: unknown) => {
         console.error(error);
         searchError =
@@ -218,21 +217,21 @@ export default async function BookSearchPage({ searchParams }: Props.Page) {
     Math.max(1, searchResult.page - 1),
     searchMode,
     basicQuery,
-    titleOnly,
+    useSearchTerm,
     advancedFilters,
   );
   const nextPageHref = createSearchHref(
     searchResult.page + 1,
     searchMode,
     basicQuery,
-    titleOnly,
+    useSearchTerm,
     advancedFilters,
   );
   const currentSearchHref = createSearchHref(
     searchResult.page,
     searchMode,
     basicQuery,
-    titleOnly,
+    useSearchTerm,
     advancedFilters,
   );
 
@@ -253,8 +252,9 @@ export default async function BookSearchPage({ searchParams }: Props.Page) {
             Discover Your Next Book
           </h1>
           <p className="max-w-3xl text-(--muted)">
-            Use quick term search by default, optionally toggle title-only
-            matching, or expand advanced filters for precise queries.
+            Search by title by default, switch to search term mode for
+            operator-based matching, or expand advanced filters for precise
+            queries.
           </p>
           <div className="flex flex-wrap gap-2 text-sm">
             <Badge className="bg-(--surface)/85">Google Books Source</Badge>
@@ -269,8 +269,8 @@ export default async function BookSearchPage({ searchParams }: Props.Page) {
             {searchMode === "advanced" ? (
               <Badge className="bg-(--surface)/85">Advanced filters</Badge>
             ) : null}
-            {searchMode === "basic" && titleOnly ? (
-              <Badge className="bg-(--surface)/85">Title-only match</Badge>
+            {searchMode === "basic" && useSearchTerm ? (
+              <Badge className="bg-(--surface)/85">Search term mode</Badge>
             ) : null}
             {hasPagination ? (
               <Badge className="bg-(--surface)/85">
@@ -286,7 +286,7 @@ export default async function BookSearchPage({ searchParams }: Props.Page) {
 
       <BookSearchForm
         basicQuery={basicQuery}
-        titleOnly={titleOnly}
+        useSearchTerm={useSearchTerm}
         advancedFilters={advancedFilters}
         isAdvancedOpen={isAdvancedOpen}
       />
@@ -372,19 +372,10 @@ export default async function BookSearchPage({ searchParams }: Props.Page) {
         <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
           {results.map((book) => {
             const clubTargets = clubTargetsByVolumeId[book.googleVolumeId] ?? [];
-            const addSummary = summarizeManageableClubBookTargets(clubTargets);
             const authorsText =
               book.authors.length > 0
                 ? book.authors.join(", ")
                 : "Unknown author";
-            const availabilityText =
-              addSummary.state === "no-manageable-clubs"
-                ? "Create or manage a club before adding this book."
-                : addSummary.state === "all-already-added"
-                  ? "Already added to every club you manage."
-                  : addSummary.alreadyAddedCount > 0
-                    ? `Already added to ${addSummary.alreadyAddedCount} club${addSummary.alreadyAddedCount === 1 ? "" : "s"}. You can add it to ${addSummary.addableCount} more.`
-                    : `Ready to add to ${addSummary.addableCount} club${addSummary.addableCount === 1 ? "" : "s"}.`;
 
             return (
               <Card
@@ -427,10 +418,6 @@ export default async function BookSearchPage({ searchParams }: Props.Page) {
                         </Badge>
                       </div>
                     </div>
-                  </div>
-
-                  <div className="rounded-lg border border-(--border)/70 bg-(--surface)/70 px-3 py-2 text-sm text-(--muted)">
-                    {availabilityText}
                   </div>
 
                   <div className="mt-auto flex items-center gap-2">

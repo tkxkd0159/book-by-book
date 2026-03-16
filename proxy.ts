@@ -6,7 +6,10 @@ import { resolveAuthSecret } from "@/lib/auth/secret";
 
 const PUBLIC_PAGE_PATHS = new Set(["/", "/signin", "/auth/error"]);
 const AUTH_API_PATH = "/api/auth";
-const E2E_PUBLIC_API_PATHS = new Set(["/api/test/auth", "/api/test/reset"]);
+const E2E_PUBLIC_API_PATHS = new Set([
+  "/api/test/auth",
+  "/api/test/reset",
+]);
 const PROTECTED_PAGE_PREFIXES = ["/books", "/clubs", "/me"];
 
 function hasPathPrefix(pathname: string, prefix: string) {
@@ -16,7 +19,6 @@ function hasPathPrefix(pathname: string, prefix: string) {
 function isPublicPath(pathname: string) {
   return (
     PUBLIC_PAGE_PATHS.has(pathname) ||
-    hasPathPrefix(pathname, AUTH_API_PATH) ||
     (process.env.E2E_BYPASS_AUTH === "1" &&
       E2E_PUBLIC_API_PATHS.has(pathname))
   );
@@ -28,6 +30,10 @@ function isProtectedPagePath(pathname: string) {
   );
 }
 
+function isAuthApiPath(pathname: string) {
+  return hasPathPrefix(pathname, AUTH_API_PATH);
+}
+
 function createSignInRedirect(request: NextRequest) {
   const signInUrl = new URL("/signin", request.url);
   const callbackUrl = `${request.nextUrl.pathname}${request.nextUrl.search}`;
@@ -35,30 +41,39 @@ function createSignInRedirect(request: NextRequest) {
   return NextResponse.redirect(signInUrl);
 }
 
-async function hasOptimisticSession(request: NextRequest) {
+async function readOptimisticToken(request: NextRequest) {
   if (
     process.env.E2E_BYPASS_AUTH === "1" &&
     request.cookies.get(E2E_AUTH_COOKIE_NAME)?.value
   ) {
-    return true;
+    return null;
   }
 
-  const token = await getToken({
+  return getToken({
     req: request,
     secret: resolveAuthSecret(),
   });
-
-  return Boolean(token);
 }
 
 export async function proxy(request: NextRequest) {
   const pathname = request.nextUrl.pathname;
+  const isProtectedPath = isProtectedPagePath(pathname);
 
-  if (isPublicPath(pathname) || !isProtectedPagePath(pathname)) {
+  if (process.env.E2E_BYPASS_AUTH === "1" && E2E_PUBLIC_API_PATHS.has(pathname)) {
     return NextResponse.next();
   }
 
-  if (await hasOptimisticSession(request)) {
+  const token = await readOptimisticToken(request);
+
+  if (isPublicPath(pathname) || isAuthApiPath(pathname) || !isProtectedPath) {
+    return NextResponse.next();
+  }
+
+  if (
+    (process.env.E2E_BYPASS_AUTH === "1" &&
+      request.cookies.get(E2E_AUTH_COOKIE_NAME)?.value) ||
+    Boolean(token)
+  ) {
     return NextResponse.next();
   }
 

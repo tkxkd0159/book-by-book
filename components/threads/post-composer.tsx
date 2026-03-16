@@ -1,3 +1,5 @@
+import { Send } from "lucide-react";
+
 import { createThreadPostAction } from "@/app/(protected)/clubs/actions";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -29,7 +31,10 @@ export function PostComposer({
         />
       </label>
 
-      <Button type="submit">Post reply</Button>
+      <Button type="submit">
+        <Send aria-hidden className="h-4 w-4 shrink-0" />
+        Post reply
+      </Button>
     </form>
   );
 }

@@ -57,6 +57,8 @@ export default defineConfig({
         "postgresql://postgres:postgres@localhost:54329/book_by_book_local",
       E2E_BYPASS_AUTH: "1",
       NEXTAUTH_URL: e2eBaseUrl,
+      RATE_LIMIT_PROVIDER: "memory",
+      RATE_LIMIT_CREATE_CLUB_LIMIT: "2",
     },
   },
 });

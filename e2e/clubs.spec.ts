@@ -51,6 +51,40 @@ test("user can create a public club and another user can join it", async ({
   await expect(page.getByText("MEMBER", { exact: true })).toBeVisible();
 });
 
+test("club creation is throttled per user after the configured limit", async ({
+  page,
+}) => {
+  await signInAs(page, "owner", "/clubs/new");
+
+  await page.getByLabel("Name").fill("First Limited Club");
+  await page.getByLabel("Description").fill("Initial club creation succeeds.");
+  await page.getByLabel("Visibility").selectOption("PUBLIC");
+  await page.getByRole("button", { name: "Create club" }).click();
+
+  await expect(page).toHaveURL(CLUB_DETAIL_URL_PATTERN);
+  await expect(page.getByRole("heading", { name: "First Limited Club" })).toBeVisible();
+
+  await page.goto("/clubs/new");
+  await page.getByLabel("Name").fill("Second Limited Club");
+  await page.getByLabel("Description").fill("Second allowed creation.");
+  await page.getByLabel("Visibility").selectOption("PUBLIC");
+  await page.getByRole("button", { name: "Create club" }).click();
+
+  await expect(page).toHaveURL(CLUB_DETAIL_URL_PATTERN);
+  await expect(page.getByRole("heading", { name: "Second Limited Club" })).toBeVisible();
+
+  await page.goto("/clubs/new");
+  await page.getByLabel("Name").fill("Third Limited Club");
+  await page.getByLabel("Description").fill("This request should be throttled.");
+  await page.getByLabel("Visibility").selectOption("PUBLIC");
+  await page.getByRole("button", { name: "Create club" }).click();
+
+  await expect(page).toHaveURL(/\/clubs\/new\?error=/);
+  await expect(
+    page.getByText("You're creating clubs too quickly."),
+  ).toBeVisible();
+});
+
 test("private invite can be created and accepted by the matching user", async ({
   page,
 }) => {

@@ -1,3 +1,5 @@
+import { MessageSquarePlus } from "lucide-react";
+
 import { createThreadAction } from "@/app/(protected)/clubs/actions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -7,12 +9,14 @@ type CreateThreadFormProps = {
   clubId: string;
   clubBookId: string;
   archived: boolean;
+  onCancel?: () => void;
 };
 
 export function CreateThreadForm({
   clubId,
   clubBookId,
   archived,
+  onCancel,
 }: CreateThreadFormProps) {
   if (archived) {
     return (
@@ -52,7 +56,17 @@ export function CreateThreadForm({
         />
       </label>
 
-      <Button type="submit">Start thread</Button>
+      <div className="flex flex-wrap items-center justify-end gap-2 pt-1">
+        {onCancel ? (
+          <Button type="button" variant="secondary" onClick={onCancel}>
+            Cancel
+          </Button>
+        ) : null}
+        <Button type="submit">
+          <MessageSquarePlus aria-hidden className="h-4 w-4 shrink-0" />
+          Start thread
+        </Button>
+      </div>
     </form>
   );
 }

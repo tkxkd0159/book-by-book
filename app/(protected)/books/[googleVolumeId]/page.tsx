@@ -1,4 +1,5 @@
 import Image from "next/image";
+import { ArrowLeft, ExternalLink } from "lucide-react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
@@ -163,6 +164,7 @@ export default async function BookDetailPage({
                 href="/books/search"
                 className={buttonStyles({ variant: "secondary" })}
               >
+                <ArrowLeft aria-hidden className="h-4 w-4 shrink-0" />
                 Back to search
               </Link>
               <AddBookToClubsModal
@@ -179,6 +181,7 @@ export default async function BookDetailPage({
                   rel="noreferrer"
                   className={buttonStyles({ variant: "secondary" })}
                 >
+                  <ExternalLink aria-hidden className="h-4 w-4 shrink-0" />
                   View on Google Books
                 </a>
               ) : null}

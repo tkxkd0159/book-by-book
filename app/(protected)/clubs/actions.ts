@@ -38,6 +38,10 @@ import {
 } from "@/lib/clubs/validation";
 import { requireCurrentUser } from "@/lib/auth/server";
 import {
+  enforceMutationRateLimit,
+  isMutationRateLimitError,
+} from "@/lib/rate-limit/mutation";
+import {
   parseThreadBody,
   parseThreadPostBody,
   parseThreadTitle,
@@ -52,7 +56,11 @@ function appendMessage(pathname: string, key: string, value: string) {
 }
 
 function getErrorMessage(error: unknown) {
-  if (isClubError(error) || isThreadError(error)) {
+  if (
+    isClubError(error) ||
+    isThreadError(error) ||
+    isMutationRateLimitError(error)
+  ) {
     return error.message;
   }
 
@@ -77,13 +85,21 @@ function revalidateReturnTo(returnTo: string) {
 
 export async function createClubAction(formData: FormData) {
   const currentUser = await requireCurrentUser();
+  const name = parseClubName(formData.get("name"));
+  const description = parseClubDescription(formData.get("description"));
+  const visibility = parseClubVisibility(formData.get("visibility"));
 
   try {
+    await enforceMutationRateLimit({
+      action: "create-club",
+      userId: currentUser.id,
+    });
+
     const club = await createClub({
       createdById: currentUser.id,
-      name: parseClubName(formData.get("name")),
-      description: parseClubDescription(formData.get("description")),
-      visibility: parseClubVisibility(formData.get("visibility")),
+      name,
+      description,
+      visibility,
     });
 
     revalidatePath("/clubs");
@@ -189,14 +205,20 @@ export async function addBookToClubAction(formData: FormData) {
   const currentUser = await requireCurrentUser();
   const clubId = parseInternalId(formData.get("clubId"), "Club");
   const bookId = parseInternalId(formData.get("bookId"), "Book");
+  const status = parseClubBookStatus(formData.get("status"));
   const returnTo = parseSafeReturnTo(formData.get("returnTo"), `/clubs/${clubId}`);
 
   try {
+    await enforceMutationRateLimit({
+      action: "add-book",
+      userId: currentUser.id,
+    });
+
     await addBookToClub({
       clubId,
       bookId,
       addedById: currentUser.id,
-      status: parseClubBookStatus(formData.get("status")),
+      status,
     });
     revalidatePath(`/clubs/${clubId}`);
     redirect(appendMessage(returnTo, "message", "Book added to the club."));
@@ -275,6 +297,11 @@ export async function addBookToClubsFromVolumeAction(formData: FormData) {
   }
 
   try {
+    await enforceMutationRateLimit({
+      action: "add-book",
+      userId: currentUser.id,
+    });
+
     const book = await ensureBookInDatabase(googleVolumeId);
     if (!book) {
       throw new ClubError("NOT_FOUND", "Book not found.");
@@ -339,18 +366,25 @@ export async function createThreadAction(formData: FormData) {
   const currentUser = await requireCurrentUser();
   const clubId = parseInternalId(formData.get("clubId"), "Club");
   const clubBookId = parseInternalId(formData.get("clubBookId"), "Club book");
+  const title = parseThreadTitle(formData.get("title"));
+  const body = parseThreadBody(formData.get("body"));
   const returnTo = parseSafeReturnTo(
     formData.get("returnTo"),
     `/clubs/${clubId}/books/${clubBookId}`,
   );
 
   try {
+    await enforceMutationRateLimit({
+      action: "start-thread",
+      userId: currentUser.id,
+    });
+
     await createThread({
       clubId,
       clubBookId,
       authorId: currentUser.id,
-      title: parseThreadTitle(formData.get("title")),
-      body: parseThreadBody(formData.get("body")),
+      title,
+      body,
     });
 
     revalidatePath(`/clubs/${clubId}/books/${clubBookId}`);

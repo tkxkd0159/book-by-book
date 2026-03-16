@@ -1,3 +1,5 @@
+import { Pencil, Save, Trash2 } from "lucide-react";
+
 import { deleteThreadPostAction, editThreadPostAction } from "@/app/(protected)/clubs/actions";
 import type { ThreadPostWithAuthor } from "@/lib/threads/repository";
 
@@ -25,6 +27,7 @@ export function PostActions({
     <div className="flex flex-wrap gap-2">
       <details className="rounded-lg border border-(--border) bg-(--surface) px-3 py-2">
         <summary className={buttonStyles({ variant: "secondary", size: "sm" })}>
+          <Pencil aria-hidden className="h-4 w-4 shrink-0" />
           Edit post
         </summary>
         <form action={editThreadPostAction} className="mt-3 space-y-3">
@@ -39,6 +42,7 @@ export function PostActions({
           </label>
 
           <Button type="submit" size="sm">
+            <Save aria-hidden className="h-4 w-4 shrink-0" />
             Update post
           </Button>
         </form>
@@ -50,6 +54,7 @@ export function PostActions({
         <input type="hidden" name="postId" value={post.id} />
         <input type="hidden" name="returnTo" value={returnTo} />
         <Button type="submit" variant="destructive" size="sm">
+          <Trash2 aria-hidden className="h-4 w-4 shrink-0" />
           Delete post
         </Button>
       </form>
