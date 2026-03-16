@@ -417,7 +417,7 @@ Milestone 3 — Threads
 - Basic pagination
 
 Milestone 4 — Personal Shelves + Reviews
-- Create shelves
+- Create shelves. We need to refactor "import" feature to be reusable for both club book addition and shelf item addition, since both require adding a book to the DB by googleVolumeId. So reanme "import" button to "Add book" and reuse for both flows.
 - Add/remove books from shelves
 - Create/edit/delete review
 - Profile reviewed list
