@@ -1,6 +1,5 @@
 import {
   changeClubMemberRoleAction,
-  deleteClubAction,
   removeClubMemberAction,
   transferClubOwnershipAction,
 } from "@/app/(protected)/clubs/actions";
@@ -10,8 +9,6 @@ import { Button, buttonStyles } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import {
   canChangeClubMemberRole,
-  canDeleteClub,
-  canLeaveClub,
   canRemoveClubMember,
   canTransferClubOwnership,
 } from "@/lib/clubs/permissions";
@@ -27,7 +24,8 @@ type ClubMembersSectionProps = {
   filteredMembers: ClubMemberSummary[];
   activeRoleFilter: MemberRoleFilter;
   roleFilterHrefs: Record<MemberRoleFilter, string>;
-  returnTo: string;
+  mode?: "browse" | "manage";
+  returnTo?: string;
 };
 
 type MemberRoleFilter = "ALL" | ClubMemberRole;
@@ -59,6 +57,7 @@ export function ClubMembersSection({
   filteredMembers,
   activeRoleFilter,
   roleFilterHrefs,
+  mode = "browse",
   returnTo,
 }: ClubMembersSectionProps) {
   const currentUserRole = club.currentUserRole;
@@ -67,22 +66,23 @@ export function ClubMembersSection({
     return null;
   }
 
+  const managementReturnTo = returnTo ?? `/clubs/${club.id}/manage?tab=members`;
+  const showManagementActions = mode === "manage" && Boolean(returnTo);
   const roleCounts: Record<MemberRoleFilter, number> = {
     ALL: members.length,
     OWNER: members.filter((member) => member.role === "OWNER").length,
     ADMIN: members.filter((member) => member.role === "ADMIN").length,
     MEMBER: members.filter((member) => member.role === "MEMBER").length,
   };
-  const showOwnerNote = !canLeaveClub(currentUserRole);
-  const showBottomActions = showOwnerNote || canDeleteClub(currentUserRole);
 
   return (
     <section className="space-y-5 rounded-2xl border border-(--border) bg-(--surface-strong) p-5 shadow-[0_12px_28px_rgba(42,32,18,0.05)] sm:p-6">
       <div className="space-y-2">
         <h2 className="text-2xl font-semibold">Members</h2>
         <p className="max-w-2xl text-sm text-(--muted)">
-          See who is reading in this club, filter by role, and manage
-          membership when your role allows it.
+          {showManagementActions
+            ? "Manage the club roster, promote members when your role allows it, and hand over ownership when the club is ready for a new lead."
+            : "See who is reading in this club and browse the roster by role."}
         </p>
       </div>
 
@@ -126,16 +126,19 @@ export function ClubMembersSection({
             const displayName = getMemberDisplayName(member);
             const isCurrentUser = member.userId === currentUserId;
             const canPromoteToAdmin =
-              canChangeClubMemberRole(currentUserRole, member.role) &&
-              member.role === "MEMBER" &&
+              showManagementActions &&
+              canChangeClubMemberRole(currentUserRole, member.role, "ADMIN") &&
               !isCurrentUser;
             const canDemoteToMember =
-              canChangeClubMemberRole(currentUserRole, member.role) &&
-              member.role === "ADMIN" &&
+              showManagementActions &&
+              canChangeClubMemberRole(currentUserRole, member.role, "MEMBER") &&
               !isCurrentUser;
             const canRemoveMember =
-              canRemoveClubMember(currentUserRole, member.role) && !isCurrentUser;
+              showManagementActions &&
+              canRemoveClubMember(currentUserRole, member.role) &&
+              !isCurrentUser;
             const canTransferOwnershipToMember =
+              showManagementActions &&
               canTransferClubOwnership(currentUserRole) &&
               member.role === "ADMIN" &&
               !isCurrentUser;
@@ -188,14 +191,18 @@ export function ClubMembersSection({
                             value={member.userId}
                           />
                           <input type="hidden" name="nextRole" value="ADMIN" />
-                          <input type="hidden" name="returnTo" value={returnTo} />
+                          <input
+                            type="hidden"
+                            name="returnTo"
+                            value={managementReturnTo}
+                          />
                           <Button
                             type="submit"
                             size="sm"
                             variant="secondary"
-                            aria-label={`Make ${displayName} an admin`}
+                            aria-label={`Add admin for ${displayName}`}
                           >
-                            Make admin
+                            Add admin
                           </Button>
                         </form>
                       ) : null}
@@ -209,14 +216,18 @@ export function ClubMembersSection({
                             value={member.userId}
                           />
                           <input type="hidden" name="nextRole" value="MEMBER" />
-                          <input type="hidden" name="returnTo" value={returnTo} />
+                          <input
+                            type="hidden"
+                            name="returnTo"
+                            value={managementReturnTo}
+                          />
                           <Button
                             type="submit"
                             size="sm"
                             variant="secondary"
-                            aria-label={`Make ${displayName} a member`}
+                            aria-label={`Remove admin for ${displayName}`}
                           >
-                            Make member
+                            Remove admin
                           </Button>
                         </form>
                       ) : null}
@@ -229,13 +240,17 @@ export function ClubMembersSection({
                             name="nextOwnerUserId"
                             value={member.userId}
                           />
-                          <input type="hidden" name="returnTo" value={returnTo} />
+                          <input
+                            type="hidden"
+                            name="returnTo"
+                            value={managementReturnTo}
+                          />
                           <Button
                             type="submit"
                             size="sm"
-                            aria-label={`Transfer ownership to ${displayName}`}
+                            aria-label={`Hand over owner to ${displayName}`}
                           >
-                            Transfer ownership
+                            Hand over owner
                           </Button>
                         </form>
                       ) : null}
@@ -248,14 +263,18 @@ export function ClubMembersSection({
                             name="targetUserId"
                             value={member.userId}
                           />
-                          <input type="hidden" name="returnTo" value={returnTo} />
+                          <input
+                            type="hidden"
+                            name="returnTo"
+                            value={managementReturnTo}
+                          />
                           <Button
                             type="submit"
                             size="sm"
                             variant="destructive"
-                            aria-label={`Remove ${displayName} from the club`}
+                            aria-label={`Kick out ${displayName}`}
                           >
-                            Remove
+                            Kick out
                           </Button>
                         </form>
                       ) : null}
@@ -267,46 +286,6 @@ export function ClubMembersSection({
           })
         )}
       </div>
-
-      {showBottomActions ? (
-        <div className="grid gap-4 border-t border-(--border)/70 pt-5 lg:grid-cols-2">
-          {showOwnerNote ? (
-            <Card className="border-(--border)/80 bg-(--surface)">
-              <CardContent className="space-y-2 p-5 pt-5">
-                <h3 className="text-lg font-semibold">Owner note</h3>
-                <p className="text-sm text-(--muted)">
-                  Owners cannot leave directly. Promote someone to admin,
-                  transfer ownership, and then leave if you want the club to
-                  continue.
-                </p>
-              </CardContent>
-            </Card>
-          ) : null}
-
-          {canDeleteClub(currentUserRole) ? (
-            <Card className="border-[#d39e95] bg-[#fff7f5]">
-              <CardContent className="space-y-3 p-5 pt-5">
-                <div className="space-y-1">
-                  <h3 className="text-lg font-semibold text-[#7e1f14]">
-                    Delete club
-                  </h3>
-                  <p className="text-sm text-[#7e1f14]">
-                    Permanently delete this club, including members, invites,
-                    books, and discussion history.
-                  </p>
-                </div>
-                <form action={deleteClubAction}>
-                  <input type="hidden" name="clubId" value={club.id} />
-                  <input type="hidden" name="returnTo" value={returnTo} />
-                  <Button type="submit" variant="destructive">
-                    Delete club
-                  </Button>
-                </form>
-              </CardContent>
-            </Card>
-          ) : null}
-        </div>
-      ) : null}
     </section>
   );
 }

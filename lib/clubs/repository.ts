@@ -15,7 +15,11 @@ import type {
 } from "@/types/db";
 
 import { ClubError } from "@/lib/clubs/errors";
-import { isClubAdmin, isClubMember } from "@/lib/clubs/permissions";
+import {
+  canChangeClubMemberRole,
+  isClubAdmin,
+  isClubMember,
+} from "@/lib/clubs/permissions";
 
 type ClubRow = {
   id: string;
@@ -636,10 +640,10 @@ export async function changeClubMemberRole(input: {
       input.clubId,
       input.changedById,
     );
-    if (!membership || membership.role !== "OWNER") {
+    if (!membership) {
       throw new ClubError(
-        membership ? "FORBIDDEN" : "NOT_FOUND",
-        "Only the club owner can change member roles.",
+        "NOT_FOUND",
+        "Club membership not found.",
       );
     }
 
@@ -656,6 +660,19 @@ export async function changeClubMemberRole(input: {
       throw new ClubError(
         "FORBIDDEN",
         "Transfer ownership instead of changing the owner's role.",
+      );
+    }
+
+    if (
+      !canChangeClubMemberRole(
+        membership.role,
+        targetMembership.role,
+        input.nextRole,
+      )
+    ) {
+      throw new ClubError(
+        "FORBIDDEN",
+        "You do not have permission to change this member's role.",
       );
     }
 

@@ -445,7 +445,7 @@ describe("club repository integration", () => {
     expect(detail?.memberCount).toBe(2);
   });
 
-  it("lets admins remove members but keeps role changes owner-only", async () => {
+  it("lets admins add admins from members but keeps demotion owner-only", async () => {
     const owner = await getRequiredUser("owner");
     const member = await getRequiredUser("member");
     const stranger = await getRequiredUser("stranger");
@@ -472,17 +472,33 @@ describe("club repository integration", () => {
       nextRole: "ADMIN",
     });
 
+    const promotedMembership = await changeClubMemberRole({
+      clubId: club.id,
+      targetUserId: stranger.id,
+      changedById: member.id,
+      nextRole: "ADMIN",
+    });
+    expect(promotedMembership.role).toBe("ADMIN");
+
     await expect(
       changeClubMemberRole({
         clubId: club.id,
         targetUserId: stranger.id,
         changedById: member.id,
-        nextRole: "ADMIN",
+        nextRole: "MEMBER",
       }),
     ).rejects.toMatchObject({
       code: "FORBIDDEN",
-      message: "Only the club owner can change member roles.",
+      message: "You do not have permission to change this member's role.",
     });
+
+    const demotedMembership = await changeClubMemberRole({
+      clubId: club.id,
+      targetUserId: stranger.id,
+      changedById: owner.id,
+      nextRole: "MEMBER",
+    });
+    expect(demotedMembership.role).toBe("MEMBER");
 
     const removedMembership = await removeClubMember({
       clubId: club.id,

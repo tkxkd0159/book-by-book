@@ -26,6 +26,18 @@ async function openFixtureBookCardDetails(
     .click();
 }
 
+async function openManagePage(page: import("@playwright/test").Page) {
+  await page.getByRole("link", { name: "Manage" }).click();
+  await expect(page).toHaveURL(/\/clubs\/[0-9a-f-]+\/manage(?:\?|$)/i);
+}
+
+async function openManageTab(
+  page: import("@playwright/test").Page,
+  tabName: "Members" | "Reading board" | "Invite",
+) {
+  await page.getByRole("link", { name: tabName, exact: true }).click();
+}
+
 async function openStartThreadModal(
   page: import("@playwright/test").Page,
 ) {
@@ -235,9 +247,14 @@ test("archived club books keep discussion readable but disable new thread creati
   await expect(page.getByRole("link", { name: "Archived thread" })).toBeVisible();
 
   await page.goto(clubUrl);
+  await openManagePage(page);
+  await openManageTab(page, "Reading board");
+  await expect(page).toHaveURL(/\/clubs\/[0-9a-f-]+\/manage\?tab=board/i);
   await openFixtureBookCardDetails(page);
+  await expect(page.getByRole("button", { name: "Remove" })).toBeVisible();
   await page.getByRole("button", { name: "Remove" }).click();
   await expect(page.getByText("Book removed.")).toBeVisible();
+  await expect(page).toHaveURL(/\/clubs\/[0-9a-f-]+\/manage\?tab=board&message=/i);
 
   await page.goto(discussionUrl);
   await expect(page.getByText("Archived book")).toBeVisible();

@@ -48,10 +48,12 @@ describe("club permissions", () => {
     expect(canTransferClubOwnership("OWNER")).toBe(true);
     expect(canTransferClubOwnership("ADMIN")).toBe(false);
 
-    expect(canChangeClubMemberRole("OWNER", "ADMIN")).toBe(true);
-    expect(canChangeClubMemberRole("OWNER", "MEMBER")).toBe(true);
-    expect(canChangeClubMemberRole("OWNER", "OWNER")).toBe(false);
-    expect(canChangeClubMemberRole("ADMIN", "MEMBER")).toBe(false);
+    expect(canChangeClubMemberRole("OWNER", "ADMIN", "MEMBER")).toBe(true);
+    expect(canChangeClubMemberRole("OWNER", "MEMBER", "ADMIN")).toBe(true);
+    expect(canChangeClubMemberRole("OWNER", "OWNER", "ADMIN")).toBe(false);
+    expect(canChangeClubMemberRole("ADMIN", "MEMBER", "ADMIN")).toBe(true);
+    expect(canChangeClubMemberRole("ADMIN", "ADMIN", "MEMBER")).toBe(false);
+    expect(canChangeClubMemberRole("ADMIN", "MEMBER", "MEMBER")).toBe(false);
 
     expect(canRemoveClubMember("OWNER", "ADMIN")).toBe(true);
     expect(canRemoveClubMember("OWNER", "MEMBER")).toBe(true);

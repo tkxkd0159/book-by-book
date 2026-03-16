@@ -5,14 +5,18 @@ import { ClubBookCard } from "@/components/clubs/club-book-card";
 type ClubSectionBoardProps = {
   clubId: string;
   books: ClubBookWithBook[];
-  canManage: boolean;
+  mode?: "browse" | "manage";
+  returnTo?: string;
 };
 
 export function ClubSectionBoard({
   clubId,
   books,
-  canManage,
+  mode = "browse",
+  returnTo,
 }: ClubSectionBoardProps) {
+  const showManageControls = mode === "manage";
+
   return (
     <div className="grid gap-5 xl:grid-cols-3">
       {CLUB_BOOK_STATUS_ORDER.map((status) => {
@@ -43,7 +47,8 @@ export function ClubSectionBoard({
                     key={book.id}
                     clubBook={book}
                     clubId={clubId}
-                    canManage={canManage}
+                    showManageControls={showManageControls}
+                    returnTo={returnTo}
                   />
                 ))}
               </div>

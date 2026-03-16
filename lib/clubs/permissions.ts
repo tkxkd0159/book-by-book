@@ -41,8 +41,17 @@ export function canTransferClubOwnership(role: ClubMemberRole | null | undefined
 export function canChangeClubMemberRole(
   actorRole: ClubMemberRole | null | undefined,
   targetRole: ClubMemberRole,
+  nextRole: Extract<ClubMemberRole, "ADMIN" | "MEMBER">,
 ) {
-  return isClubOwner(actorRole) && targetRole !== "OWNER";
+  if (targetRole === "OWNER" || targetRole === nextRole) {
+    return false;
+  }
+
+  if (isClubOwner(actorRole)) {
+    return true;
+  }
+
+  return actorRole === "ADMIN" && targetRole === "MEMBER" && nextRole === "ADMIN";
 }
 
 export function canRemoveClubMember(

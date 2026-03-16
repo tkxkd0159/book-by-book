@@ -15,7 +15,8 @@ import type { ClubBookWithBook } from "@/lib/clubs/repository";
 type ClubBookCardProps = {
   clubBook: ClubBookWithBook;
   clubId: string;
-  canManage: boolean;
+  showManageControls: boolean;
+  returnTo?: string;
 };
 
 function formatAuthors(clubBook: ClubBookWithBook) {
@@ -33,8 +34,11 @@ function formatPublishedDate(clubBook: ClubBookWithBook) {
 export function ClubBookCard({
   clubBook,
   clubId,
-  canManage,
+  showManageControls,
+  returnTo,
 }: ClubBookCardProps) {
+  const managementReturnTo = returnTo ?? `/clubs/${clubId}/manage?tab=board`;
+
   return (
     <details className="group rounded-xl border border-(--border)/80 bg-(--surface)">
       <summary
@@ -75,7 +79,7 @@ export function ClubBookCard({
           </Link>
         </div>
 
-        {canManage ? (
+        {showManageControls ? (
           <div className="rounded-lg border border-(--border)/70 bg-(--surface-strong) p-3">
             <form
               action={moveClubBookAction}
@@ -83,6 +87,7 @@ export function ClubBookCard({
             >
               <input type="hidden" name="clubId" value={clubId} />
               <input type="hidden" name="clubBookId" value={clubBook.id} />
+              <input type="hidden" name="returnTo" value={managementReturnTo} />
               <label className="flex-1 space-y-1 text-xs font-medium uppercase tracking-wide text-(--muted)">
                 <span>Move section</span>
                 <select
@@ -108,6 +113,7 @@ export function ClubBookCard({
             <form action={removeClubBookAction} className="mt-2">
               <input type="hidden" name="clubId" value={clubId} />
               <input type="hidden" name="clubBookId" value={clubBook.id} />
+              <input type="hidden" name="returnTo" value={managementReturnTo} />
               <Button type="submit" variant="destructive" size="sm">
                 <Trash2 aria-hidden className="h-4 w-4 shrink-0" />
                 Remove

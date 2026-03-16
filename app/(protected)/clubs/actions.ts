@@ -89,6 +89,11 @@ function revalidateReturnTo(returnTo: string) {
   revalidatePath(path);
 }
 
+function revalidateClubPages(clubId: string) {
+  revalidatePath(`/clubs/${clubId}`);
+  revalidatePath(`/clubs/${clubId}/manage`);
+}
+
 export async function createClubAction(formData: FormData) {
   const currentUser = await requireCurrentUser();
   const name = parseClubName(formData.get("name"));
@@ -126,7 +131,7 @@ export async function joinClubAction(formData: FormData) {
   try {
     await joinPublicClub({ clubId, userId: currentUser.id });
     revalidatePath("/clubs");
-    revalidatePath(`/clubs/${clubId}`);
+    revalidateClubPages(clubId);
     redirect(appendMessage(returnTo, "message", "You joined the club."));
   } catch (error) {
     rethrowIfRedirect(error);
@@ -145,8 +150,7 @@ export async function leaveClubAction(formData: FormData) {
       userId: currentUser.id,
     });
     revalidatePath("/clubs");
-    revalidatePath(`/clubs/${clubId}`);
-    revalidatePath(`/clubs/${clubId}/invite`);
+    revalidateClubPages(clubId);
     redirect(appendMessage("/clubs", "message", "You left the club."));
   } catch (error) {
     rethrowIfRedirect(error);
@@ -159,7 +163,10 @@ export async function changeClubMemberRoleAction(formData: FormData) {
   const clubId = parseInternalId(formData.get("clubId"), "Club");
   const targetUserId = parseInternalId(formData.get("targetUserId"), "Member");
   const nextRole = parseManageableClubMemberRole(formData.get("nextRole"));
-  const returnTo = parseSafeReturnTo(formData.get("returnTo"), `/clubs/${clubId}`);
+  const returnTo = parseSafeReturnTo(
+    formData.get("returnTo"),
+    `/clubs/${clubId}/manage?tab=members`,
+  );
 
   try {
     await changeClubMemberRole({
@@ -169,8 +176,8 @@ export async function changeClubMemberRoleAction(formData: FormData) {
       nextRole,
     });
     revalidatePath("/clubs");
-    revalidatePath(`/clubs/${clubId}`);
-    revalidatePath(`/clubs/${clubId}/invite`);
+    revalidateClubPages(clubId);
+    revalidateReturnTo(returnTo);
     redirect(appendMessage(returnTo, "message", "Member role updated."));
   } catch (error) {
     rethrowIfRedirect(error);
@@ -182,7 +189,10 @@ export async function removeClubMemberAction(formData: FormData) {
   const currentUser = await requireCurrentUser();
   const clubId = parseInternalId(formData.get("clubId"), "Club");
   const targetUserId = parseInternalId(formData.get("targetUserId"), "Member");
-  const returnTo = parseSafeReturnTo(formData.get("returnTo"), `/clubs/${clubId}`);
+  const returnTo = parseSafeReturnTo(
+    formData.get("returnTo"),
+    `/clubs/${clubId}/manage?tab=members`,
+  );
 
   try {
     await removeClubMember({
@@ -191,8 +201,8 @@ export async function removeClubMemberAction(formData: FormData) {
       removedById: currentUser.id,
     });
     revalidatePath("/clubs");
-    revalidatePath(`/clubs/${clubId}`);
-    revalidatePath(`/clubs/${clubId}/invite`);
+    revalidateClubPages(clubId);
+    revalidateReturnTo(returnTo);
     redirect(appendMessage(returnTo, "message", "Member removed."));
   } catch (error) {
     rethrowIfRedirect(error);
@@ -207,7 +217,10 @@ export async function transferClubOwnershipAction(formData: FormData) {
     formData.get("nextOwnerUserId"),
     "Next owner",
   );
-  const returnTo = parseSafeReturnTo(formData.get("returnTo"), `/clubs/${clubId}`);
+  const returnTo = parseSafeReturnTo(
+    formData.get("returnTo"),
+    `/clubs/${clubId}/manage?tab=members`,
+  );
 
   try {
     await transferClubOwnership({
@@ -216,8 +229,8 @@ export async function transferClubOwnershipAction(formData: FormData) {
       transferredById: currentUser.id,
     });
     revalidatePath("/clubs");
-    revalidatePath(`/clubs/${clubId}`);
-    revalidatePath(`/clubs/${clubId}/invite`);
+    revalidateClubPages(clubId);
+    revalidateReturnTo(returnTo);
     redirect(appendMessage(returnTo, "message", "Ownership transferred."));
   } catch (error) {
     rethrowIfRedirect(error);
@@ -246,6 +259,10 @@ export async function deleteClubAction(formData: FormData) {
 export async function createInvitationAction(formData: FormData) {
   const currentUser = await requireCurrentUser();
   const clubId = parseInternalId(formData.get("clubId"), "Club");
+  const returnTo = parseSafeReturnTo(
+    formData.get("returnTo"),
+    `/clubs/${clubId}/manage?tab=invite`,
+  );
 
   try {
     const { rawToken } = await createClubInvitation({
@@ -254,19 +271,18 @@ export async function createInvitationAction(formData: FormData) {
       invitedEmail: parseInvitationEmail(formData.get("invitedEmail")),
     });
 
-    revalidatePath(`/clubs/${clubId}/invite`);
+    revalidateClubPages(clubId);
+    revalidateReturnTo(returnTo);
     redirect(
       appendMessage(
-        appendMessage(`/clubs/${clubId}/invite`, "message", "Invite created."),
+        appendMessage(returnTo, "message", "Invite created."),
         "token",
         rawToken,
       ),
     );
   } catch (error) {
     rethrowIfRedirect(error);
-    redirect(
-      appendMessage(`/clubs/${clubId}/invite`, "error", getErrorMessage(error)),
-    );
+    redirect(appendMessage(returnTo, "error", getErrorMessage(error)));
   }
 }
 
@@ -274,6 +290,10 @@ export async function revokeInvitationAction(formData: FormData) {
   const currentUser = await requireCurrentUser();
   const clubId = parseInternalId(formData.get("clubId"), "Club");
   const invitationId = parseInternalId(formData.get("invitationId"), "Invitation");
+  const returnTo = parseSafeReturnTo(
+    formData.get("returnTo"),
+    `/clubs/${clubId}/manage?tab=invite`,
+  );
 
   try {
     await revokeClubInvitation({
@@ -281,15 +301,12 @@ export async function revokeInvitationAction(formData: FormData) {
       invitationId,
       revokedById: currentUser.id,
     });
-    revalidatePath(`/clubs/${clubId}/invite`);
-    redirect(
-      appendMessage(`/clubs/${clubId}/invite`, "message", "Invite revoked."),
-    );
+    revalidateClubPages(clubId);
+    revalidateReturnTo(returnTo);
+    redirect(appendMessage(returnTo, "message", "Invite revoked."));
   } catch (error) {
     rethrowIfRedirect(error);
-    redirect(
-      appendMessage(`/clubs/${clubId}/invite`, "error", getErrorMessage(error)),
-    );
+    redirect(appendMessage(returnTo, "error", getErrorMessage(error)));
   }
 }
 
@@ -347,6 +364,10 @@ export async function moveClubBookAction(formData: FormData) {
   const currentUser = await requireCurrentUser();
   const clubId = parseInternalId(formData.get("clubId"), "Club");
   const clubBookId = parseInternalId(formData.get("clubBookId"), "Club book");
+  const returnTo = parseSafeReturnTo(
+    formData.get("returnTo"),
+    `/clubs/${clubId}/manage?tab=board`,
+  );
 
   try {
     await moveClubBook({
@@ -355,13 +376,12 @@ export async function moveClubBookAction(formData: FormData) {
       movedById: currentUser.id,
       status: parseClubBookStatus(formData.get("status")),
     });
-    revalidatePath(`/clubs/${clubId}`);
-    redirect(appendMessage(`/clubs/${clubId}`, "message", "Book moved."));
+    revalidateClubPages(clubId);
+    revalidateReturnTo(returnTo);
+    redirect(appendMessage(returnTo, "message", "Book moved."));
   } catch (error) {
     rethrowIfRedirect(error);
-    redirect(
-      appendMessage(`/clubs/${clubId}`, "error", getErrorMessage(error)),
-    );
+    redirect(appendMessage(returnTo, "error", getErrorMessage(error)));
   }
 }
 
@@ -369,6 +389,10 @@ export async function removeClubBookAction(formData: FormData) {
   const currentUser = await requireCurrentUser();
   const clubId = parseInternalId(formData.get("clubId"), "Club");
   const clubBookId = parseInternalId(formData.get("clubBookId"), "Club book");
+  const returnTo = parseSafeReturnTo(
+    formData.get("returnTo"),
+    `/clubs/${clubId}/manage?tab=board`,
+  );
 
   try {
     await removeClubBook({
@@ -376,13 +400,12 @@ export async function removeClubBookAction(formData: FormData) {
       clubBookId,
       removedById: currentUser.id,
     });
-    revalidatePath(`/clubs/${clubId}`);
-    redirect(appendMessage(`/clubs/${clubId}`, "message", "Book removed."));
+    revalidateClubPages(clubId);
+    revalidateReturnTo(returnTo);
+    redirect(appendMessage(returnTo, "message", "Book removed."));
   } catch (error) {
     rethrowIfRedirect(error);
-    redirect(
-      appendMessage(`/clubs/${clubId}`, "error", getErrorMessage(error)),
-    );
+    redirect(appendMessage(returnTo, "error", getErrorMessage(error)));
   }
 }
 

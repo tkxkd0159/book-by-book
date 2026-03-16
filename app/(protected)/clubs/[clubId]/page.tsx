@@ -1,4 +1,4 @@
-import { ArrowLeft, UserPlus } from "lucide-react";
+import { UserPlus } from "lucide-react";
 import Link from "next/link";
 import { forbidden, notFound } from "next/navigation";
 
@@ -174,10 +174,11 @@ export default async function ClubDetailPage({
           </div>
 
           <div className="flex flex-wrap gap-2">
-            <Link href="/clubs" className={buttonStyles({ variant: "secondary" })}>
-              <ArrowLeft aria-hidden className="h-4 w-4 shrink-0" />
-              Back to clubs
-            </Link>
+            {canManage ? (
+              <Link href={`/clubs/${club.id}/manage`} className={buttonStyles({})}>
+                Manage
+              </Link>
+            ) : null}
             {canLeaveClub(club.currentUserRole) ? (
               <form action={leaveClubAction}>
                 <input type="hidden" name="clubId" value={club.id} />
@@ -189,11 +190,6 @@ export default async function ClubDetailPage({
                   Leave club
                 </button>
               </form>
-            ) : null}
-            {canManage ? (
-              <Link href={`/clubs/${club.id}/invite`} className={buttonStyles({})}>
-                Manage invites
-              </Link>
             ) : null}
             {canJoinClub(club.visibility, club.currentUserRole) ? (
               <form action={joinClubAction}>
@@ -267,7 +263,7 @@ export default async function ClubDetailPage({
             </p>
           </div>
 
-          <ClubSectionBoard clubId={club.id} books={books} canManage={canManage} />
+          <ClubSectionBoard clubId={club.id} books={books} />
         </section>
       ) : filteredMembers && members ? (
         <ClubMembersSection
@@ -298,7 +294,6 @@ export default async function ClubDetailPage({
               role: "MEMBER",
             }),
           }}
-          returnTo={currentPageHref}
         />
       ) : null}
     </div>

@@ -16,7 +16,7 @@ export default async function ProtectedLayout({ children }: Props.Layout) {
             <Link href="/books/search" className="text-lg font-semibold">
               Book by Book
             </Link>
-            <Badge>Milestone 2</Badge>
+            <Badge>Milestone 3</Badge>
           </div>
 
           <nav className="relative z-50 flex items-center gap-2">
