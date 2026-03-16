@@ -1,3 +1,4 @@
+import { UserAvatar } from "@/components/auth/user-avatar";
 import { Badge } from "@/components/ui/badge";
 import { requireCurrentUser } from "@/lib/auth/server";
 import {
@@ -27,22 +28,13 @@ export default async function MePage() {
 
       <Card className="border-2">
         <CardContent className="flex flex-col gap-6 p-6 sm:flex-row sm:items-center sm:p-8">
-          <div className="flex h-24 w-24 items-center justify-center overflow-hidden rounded-full border border-(--border) bg-(--surface) text-2xl font-semibold text-foreground shadow-sm">
-            {user.imageUrl ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                src={user.imageUrl}
-                alt="Profile avatar"
-                className="h-full w-full object-cover"
-              />
-            ) : (
-              <span>
-                {fallbackText(user.name, fallbackText(user.email, "U"))
-                  .slice(0, 2)
-                  .toUpperCase()}
-              </span>
-            )}
-          </div>
+          <UserAvatar
+            name={user.name}
+            email={user.email}
+            imageUrl={user.imageUrl}
+            alt="Profile avatar"
+            className="h-24 w-24 border border-(--border) bg-(--surface) text-2xl font-semibold text-foreground shadow-sm"
+          />
 
           <div className="space-y-2">
             <h2 className="text-2xl font-semibold">

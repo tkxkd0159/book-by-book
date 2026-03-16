@@ -14,7 +14,7 @@ import { getCurrentUser } from "@/lib/auth/server";
 export default async function Page() {
   const currentUser = await getCurrentUser();
   if (currentUser) {
-    redirect("/books/search");
+    redirect("/clubs");
   }
 
   return (

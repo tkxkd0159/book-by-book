@@ -4,26 +4,13 @@ import Link from "next/link";
 import { useEffect, useRef, useState, useTransition } from "react";
 
 import { signOut } from "next-auth/react";
+import { UserAvatar } from "@/components/auth/user-avatar";
 
 type ProfileMenuProps = {
   name?: string | null;
   email?: string | null;
   imageUrl?: string | null;
 };
-
-function getInitials(
-  name: string | null | undefined,
-  email: string | null | undefined,
-) {
-  const source = name?.trim() || email?.trim() || "U";
-  const parts = source.split(/\s+/).filter(Boolean);
-
-  if (parts.length >= 2) {
-    return `${parts[0][0]}${parts[1][0]}`.toUpperCase();
-  }
-
-  return source.slice(0, 2).toUpperCase();
-}
 
 export default function ProfileMenu({
   name,
@@ -33,7 +20,6 @@ export default function ProfileMenu({
   const containerRef = useRef<HTMLDivElement | null>(null);
   const [isOpen, setIsOpen] = useState(false);
   const [isPending, startTransition] = useTransition();
-  const initials = getInitials(name, email);
 
   useEffect(() => {
     function onPointerDown(event: PointerEvent) {
@@ -72,18 +58,13 @@ export default function ProfileMenu({
         className="flex items-center gap-1 rounded-full p-0.5 outline-none ring-(--border) transition hover:bg-black/5 focus-visible:ring-2"
         onClick={() => setIsOpen((open) => !open)}
       >
-        <span className="relative flex h-10 w-10 items-center justify-center overflow-hidden rounded-full border border-(--border) bg-(--surface) text-sm font-semibold text-foreground">
-          {imageUrl ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              src={imageUrl}
-              alt="Profile avatar"
-              className="h-full w-full object-cover"
-            />
-          ) : (
-            <span>{initials}</span>
-          )}
-        </span>
+        <UserAvatar
+          name={name}
+          email={email}
+          imageUrl={imageUrl}
+          alt="Profile avatar"
+          className="h-10 w-10 border border-(--border) bg-(--surface) text-sm font-semibold text-foreground"
+        />
         <span
           aria-hidden
           className={`pr-1 text-(--muted) transition-transform duration-200 ${isOpen ? "rotate-180" : ""}`}
