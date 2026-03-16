@@ -4,7 +4,6 @@ import { redirect } from "next/navigation";
 
 import { requireCurrentUser } from "@/lib/auth/server";
 import { ensureBookInDatabase } from "@/lib/books/repository";
-import { primePersistedBookDetailCache } from "@/lib/books/volume-details";
 
 export async function importBookAction(formData: FormData) {
   await requireCurrentUser();
@@ -19,6 +18,5 @@ export async function importBookAction(formData: FormData) {
     redirect("/books/search?error=book-not-found");
   }
 
-  primePersistedBookDetailCache(book);
   redirect(`/books/${encodeURIComponent(book.googleVolumeId)}`);
 }

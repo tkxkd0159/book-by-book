@@ -7,10 +7,7 @@ import type {
 import { formatBookDescription } from "@/lib/books/description";
 
 const GOOGLE_BOOKS_BASE_URL = "https://www.googleapis.com/books/v1/volumes";
-const SEARCH_CACHE_TTL_MS = 3 * 60 * 1000;
-const SEARCH_CACHE_MAX_ENTRIES = 250;
-const SEARCH_CACHE_PRUNE_TARGET = 200;
-const SEARCH_CACHE_CLEANUP_INTERVAL_MS = 30 * 1000;
+const GOOGLE_BOOKS_DATA_REVALIDATE_SECONDS = 300;
 const DEFAULT_SEARCH_PAGE_SIZE = 18;
 const GOOGLE_BOOKS_MAX_RESULTS = 40;
 const GOOGLE_TOTAL_ITEMS_UNRELIABLE_THRESHOLD = 1_000_000;
@@ -50,14 +47,6 @@ type GoogleVolumesResponse = {
   totalItems?: number;
   items?: GoogleVolume[];
 };
-
-type SearchCacheEntry = {
-  expiresAt: number;
-  value: BookSearchPage;
-};
-
-const searchCache = new Map<string, SearchCacheEntry>();
-let lastSearchCacheCleanupAt = 0;
 
 class GoogleBooksQueryValidationError extends Error {
   constructor(message: string) {
@@ -269,65 +258,6 @@ function parseSearchMode(mode: BookSearchMode | undefined): BookSearchMode {
   return mode === "advanced" ? "advanced" : "basic";
 }
 
-function cleanupSearchCache(now: number) {
-  if (
-    now - lastSearchCacheCleanupAt < SEARCH_CACHE_CLEANUP_INTERVAL_MS &&
-    searchCache.size < SEARCH_CACHE_MAX_ENTRIES
-  ) {
-    return;
-  }
-
-  lastSearchCacheCleanupAt = now;
-
-  for (const [cacheKey, entry] of searchCache) {
-    if (entry.expiresAt <= now) {
-      searchCache.delete(cacheKey);
-    }
-  }
-
-  if (searchCache.size > SEARCH_CACHE_MAX_ENTRIES) {
-    while (searchCache.size > SEARCH_CACHE_PRUNE_TARGET) {
-      const oldestKey = searchCache.keys().next().value;
-      if (typeof oldestKey !== "string") {
-        break;
-      }
-      searchCache.delete(oldestKey);
-    }
-  }
-}
-
-function readSearchCache(cacheKey: string, now: number) {
-  cleanupSearchCache(now);
-
-  const cached = searchCache.get(cacheKey);
-  if (!cached) {
-    return null;
-  }
-
-  if (cached.expiresAt <= now) {
-    searchCache.delete(cacheKey);
-    return null;
-  }
-
-  // Reinsert to keep frequently used keys hot in the Map iteration order.
-  searchCache.delete(cacheKey);
-  searchCache.set(cacheKey, cached);
-
-  return cached.value;
-}
-
-function writeSearchCache(
-  cacheKey: string,
-  value: BookSearchPage,
-  now: number,
-) {
-  searchCache.set(cacheKey, {
-    value,
-    expiresAt: now + SEARCH_CACHE_TTL_MS,
-  });
-  cleanupSearchCache(now);
-}
-
 export async function searchGoogleBooks(
   query: string,
   options?: {
@@ -368,13 +298,6 @@ export async function searchGoogleBooks(
     };
   }
 
-  const cacheKey = `${mode}:${titleOnly ? "title-only:" : ""}${normalizedGoogleQuery.toLowerCase()}::p${page}::s${pageSize}`;
-  const cacheNow = Date.now();
-  const cachedResult = readSearchCache(cacheKey, cacheNow);
-  if (cachedResult) {
-    return cachedResult;
-  }
-
   const startIndex = (page - 1) * pageSize;
   const params = new URLSearchParams({
     q: normalizedGoogleQuery,
@@ -389,7 +312,7 @@ export async function searchGoogleBooks(
       path: "",
       params,
       cache: "force-cache",
-      revalidate: 300,
+      revalidate: GOOGLE_BOOKS_DATA_REVALIDATE_SECONDS,
     })) ?? {};
   const items =
     payload.items
@@ -416,8 +339,6 @@ export async function searchGoogleBooks(
       totalPages !== null ? page < totalPages : items.length === pageSize,
   };
 
-  writeSearchCache(cacheKey, result, Date.now());
-
   return result;
 }
 
@@ -434,7 +355,8 @@ export async function fetchGoogleVolume(
   const payload = await fetchGoogleBooksJson<GoogleVolume>({
     path: `/${encodeURIComponent(normalizedVolumeId)}`,
     params: new URLSearchParams(),
-    cache: "no-store",
+    cache: "force-cache",
+    revalidate: GOOGLE_BOOKS_DATA_REVALIDATE_SECONDS,
   });
   if (!payload) {
     return null;

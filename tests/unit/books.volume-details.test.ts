@@ -17,8 +17,6 @@ vi.mock("@/lib/books/google", () => ({
 }));
 
 import {
-  clearBookDetailCache,
-  primePersistedBookDetailCache,
   resolveBookDetail,
 } from "@/lib/books/volume-details";
 
@@ -75,7 +73,6 @@ function createStoredBook(overrides: Partial<BookRecord> = {}): BookRecord {
 
 describe("volume detail resolver", () => {
   beforeEach(() => {
-    clearBookDetailCache();
     findBookByGoogleVolumeId.mockReset();
     fetchGoogleVolume.mockReset();
   });
@@ -93,7 +90,7 @@ describe("volume detail resolver", () => {
     expect(fetchGoogleVolume).not.toHaveBeenCalled();
   });
 
-  it("caches a DB-backed detail and avoids repeat DB lookups", async () => {
+  it("checks the DB on each call so imported data stays authoritative", async () => {
     findBookByGoogleVolumeId.mockResolvedValue(createStoredBook());
 
     const first = await resolveBookDetail("volume-1");
@@ -101,7 +98,7 @@ describe("volume detail resolver", () => {
 
     expect(first).toMatchObject({ persisted: true });
     expect(second).toEqual(first);
-    expect(findBookByGoogleVolumeId).toHaveBeenCalledTimes(1);
+    expect(findBookByGoogleVolumeId).toHaveBeenCalledTimes(2);
     expect(fetchGoogleVolume).not.toHaveBeenCalled();
   });
 
@@ -119,13 +116,13 @@ describe("volume detail resolver", () => {
     expect(fetchGoogleVolume).toHaveBeenCalledTimes(1);
   });
 
-  it("replaces a Google-backed cache entry when a book is imported", async () => {
-    findBookByGoogleVolumeId.mockResolvedValue(null);
+  it("prefers a newly imported DB record after an earlier Google fallback", async () => {
+    findBookByGoogleVolumeId
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce(createStoredBook());
     fetchGoogleVolume.mockResolvedValue(createGoogleBook());
 
     const googleDetail = await resolveBookDetail("volume-1");
-    primePersistedBookDetailCache(createStoredBook());
-
     const storedDetail = await resolveBookDetail("volume-1");
 
     expect(googleDetail).toMatchObject({ persisted: false });
@@ -134,6 +131,6 @@ describe("volume detail resolver", () => {
       persisted: true,
     });
     expect(fetchGoogleVolume).toHaveBeenCalledTimes(1);
-    expect(findBookByGoogleVolumeId).toHaveBeenCalledTimes(1);
+    expect(findBookByGoogleVolumeId).toHaveBeenCalledTimes(2);
   });
 });
