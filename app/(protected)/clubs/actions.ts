@@ -18,6 +18,12 @@ import {
 } from "@/lib/clubs/repository";
 import { createThread } from "@/lib/threads/repository";
 import {
+  createThreadPost,
+  deleteThreadPost,
+  editThreadPost,
+} from "@/lib/threads/repository";
+import { isThreadError } from "@/lib/threads/errors";
+import {
   parseClubBookStatus,
   parseClubDescription,
   parseClubName,
@@ -27,7 +33,11 @@ import {
   parseSafeReturnTo,
 } from "@/lib/clubs/validation";
 import { requireCurrentUser } from "@/lib/auth/server";
-import { parseThreadBody, parseThreadTitle } from "@/lib/threads/validation";
+import {
+  parseThreadBody,
+  parseThreadPostBody,
+  parseThreadTitle,
+} from "@/lib/threads/validation";
 
 function appendMessage(pathname: string, key: string, value: string) {
   const [path, existingQuery = ""] = pathname.split("?");
@@ -38,7 +48,7 @@ function appendMessage(pathname: string, key: string, value: string) {
 }
 
 function getErrorMessage(error: unknown) {
-  if (isClubError(error)) {
+  if (isClubError(error) || isThreadError(error)) {
     return error.message;
   }
 
@@ -280,6 +290,82 @@ export async function createThreadAction(formData: FormData) {
 
     revalidatePath(`/clubs/${clubId}/books/${clubBookId}`);
     redirect(appendMessage(returnTo, "message", "Thread created."));
+  } catch (error) {
+    rethrowIfRedirect(error);
+    redirect(appendMessage(returnTo, "error", getErrorMessage(error)));
+  }
+}
+
+export async function createThreadPostAction(formData: FormData) {
+  const currentUser = await requireCurrentUser();
+  const clubId = parseInternalId(formData.get("clubId"), "Club");
+  const threadId = parseInternalId(formData.get("threadId"), "Thread");
+  const returnTo = parseSafeReturnTo(
+    formData.get("returnTo"),
+    `/clubs/${clubId}/threads/${threadId}`,
+  );
+
+  try {
+    await createThreadPost({
+      clubId,
+      threadId,
+      authorId: currentUser.id,
+      body: parseThreadPostBody(formData.get("body")),
+    });
+
+    revalidatePath(`/clubs/${clubId}/threads/${threadId}`);
+    redirect(appendMessage(returnTo, "message", "Post created."));
+  } catch (error) {
+    rethrowIfRedirect(error);
+    redirect(appendMessage(returnTo, "error", getErrorMessage(error)));
+  }
+}
+
+export async function editThreadPostAction(formData: FormData) {
+  const currentUser = await requireCurrentUser();
+  const clubId = parseInternalId(formData.get("clubId"), "Club");
+  const threadId = parseInternalId(formData.get("threadId"), "Thread");
+  const postId = parseInternalId(formData.get("postId"), "Post");
+  const returnTo = parseSafeReturnTo(
+    formData.get("returnTo"),
+    `/clubs/${clubId}/threads/${threadId}`,
+  );
+
+  try {
+    await editThreadPost({
+      clubId,
+      postId,
+      editorId: currentUser.id,
+      body: parseThreadPostBody(formData.get("body")),
+    });
+
+    revalidatePath(`/clubs/${clubId}/threads/${threadId}`);
+    redirect(appendMessage(returnTo, "message", "Post updated."));
+  } catch (error) {
+    rethrowIfRedirect(error);
+    redirect(appendMessage(returnTo, "error", getErrorMessage(error)));
+  }
+}
+
+export async function deleteThreadPostAction(formData: FormData) {
+  const currentUser = await requireCurrentUser();
+  const clubId = parseInternalId(formData.get("clubId"), "Club");
+  const threadId = parseInternalId(formData.get("threadId"), "Thread");
+  const postId = parseInternalId(formData.get("postId"), "Post");
+  const returnTo = parseSafeReturnTo(
+    formData.get("returnTo"),
+    `/clubs/${clubId}/threads/${threadId}`,
+  );
+
+  try {
+    await deleteThreadPost({
+      clubId,
+      postId,
+      deletedById: currentUser.id,
+    });
+
+    revalidatePath(`/clubs/${clubId}/threads/${threadId}`);
+    redirect(appendMessage(returnTo, "message", "Post deleted."));
   } catch (error) {
     rethrowIfRedirect(error);
     redirect(appendMessage(returnTo, "error", getErrorMessage(error)));

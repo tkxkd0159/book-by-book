@@ -1,12 +1,18 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
+import { PostActions } from "@/components/threads/post-actions";
+import { PostComposer } from "@/components/threads/post-composer";
 import { Badge } from "@/components/ui/badge";
 import { buttonStyles } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { getCurrentUser } from "@/lib/auth/server";
 import { CLUB_BOOK_STATUS_LABELS } from "@/lib/clubs/presentation";
 import { ThreadError } from "@/lib/threads/errors";
+import {
+  getThreadPostDisplayBody,
+  hasThreadPostBeenEdited,
+} from "@/lib/threads/presentation";
 import { findThreadDetail } from "@/lib/threads/repository";
 
 type ThreadDetailPageProps = {
@@ -46,6 +52,8 @@ export default async function ThreadDetailPage({
 
   const [{ clubId, threadId }, query] = await Promise.all([params, searchParams]);
   const page = readPage(query.page);
+  const message = readMessage(query.message);
+  const error = readMessage(query.error);
 
   try {
     const detail = await findThreadDetail({
@@ -57,9 +65,22 @@ export default async function ThreadDetailPage({
 
     const { thread, posts } = detail;
     const basePath = `/clubs/${clubId}/threads/${threadId}`;
+    const currentPath =
+      page > 1 ? `${basePath}?page=${page}` : basePath;
 
     return (
       <div className="space-y-6">
+        {message ? (
+          <p className="rounded-xl border border-[#b9d6cf] bg-[#eef9f5] px-4 py-3 text-sm text-[#125547]">
+            {message}
+          </p>
+        ) : null}
+        {error ? (
+          <p className="rounded-xl border border-[#d39e95] bg-[#fff2ef] px-4 py-3 text-sm text-[#7e1f14]">
+            {error}
+          </p>
+        ) : null}
+
         <section className="rounded-2xl border border-(--border) bg-(--surface-strong) p-6 shadow-[0_12px_30px_rgba(42,32,18,0.06)]">
           <div className="space-y-4">
             <div className="flex flex-wrap gap-2">
@@ -110,6 +131,23 @@ export default async function ThreadDetailPage({
             <p className="text-sm text-(--muted)">Read the thread timeline here.</p>
           </div>
 
+          <Card className="border-(--border)/90">
+            <CardContent className="space-y-4 p-5">
+              <div className="space-y-1">
+                <h3 className="text-lg font-semibold">Add a reply</h3>
+                <p className="text-sm text-(--muted)">
+                  Keep the discussion moving with questions, reactions, and notes.
+                </p>
+              </div>
+
+              <PostComposer
+                clubId={clubId}
+                threadId={threadId}
+                returnTo={currentPath}
+              />
+            </CardContent>
+          </Card>
+
           {posts.items.length === 0 ? (
             <p className="rounded-xl border border-dashed border-(--border) bg-(--surface) p-5 text-sm text-(--muted)">
               No posts yet.
@@ -122,11 +160,20 @@ export default async function ThreadDetailPage({
                     <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-(--muted)">
                       <span>{post.author.name ?? "Unknown reader"}</span>
                       <span>{formatDate(post.createdAt)}</span>
+                      {hasThreadPostBeenEdited(post) ? <span>Edited</span> : null}
                       {post.deletedAt ? <span>Deleted</span> : null}
                     </div>
                     <p className="whitespace-pre-wrap text-sm leading-6 text-foreground">
-                      {post.deletedAt ? "This post was deleted." : post.body}
+                      {getThreadPostDisplayBody(post)}
                     </p>
+                    {post.authorId === currentUser.id ? (
+                      <PostActions
+                        clubId={clubId}
+                        threadId={threadId}
+                        post={post}
+                        returnTo={currentPath}
+                      />
+                    ) : null}
                   </CardContent>
                 </Card>
               ))}
@@ -168,4 +215,12 @@ export default async function ThreadDetailPage({
 
     throw caughtError;
   }
+}
+
+function readMessage(value: string | string[] | undefined) {
+  if (Array.isArray(value)) {
+    return value[0] ?? null;
+  }
+
+  return value ?? null;
 }

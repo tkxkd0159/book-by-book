@@ -17,3 +17,18 @@ export function buildThreadExcerpt(
 }
 
 export { DEFAULT_THREAD_EXCERPT_LENGTH };
+
+export function getThreadPostDisplayBody(input: {
+  body: string;
+  deletedAt: Date | null;
+}) {
+  return input.deletedAt ? "This post was deleted." : input.body;
+}
+
+export function hasThreadPostBeenEdited(input: {
+  createdAt: Date;
+  updatedAt: Date;
+  deletedAt: Date | null;
+}) {
+  return !input.deletedAt && input.updatedAt.getTime() !== input.createdAt.getTime();
+}
