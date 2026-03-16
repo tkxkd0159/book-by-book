@@ -2,14 +2,17 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { PostActions } from "@/components/threads/post-actions";
+import { PinThreadButton } from "@/components/threads/pin-thread-button";
 import { PostComposer } from "@/components/threads/post-composer";
 import { Badge } from "@/components/ui/badge";
 import { buttonStyles } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { getCurrentUser } from "@/lib/auth/server";
+import { isClubAdmin } from "@/lib/clubs/permissions";
 import { CLUB_BOOK_STATUS_LABELS } from "@/lib/clubs/presentation";
 import { ThreadError } from "@/lib/threads/errors";
 import {
+  createDiscussionPageHref,
   getThreadPostDisplayBody,
   hasThreadPostBeenEdited,
 } from "@/lib/threads/presentation";
@@ -24,14 +27,6 @@ function readPage(value: string | string[] | undefined) {
   const raw = Array.isArray(value) ? value[0] : value;
   const parsed = Number.parseInt(raw ?? "", 10);
   return Number.isFinite(parsed) && parsed > 0 ? parsed : 1;
-}
-
-function createPageHref(basePath: string, page: number) {
-  if (page <= 1) {
-    return basePath;
-  }
-
-  return `${basePath}?page=${page}`;
 }
 
 function formatDate(date: Date) {
@@ -65,8 +60,8 @@ export default async function ThreadDetailPage({
 
     const { thread, posts } = detail;
     const basePath = `/clubs/${clubId}/threads/${threadId}`;
-    const currentPath =
-      page > 1 ? `${basePath}?page=${page}` : basePath;
+    const currentPath = createDiscussionPageHref(basePath, page);
+    const canManagePins = isClubAdmin(detail.currentUserRole);
 
     return (
       <div className="space-y-6">
@@ -121,6 +116,15 @@ export default async function ThreadDetailPage({
               >
                 Book details
               </Link>
+              {canManagePins ? (
+                <PinThreadButton
+                  clubId={clubId}
+                  clubBookId={thread.clubBook.id}
+                  threadId={threadId}
+                  isPinned={thread.isPinned}
+                  returnTo={currentPath}
+                />
+              ) : null}
             </div>
           </div>
         </section>
@@ -188,7 +192,7 @@ export default async function ThreadDetailPage({
               <div className="flex gap-2">
                 {posts.hasPreviousPage ? (
                   <Link
-                    href={createPageHref(basePath, posts.page - 1)}
+                    href={createDiscussionPageHref(basePath, posts.page - 1)}
                     className={buttonStyles({ variant: "secondary", size: "sm" })}
                   >
                     Previous
@@ -196,7 +200,7 @@ export default async function ThreadDetailPage({
                 ) : null}
                 {posts.hasNextPage ? (
                   <Link
-                    href={createPageHref(basePath, posts.page + 1)}
+                    href={createDiscussionPageHref(basePath, posts.page + 1)}
                     className={buttonStyles({ variant: "secondary", size: "sm" })}
                   >
                     Next

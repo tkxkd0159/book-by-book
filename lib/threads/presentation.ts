@@ -32,3 +32,11 @@ export function hasThreadPostBeenEdited(input: {
 }) {
   return !input.deletedAt && input.updatedAt.getTime() !== input.createdAt.getTime();
 }
+
+export function createDiscussionPageHref(basePath: string, page: number) {
+  if (page <= 1) {
+    return basePath;
+  }
+
+  return `${basePath}?page=${page}`;
+}

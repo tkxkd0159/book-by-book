@@ -2,26 +2,23 @@ import type { PaginatedResult, ThreadSummary } from "@/lib/threads/repository";
 
 import { ThreadCard } from "@/components/threads/thread-card";
 import { buttonStyles } from "@/components/ui/button";
+import { createDiscussionPageHref } from "@/lib/threads/presentation";
 import Link from "next/link";
 
 type ClubBookThreadListProps = {
   clubId: string;
+  clubBookId: string;
   basePath: string;
+  canManagePins: boolean;
   threads: PaginatedResult<ThreadSummary>;
   archived: boolean;
 };
 
-function createPageHref(basePath: string, page: number) {
-  if (page <= 1) {
-    return basePath;
-  }
-
-  return `${basePath}?page=${page}`;
-}
-
 export function ClubBookThreadList({
   clubId,
+  clubBookId,
   basePath,
+  canManagePins,
   threads,
   archived,
 }: ClubBookThreadListProps) {
@@ -39,7 +36,14 @@ export function ClubBookThreadList({
     <div className="space-y-4">
       <div className="grid gap-4">
         {threads.items.map((thread) => (
-          <ThreadCard key={thread.id} clubId={clubId} thread={thread} />
+          <ThreadCard
+            key={thread.id}
+            clubId={clubId}
+            clubBookId={clubBookId}
+            canManagePins={canManagePins}
+            returnTo={createDiscussionPageHref(basePath, threads.page)}
+            thread={thread}
+          />
         ))}
       </div>
 
@@ -51,7 +55,7 @@ export function ClubBookThreadList({
           <div className="flex gap-2">
             {threads.hasPreviousPage ? (
               <Link
-                href={createPageHref(basePath, threads.page - 1)}
+                href={createDiscussionPageHref(basePath, threads.page - 1)}
                 className={buttonStyles({ variant: "secondary", size: "sm" })}
               >
                 Previous
@@ -59,7 +63,7 @@ export function ClubBookThreadList({
             ) : null}
             {threads.hasNextPage ? (
               <Link
-                href={createPageHref(basePath, threads.page + 1)}
+                href={createDiscussionPageHref(basePath, threads.page + 1)}
                 className={buttonStyles({ variant: "secondary", size: "sm" })}
               >
                 Next

@@ -21,6 +21,8 @@ import {
   createThreadPost,
   deleteThreadPost,
   editThreadPost,
+  pinThread,
+  unpinThread,
 } from "@/lib/threads/repository";
 import { isThreadError } from "@/lib/threads/errors";
 import {
@@ -370,4 +372,49 @@ export async function deleteThreadPostAction(formData: FormData) {
     rethrowIfRedirect(error);
     redirect(appendMessage(returnTo, "error", getErrorMessage(error)));
   }
+}
+
+export async function toggleThreadPinAction(formData: FormData) {
+  const currentUser = await requireCurrentUser();
+  const clubId = parseInternalId(formData.get("clubId"), "Club");
+  const clubBookId = parseInternalId(formData.get("clubBookId"), "Club book");
+  const threadId = parseInternalId(formData.get("threadId"), "Thread");
+  const intent = readString(formData.get("intent"));
+  const returnTo = parseSafeReturnTo(
+    formData.get("returnTo"),
+    `/clubs/${clubId}/books/${clubBookId}`,
+  );
+
+  try {
+    if (intent === "unpin") {
+      await unpinThread({
+        clubId,
+        threadId,
+        unpinnedById: currentUser.id,
+      });
+    } else {
+      await pinThread({
+        clubId,
+        threadId,
+        pinnedById: currentUser.id,
+      });
+    }
+
+    revalidatePath(`/clubs/${clubId}/books/${clubBookId}`);
+    revalidatePath(`/clubs/${clubId}/threads/${threadId}`);
+    redirect(
+      appendMessage(
+        returnTo,
+        "message",
+        intent === "unpin" ? "Thread unpinned." : "Thread pinned.",
+      ),
+    );
+  } catch (error) {
+    rethrowIfRedirect(error);
+    redirect(appendMessage(returnTo, "error", getErrorMessage(error)));
+  }
+}
+
+function readString(value: FormDataEntryValue | string | null | undefined) {
+  return typeof value === "string" ? value : "";
 }

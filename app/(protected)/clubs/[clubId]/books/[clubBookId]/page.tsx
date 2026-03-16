@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { buttonStyles } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { getCurrentUser } from "@/lib/auth/server";
+import { isClubAdmin } from "@/lib/clubs/permissions";
 import { CLUB_BOOK_STATUS_LABELS } from "@/lib/clubs/presentation";
 import { findClubDetail } from "@/lib/clubs/repository";
 import { ThreadError } from "@/lib/threads/errors";
@@ -77,6 +78,7 @@ export default async function ClubBookDiscussionPage({
 
     const { clubBook } = discussion;
     const archived = Boolean(clubBook.removedAt);
+    const canManagePins = isClubAdmin(discussion.currentUserRole);
 
     return (
       <div className="space-y-6">
@@ -169,7 +171,9 @@ export default async function ClubBookDiscussionPage({
 
             <ClubBookThreadList
               clubId={clubId}
+              clubBookId={clubBookId}
               basePath={`/clubs/${clubId}/books/${clubBookId}`}
+              canManagePins={canManagePins}
               threads={threads}
               archived={archived}
             />

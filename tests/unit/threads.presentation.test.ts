@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   buildThreadExcerpt,
+  createDiscussionPageHref,
   getThreadPostDisplayBody,
   hasThreadPostBeenEdited,
 } from "@/lib/threads/presentation";
@@ -46,5 +47,12 @@ describe("thread presentation", () => {
         deletedAt: new Date("2026-01-01T00:06:00Z"),
       }),
     ).toBe(false);
+  });
+
+  it("builds stable page hrefs for first and later pages", () => {
+    expect(createDiscussionPageHref("/clubs/a/books/b", 1)).toBe("/clubs/a/books/b");
+    expect(createDiscussionPageHref("/clubs/a/books/b", 3)).toBe(
+      "/clubs/a/books/b?page=3",
+    );
   });
 });

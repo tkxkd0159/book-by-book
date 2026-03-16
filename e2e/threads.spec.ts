@@ -110,3 +110,43 @@ test("post authors can create, edit, and delete their own posts while non-author
   await expect(page.getByText("Post deleted.")).toBeVisible();
   await expect(page.getByText("This post was deleted.")).toBeVisible();
 });
+
+test("club admins can pin a thread and move it ahead of newer threads", async ({
+  page,
+}) => {
+  await signInAs(page, "owner", "/clubs/new");
+
+  await page.getByLabel("Name").fill("Pin Ordering Club");
+  await page.getByLabel("Description").fill("Used for pin ordering checks.");
+  await page.getByLabel("Visibility").selectOption("PUBLIC");
+  await page.getByRole("button", { name: "Create club" }).click();
+
+  await expect(page).toHaveURL(/\/clubs\/[0-9a-f-]+(?:\?|$)/i);
+  const clubUrl = page.url();
+
+  await page.goto("/books/club-test-book");
+  await page.getByRole("button", { name: "Add to club" }).click();
+  await expect(page.getByText("Book added to the club.")).toBeVisible();
+
+  await page.goto(clubUrl);
+  await page.getByRole("link", { name: "Discussion" }).click();
+
+  await page.getByLabel("Thread title").fill("Earlier thread");
+  await page.getByLabel("Opening note").fill("Created first.");
+  await page.getByRole("button", { name: "Start thread" }).click();
+  await expect(page.getByRole("link", { name: "Earlier thread" })).toBeVisible();
+
+  await page.getByLabel("Thread title").fill("Later thread");
+  await page.getByLabel("Opening note").fill("Created second.");
+  await page.getByRole("button", { name: "Start thread" }).click();
+  await expect(page.getByRole("link", { name: "Later thread" })).toBeVisible();
+
+  await page.getByRole("link", { name: "Earlier thread" }).click();
+  await expect(page).toHaveURL(/\/clubs\/[0-9a-f-]+\/threads\/[0-9a-f-]+(?:\?|$)/i);
+  await page.locator("section").first().getByRole("button", { name: "Pin thread" }).click();
+  await expect(page.getByText("Thread pinned.")).toBeVisible();
+
+  await page.getByRole("link", { name: "Back to discussion list" }).click();
+  await expect(page.locator("h3 a").nth(0)).toHaveText("Earlier thread");
+  await expect(page.locator("h3 a").nth(1)).toHaveText("Later thread");
+});
