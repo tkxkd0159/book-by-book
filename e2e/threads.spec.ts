@@ -150,3 +150,41 @@ test("club admins can pin a thread and move it ahead of newer threads", async ({
   await expect(page.locator("h3 a").nth(0)).toHaveText("Earlier thread");
   await expect(page.locator("h3 a").nth(1)).toHaveText("Later thread");
 });
+
+test("archived club books keep discussion readable but disable new thread creation", async ({
+  page,
+}) => {
+  await signInAs(page, "owner", "/clubs/new");
+
+  await page.getByLabel("Name").fill("Archived Discussion Club");
+  await page.getByLabel("Description").fill("Used for archived discussion coverage.");
+  await page.getByLabel("Visibility").selectOption("PUBLIC");
+  await page.getByRole("button", { name: "Create club" }).click();
+
+  await expect(page).toHaveURL(/\/clubs\/[0-9a-f-]+(?:\?|$)/i);
+  const clubUrl = page.url();
+
+  await page.goto("/books/club-test-book");
+  await page.getByRole("button", { name: "Add to club" }).click();
+  await expect(page.getByText("Book added to the club.")).toBeVisible();
+
+  await page.goto(clubUrl);
+  await page.getByRole("link", { name: "Discussion" }).click();
+  await expect(page).toHaveURL(/\/clubs\/[0-9a-f-]+\/books\/[0-9a-f-]+(?:\?|$)/i);
+  const discussionUrl = page.url();
+
+  await page.getByLabel("Thread title").fill("Archived thread");
+  await page.getByLabel("Opening note").fill("This thread should survive archive.");
+  await page.getByRole("button", { name: "Start thread" }).click();
+  await expect(page.getByRole("link", { name: "Archived thread" })).toBeVisible();
+
+  await page.goto(clubUrl);
+  await page.getByRole("button", { name: "Remove" }).click();
+  await expect(page.getByText("Book removed.")).toBeVisible();
+
+  await page.goto(discussionUrl);
+  await expect(page.getByText("Archived book")).toBeVisible();
+  await expect(page.getByText("This club book has been archived.")).toBeVisible();
+  await expect(page.getByRole("button", { name: "Start thread" })).toHaveCount(0);
+  await expect(page.getByRole("link", { name: "Archived thread" })).toBeVisible();
+});
