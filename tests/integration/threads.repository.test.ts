@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it } from "vitest";
 
+import sql from "@/lib/db";
 import { E2E_USER_PROVIDER } from "@/lib/auth/e2e";
 import { findUserByProviderIdentity } from "@/lib/auth/users";
 import {
@@ -15,6 +16,7 @@ import { ThreadError } from "@/lib/threads/errors";
 import {
   createThread,
   createThreadPost,
+  deleteThread,
   deleteThreadPost,
   editThreadPost,
   findDiscussionClubBook,
@@ -372,6 +374,107 @@ describe("thread repository integration", () => {
     expect(detailPageTwo.posts.items.map((post) => post.body)).toEqual([
       "Post Three",
     ]);
+  });
+
+  it("lets club admins delete threads and cascades related posts", async () => {
+    const owner = await getRequiredUser("owner");
+    const member = await getRequiredUser("member");
+    const stranger = await getRequiredUser("stranger");
+    const book = await findBookByGoogleVolumeId(TEST_BOOK_VOLUME_ID);
+
+    const club = await createClub({
+      createdById: owner.id,
+      name: "Thread Moderation Club",
+      description: null,
+      visibility: "PUBLIC",
+    });
+
+    await joinPublicClub({
+      clubId: club.id,
+      userId: member.id,
+    });
+    await joinPublicClub({
+      clubId: club.id,
+      userId: stranger.id,
+    });
+
+    await sql`
+      update bookapp.club_members
+      set role = 'ADMIN'
+      where club_id = ${club.id}::uuid
+        and user_id = ${member.id}::uuid
+    `;
+
+    const clubBook = await addBookToClub({
+      clubId: club.id,
+      bookId: book!.id,
+      addedById: owner.id,
+      status: "READING",
+    });
+
+    const thread = await createThread({
+      clubId: club.id,
+      clubBookId: clubBook.id,
+      authorId: owner.id,
+      title: "Moderation target",
+      body: "This thread will be deleted.",
+    });
+
+    await createThreadPost({
+      clubId: club.id,
+      threadId: thread.id,
+      authorId: owner.id,
+      body: "Opening post.",
+    });
+    await createThreadPost({
+      clubId: club.id,
+      threadId: thread.id,
+      authorId: member.id,
+      body: "Moderator reply.",
+    });
+
+    await expect(
+      deleteThread({
+        clubId: club.id,
+        threadId: thread.id,
+        deletedById: stranger.id,
+      }),
+    ).rejects.toMatchObject({
+      code: "FORBIDDEN",
+      message: "Only club admins can delete threads.",
+    } satisfies Partial<ThreadError>);
+
+    const deleted = await deleteThread({
+      clubId: club.id,
+      threadId: thread.id,
+      deletedById: member.id,
+    });
+    expect(deleted.id).toBe(thread.id);
+
+    const [{ remainingPosts }] = await sql<{ remainingPosts: number }[]>`
+      select count(*)::int as "remainingPosts"
+      from bookapp.thread_posts
+      where thread_id = ${thread.id}::uuid
+    `;
+    expect(remainingPosts).toBe(0);
+
+    const listed = await listThreadsForClubBook({
+      clubId: club.id,
+      clubBookId: clubBook.id,
+      userId: owner.id,
+    });
+    expect(listed.items).toHaveLength(0);
+
+    await expect(
+      findThreadDetail({
+        clubId: club.id,
+        threadId: thread.id,
+        userId: owner.id,
+      }),
+    ).rejects.toMatchObject({
+      code: "NOT_FOUND",
+      message: "Thread not found.",
+    } satisfies Partial<ThreadError>);
   });
 
   it("blocks thread reads for non-members", async () => {

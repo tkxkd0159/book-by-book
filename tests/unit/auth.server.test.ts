@@ -100,4 +100,36 @@ describe("auth server helpers", () => {
     expect(findUserByIdMock).toHaveBeenCalledWith(currentUser.id);
     expect(findUserByEmailMock).not.toHaveBeenCalled();
   });
+
+  it("does not reuse a stale DB-backed user across repeated lookups", async () => {
+    const firstUser = {
+      id: "user-123",
+      provider: "google",
+      providerUserId: "google-user-123",
+      email: "reader@example.com",
+      name: "Reader One",
+      imageUrl: null,
+    };
+    const secondUser = {
+      ...firstUser,
+      id: "user-456",
+      name: "Reader Two",
+    };
+
+    getAuthSessionSafeMock.mockResolvedValue({
+      user: {
+        id: firstUser.id,
+        email: firstUser.email,
+      },
+    });
+    findUserByIdMock
+      .mockResolvedValueOnce(firstUser)
+      .mockResolvedValueOnce(secondUser);
+
+    const { getCurrentUser } = await import("@/lib/auth/server");
+
+    await expect(getCurrentUser()).resolves.toEqual(firstUser);
+    await expect(getCurrentUser()).resolves.toEqual(secondUser);
+    expect(findUserByIdMock).toHaveBeenCalledTimes(2);
+  });
 });

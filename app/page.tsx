@@ -43,8 +43,8 @@ export default async function Page() {
             <CardDescription>Google Books-backed discovery</CardDescription>
           </CardHeader>
           <CardContent className="text-sm text-(--muted)">
-            Find titles by author, title, or ISBN and import to local storage in
-            one tap.
+            Find titles by author, title, or ISBN and add them directly to the
+            clubs you manage.
           </CardContent>
         </Card>
         <Card>
@@ -53,8 +53,8 @@ export default async function Page() {
             <CardDescription>Local database copy</CardDescription>
           </CardHeader>
           <CardContent className="text-sm text-(--muted)">
-            Imported books are cached in Postgres and used for book detail
-            rendering.
+            Books added to your clubs are cached in Postgres and reused for
+            book detail rendering.
           </CardContent>
         </Card>
         <Card>

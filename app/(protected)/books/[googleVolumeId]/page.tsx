@@ -2,14 +2,12 @@ import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
-import { importBookAction } from "@/app/(protected)/books/search/actions";
-import { ImportBookButton } from "@/components/books/import-book-button";
-import { AddBookToClubForm } from "@/components/clubs/add-book-to-club-form";
+import { AddBookToClubsModal } from "@/components/books/add-book-to-clubs-modal";
 import { Badge } from "@/components/ui/badge";
 import { buttonStyles } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { getCurrentUser } from "@/lib/auth/server";
-import { listManageableClubsForUser } from "@/lib/clubs/repository";
+import { requireCurrentUser } from "@/lib/auth/server";
+import { listManageableClubBookTargetsForGoogleVolumeId } from "@/lib/clubs/repository";
 import { resolveBookDetail } from "@/lib/books/volume-details";
 
 type BookDetailPageProps = {
@@ -34,18 +32,17 @@ export default async function BookDetailPage({
   searchParams,
 }: BookDetailPageProps) {
   const [{ googleVolumeId }, query] = await Promise.all([params, searchParams]);
-  const [currentUser, book] = await Promise.all([
-    getCurrentUser(),
-    resolveBookDetail(googleVolumeId),
-  ]);
+  const currentUser = await requireCurrentUser();
+  const book = await resolveBookDetail(googleVolumeId);
 
   if (!book) {
     notFound();
   }
 
-  const manageableClubs = currentUser
-    ? await listManageableClubsForUser(currentUser.id)
-    : [];
+  const clubTargets = await listManageableClubBookTargetsForGoogleVolumeId(
+    currentUser.id,
+    googleVolumeId,
+  );
   const message = readMessage(query.message);
   const error = readMessage(query.error);
 
@@ -168,16 +165,13 @@ export default async function BookDetailPage({
               >
                 Back to search
               </Link>
-              {!book.persisted && currentUser ? (
-                <form action={importBookAction}>
-                  <input
-                    type="hidden"
-                    name="googleVolumeId"
-                    value={book.googleVolumeId}
-                  />
-                  <ImportBookButton size="md" />
-                </form>
-              ) : null}
+              <AddBookToClubsModal
+                googleVolumeId={book.googleVolumeId}
+                bookTitle={book.title}
+                clubTargets={clubTargets}
+                returnTo={`/books/${encodeURIComponent(book.googleVolumeId)}`}
+                triggerSize="md"
+              />
               {book.infoLink ? (
                 <a
                   href={book.infoLink}
@@ -190,26 +184,6 @@ export default async function BookDetailPage({
               ) : null}
             </div>
           </div>
-        </CardContent>
-      </Card>
-
-      <Card className="border-(--border)/90">
-        <CardContent className="space-y-5 p-7 sm:p-8">
-          <div className="space-y-2">
-            <h2 className="text-xl font-semibold">Add to a club</h2>
-            <p className="text-sm text-(--muted)">
-              {currentUser
-                ? "Place this book into one of your club reading sections."
-                : "An active app account is required to import this book or add it to a club."}
-            </p>
-          </div>
-
-          {currentUser ? (
-            <AddBookToClubForm
-              googleVolumeId={book.googleVolumeId}
-              clubs={manageableClubs}
-            />
-          ) : null}
         </CardContent>
       </Card>
 

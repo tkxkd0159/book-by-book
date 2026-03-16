@@ -1,14 +1,16 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
+import { deleteThreadAction } from "@/app/(protected)/clubs/actions";
 import { PostActions } from "@/components/threads/post-actions";
 import { PinThreadButton } from "@/components/threads/pin-thread-button";
 import { PostComposer } from "@/components/threads/post-composer";
 import { Badge } from "@/components/ui/badge";
-import { buttonStyles } from "@/components/ui/button";
+import { Button, buttonStyles } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { getCurrentUser } from "@/lib/auth/server";
 import { isClubAdmin } from "@/lib/clubs/permissions";
+import { canDeleteThreads } from "@/lib/threads/permissions";
 import { CLUB_BOOK_STATUS_LABELS } from "@/lib/clubs/presentation";
 import { ThreadError } from "@/lib/threads/errors";
 import {
@@ -83,6 +85,7 @@ export default async function ThreadDetailPage({
   const basePath = `/clubs/${clubId}/threads/${threadId}`;
   const currentPath = createDiscussionPageHref(basePath, page);
   const canManagePins = isClubAdmin(detail.currentUserRole);
+  const canDeleteThread = canDeleteThreads(detail.currentUserRole);
 
   return (
     <div className="space-y-6">
@@ -145,6 +148,17 @@ export default async function ThreadDetailPage({
                 isPinned={thread.isPinned}
                 returnTo={currentPath}
               />
+            ) : null}
+            {canDeleteThread ? (
+              <form action={deleteThreadAction}>
+                <input type="hidden" name="clubId" value={clubId} />
+                <input type="hidden" name="clubBookId" value={thread.clubBook.id} />
+                <input type="hidden" name="threadId" value={threadId} />
+                <input type="hidden" name="returnTo" value={currentPath} />
+                <Button type="submit" variant="destructive">
+                  Delete thread
+                </Button>
+              </form>
             ) : null}
           </div>
         </div>

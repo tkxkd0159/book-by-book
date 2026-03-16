@@ -9,6 +9,21 @@ test.beforeEach(async ({ request }) => {
   await resetApp(request);
 });
 
+async function addFixtureBookToClub(page: import("@playwright/test").Page, clubName: string) {
+  await page.goto(CLUB_BOOK_URL);
+  await page.getByRole("button", { name: "Add Book" }).click();
+  const dialog = page.getByRole("dialog");
+  await dialog.getByLabel(clubName).check();
+  await dialog.getByRole("button", { name: "Add Book" }).click();
+  await expect(page.getByText("Book added to 1 club.")).toBeVisible();
+}
+
+async function openFixtureBookCardDetails(page: import("@playwright/test").Page) {
+  await page
+    .getByLabel("Toggle details for The Test-Driven Book Club")
+    .click();
+}
+
 test("user can create a public club and another user can join it", async ({
   page,
 }) => {
@@ -25,6 +40,11 @@ test("user can create a public club and another user can join it", async ({
   await signInAs(page, "member", "/clubs");
   await expect(page.getByRole("heading", { name: "Discover Public Clubs" })).toBeVisible();
   await expect(page.getByText("Weekend Readers")).toBeVisible();
+  await expect(page.getByRole("button", { name: "Open club" })).toHaveCount(0);
+  await page.getByRole("link", { name: "Open Weekend Readers" }).click();
+  await expect(page).toHaveURL(CLUB_DETAIL_URL_PATTERN);
+
+  await page.goto("/clubs");
   await page.getByRole("button", { name: "Join club" }).click();
 
   await expect(page.getByText("You joined the club.")).toBeVisible();
@@ -123,21 +143,26 @@ test("club admin can add, move, and remove a book in section management", async 
   ).toBeVisible();
   const clubUrl = page.url();
 
-  await page.goto(CLUB_BOOK_URL);
-  await page.getByRole("button", { name: "Add to club" }).click();
-  await expect(page.getByText("Book added to the club.")).toBeVisible();
+  await addFixtureBookToClub(page, "Section Operators");
 
   await page.goto(clubUrl);
   await expect(page.getByText("The Test-Driven Book Club")).toBeVisible();
+  await expect(page.getByRole("link", { name: "Book details" })).toHaveCount(0);
   await expect(
     page.getByRole("heading", { name: "Want to Read" }),
   ).toBeVisible();
 
+  await openFixtureBookCardDetails(page);
+  await expect(page.getByRole("link", { name: "Book details" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Discussion" })).toBeVisible();
   await page.locator('select[name="status"]').first().selectOption("READING");
   await page.getByRole("button", { name: "Move" }).first().click();
   await expect(page.getByText("Book moved.")).toBeVisible();
 
-  await expect(page.getByText("Reading").first()).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "Reading", exact: true }),
+  ).toBeVisible();
+  await openFixtureBookCardDetails(page);
   await page.getByRole("button", { name: "Remove" }).click();
   await expect(page.getByText("Book removed.")).toBeVisible();
   await expect(page.getByText("No books in this section yet.")).toHaveCount(3);

@@ -10,6 +10,7 @@ import type {
 } from "@/types/db";
 
 import {
+  canDeleteThreads,
   canManageThreadPins,
   canViewThreads,
   isThreadPostAuthor,
@@ -782,6 +783,49 @@ export async function deleteThreadPost(input: {
     `;
 
     return mapThreadPost(updated);
+  });
+}
+
+export async function deleteThread(input: {
+  clubId: string;
+  threadId: string;
+  deletedById: string;
+}) {
+  return sql.begin(async (tx) => {
+    const query = asQueryExecutor(tx);
+    const membership = await getMembership(query, input.clubId, input.deletedById);
+    if (!membership || !canDeleteThreads(membership.role)) {
+      throw new ThreadError(
+        membership ? "FORBIDDEN" : "NOT_FOUND",
+        "Only club admins can delete threads.",
+      );
+    }
+
+    const thread = await getThreadForPinUpdate(query, input.clubId, input.threadId);
+    if (!thread) {
+      throw new ThreadError("NOT_FOUND", "Thread not found.");
+    }
+
+    const [deleted] = await query<ThreadRow[]>`
+      delete from bookapp.threads
+      where id = ${input.threadId}::uuid
+        and club_id = ${input.clubId}::uuid
+      returning
+        id::text as id,
+        club_id::text as "clubId",
+        club_book_id::text as "clubBookId",
+        book_id::text as "bookId",
+        author_id::text as "authorId",
+        title,
+        body,
+        is_locked as "isLocked",
+        is_pinned as "isPinned",
+        created_at as "createdAt",
+        updated_at as "updatedAt",
+        deleted_at as "deletedAt"
+    `;
+
+    return mapThread(deleted);
   });
 }
 

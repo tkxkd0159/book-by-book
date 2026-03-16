@@ -1,13 +1,12 @@
 import type { Session } from "next-auth";
 import { redirect } from "next/navigation";
-import { cache } from "react";
 
 import { createE2ESession, getE2ECurrentUser } from "@/lib/auth/e2e";
 import { getAuthSessionSafe } from "@/lib/auth/session";
 import { findUserByEmail, findUserById } from "@/lib/auth/users";
 import type { AuthUser } from "@/types/db";
 
-const readAuthSession = cache(async (): Promise<Session | null> => {
+async function readAuthSession(): Promise<Session | null> {
   const session = await getAuthSessionSafe();
   if (session?.user) {
     return session;
@@ -19,7 +18,7 @@ const readAuthSession = cache(async (): Promise<Session | null> => {
   }
 
   return null;
-});
+}
 
 async function findCurrentUserFromSession(
   session: Session | null,
@@ -44,9 +43,9 @@ async function findCurrentUserFromSession(
 
 export const getAuthSession = readAuthSession;
 
-export const getCurrentUser = cache(async (): Promise<AuthUser | null> => {
+export async function getCurrentUser(): Promise<AuthUser | null> {
   return findCurrentUserFromSession(await readAuthSession());
-});
+}
 
 export async function requireAuthSession(): Promise<Session> {
   const session = await getAuthSession();

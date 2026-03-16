@@ -18,6 +18,10 @@ export function canManageThreadPins(role: ClubMemberRole | null | undefined) {
   return isClubAdmin(role);
 }
 
+export function canDeleteThreads(role: ClubMemberRole | null | undefined) {
+  return isClubAdmin(role);
+}
+
 export function isThreadPostAuthor(
   authorId: string | null | undefined,
   currentUserId: string | null | undefined,

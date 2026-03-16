@@ -12,6 +12,7 @@ import {
   createClub,
   createClubInvitation,
   joinPublicClub,
+  listManageableClubBookTargetsForGoogleVolumeId,
   moveClubBook,
   removeClubBook,
   revokeClubInvitation,
@@ -19,6 +20,7 @@ import {
 import { createThread } from "@/lib/threads/repository";
 import {
   createThreadPost,
+  deleteThread,
   deleteThreadPost,
   editThreadPost,
   pinThread,
@@ -62,6 +64,15 @@ function rethrowIfRedirect(error: unknown) {
   if (isRedirectError(error)) {
     throw error;
   }
+}
+
+function pluralize(label: string, count: number) {
+  return `${count} ${label}${count === 1 ? "" : "s"}`;
+}
+
+function revalidateReturnTo(returnTo: string) {
+  const path = returnTo.split("?")[0] ?? returnTo;
+  revalidatePath(path);
 }
 
 export async function createClubAction(formData: FormData) {
@@ -238,9 +249,8 @@ export async function removeClubBookAction(formData: FormData) {
   }
 }
 
-export async function addBookToClubFromVolumeAction(formData: FormData) {
+export async function addBookToClubsFromVolumeAction(formData: FormData) {
   const currentUser = await requireCurrentUser();
-  const clubId = parseInternalId(formData.get("clubId"), "Club");
   const googleVolumeId = parseInternalId(
     formData.get("googleVolumeId"),
     "Google volume",
@@ -249,6 +259,20 @@ export async function addBookToClubFromVolumeAction(formData: FormData) {
     formData.get("returnTo"),
     `/books/${encodeURIComponent(googleVolumeId)}`,
   );
+  const selectedClubIds = Array.from(
+    new Set(
+      formData
+        .getAll("clubId")
+        .map((clubId) => parseInternalId(clubId, "Club"))
+        .filter((clubId) => clubId.length > 0),
+    ),
+  );
+
+  if (selectedClubIds.length === 0) {
+    redirect(
+      appendMessage(returnTo, "error", "Select at least one club to add this book."),
+    );
+  }
 
   try {
     const book = await ensureBookInDatabase(googleVolumeId);
@@ -256,16 +280,55 @@ export async function addBookToClubFromVolumeAction(formData: FormData) {
       throw new ClubError("NOT_FOUND", "Book not found.");
     }
 
-    await addBookToClub({
-      clubId,
-      bookId: book.id,
-      addedById: currentUser.id,
-      status: parseClubBookStatus(formData.get("status")),
+    const targets = await listManageableClubBookTargetsForGoogleVolumeId(
+      currentUser.id,
+      googleVolumeId,
+    );
+    const targetsByClubId = new Map(
+      targets.map((target) => [target.clubId, target]),
+    );
+    const eligibleClubIds = selectedClubIds.filter((clubId) => {
+      const target = targetsByClubId.get(clubId);
+      return target && !target.alreadyAdded;
     });
+    const skippedCount = selectedClubIds.length - eligibleClubIds.length;
 
-    revalidatePath(`/clubs/${clubId}`);
-    revalidatePath(`/books/${encodeURIComponent(googleVolumeId)}`);
-    redirect(appendMessage(returnTo, "message", "Book added to the club."));
+    if (eligibleClubIds.length === 0) {
+      redirect(
+        appendMessage(
+          returnTo,
+          "error",
+          "This book can no longer be added to the selected clubs.",
+        ),
+      );
+    }
+
+    await Promise.all(
+      eligibleClubIds.map(async (clubId) => {
+        await addBookToClub({
+          clubId,
+          bookId: book.id,
+          addedById: currentUser.id,
+          status: "WANT_TO_READ",
+        });
+        revalidatePath(`/clubs/${clubId}`);
+      }),
+    );
+
+    revalidateReturnTo(returnTo);
+    revalidatePath("/books/search");
+    revalidatePath(`/books/${encodeURIComponent(book.googleVolumeId)}`);
+
+    const addedCount = eligibleClubIds.length;
+    const message =
+      skippedCount > 0
+        ? `Book added to ${pluralize("club", addedCount)}. ${pluralize(
+            "selection",
+            skippedCount,
+          )} already had this book.`
+        : `Book added to ${pluralize("club", addedCount)}.`;
+
+    redirect(appendMessage(returnTo, "message", message));
   } catch (error) {
     rethrowIfRedirect(error);
     redirect(appendMessage(returnTo, "error", getErrorMessage(error)));
@@ -368,6 +431,33 @@ export async function deleteThreadPostAction(formData: FormData) {
 
     revalidatePath(`/clubs/${clubId}/threads/${threadId}`);
     redirect(appendMessage(returnTo, "message", "Post deleted."));
+  } catch (error) {
+    rethrowIfRedirect(error);
+    redirect(appendMessage(returnTo, "error", getErrorMessage(error)));
+  }
+}
+
+export async function deleteThreadAction(formData: FormData) {
+  const currentUser = await requireCurrentUser();
+  const clubId = parseInternalId(formData.get("clubId"), "Club");
+  const clubBookId = parseInternalId(formData.get("clubBookId"), "Club book");
+  const threadId = parseInternalId(formData.get("threadId"), "Thread");
+  const returnTo = parseSafeReturnTo(
+    formData.get("returnTo"),
+    `/clubs/${clubId}/threads/${threadId}`,
+  );
+  const discussionPath = `/clubs/${clubId}/books/${clubBookId}`;
+
+  try {
+    await deleteThread({
+      clubId,
+      threadId,
+      deletedById: currentUser.id,
+    });
+
+    revalidatePath(discussionPath);
+    revalidatePath(`/clubs/${clubId}/threads/${threadId}`);
+    redirect(appendMessage(discussionPath, "message", "Thread deleted."));
   } catch (error) {
     rethrowIfRedirect(error);
     redirect(appendMessage(returnTo, "error", getErrorMessage(error)));

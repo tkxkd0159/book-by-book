@@ -10,6 +10,7 @@ import {
   findInvitationByToken,
   joinPublicClub,
   listClubBooks,
+  listManageableClubBookTargetsByGoogleVolumeIds,
   listDiscoverablePublicClubs,
   listUserClubs,
   moveClubBook,
@@ -245,5 +246,147 @@ describe("club repository integration", () => {
     const remainingBooks = await listClubBooks(club.id);
     expect(remainingBooks).toHaveLength(1);
     expect(remainingBooks[0]?.status).toBe("WANT_TO_READ");
+  });
+
+  it("reports manageable club targets for active, inactive, and missing club books", async () => {
+    const owner = await getRequiredUser("owner");
+    const book = await findBookByGoogleVolumeId(TEST_BOOK_VOLUME_ID);
+
+    expect(book, "Expected seeded fixture book.").toBeTruthy();
+
+    const activeClub = await createClub({
+      createdById: owner.id,
+      name: "Active Club",
+      description: null,
+      visibility: "PUBLIC",
+    });
+    const removedClub = await createClub({
+      createdById: owner.id,
+      name: "Removed Club",
+      description: null,
+      visibility: "PUBLIC",
+    });
+    await createClub({
+      createdById: owner.id,
+      name: "Empty Club",
+      description: null,
+      visibility: "PUBLIC",
+    });
+
+    await addBookToClub({
+      clubId: activeClub.id,
+      bookId: book!.id,
+      addedById: owner.id,
+      status: "READING",
+    });
+
+    const removedClubBook = await addBookToClub({
+      clubId: removedClub.id,
+      bookId: book!.id,
+      addedById: owner.id,
+      status: "READ",
+    });
+
+    await removeClubBook({
+      clubId: removedClub.id,
+      clubBookId: removedClubBook.id,
+      removedById: owner.id,
+    });
+
+    const targetsByVolumeId = await listManageableClubBookTargetsByGoogleVolumeIds(
+      owner.id,
+      [TEST_BOOK_VOLUME_ID, "missing-google-volume-id"],
+    );
+
+    expect(targetsByVolumeId[TEST_BOOK_VOLUME_ID]).toEqual([
+      {
+        clubId: activeClub.id,
+        clubName: "Active Club",
+        currentUserRole: "OWNER",
+        alreadyAdded: true,
+        existingStatus: "READING",
+      },
+      {
+        clubId: expect.any(String),
+        clubName: "Empty Club",
+        currentUserRole: "OWNER",
+        alreadyAdded: false,
+        existingStatus: null,
+      },
+      {
+        clubId: removedClub.id,
+        clubName: "Removed Club",
+        currentUserRole: "OWNER",
+        alreadyAdded: false,
+        existingStatus: null,
+      },
+    ]);
+
+    expect(targetsByVolumeId["missing-google-volume-id"]).toEqual([
+      {
+        clubId: activeClub.id,
+        clubName: "Active Club",
+        currentUserRole: "OWNER",
+        alreadyAdded: false,
+        existingStatus: null,
+      },
+      {
+        clubId: expect.any(String),
+        clubName: "Empty Club",
+        currentUserRole: "OWNER",
+        alreadyAdded: false,
+        existingStatus: null,
+      },
+      {
+        clubId: removedClub.id,
+        clubName: "Removed Club",
+        currentUserRole: "OWNER",
+        alreadyAdded: false,
+        existingStatus: null,
+      },
+    ]);
+  });
+
+  it("revives a removed club book without duplicating the active record", async () => {
+    const owner = await getRequiredUser("owner");
+    const book = await findBookByGoogleVolumeId(TEST_BOOK_VOLUME_ID);
+
+    expect(book, "Expected seeded fixture book.").toBeTruthy();
+
+    const club = await createClub({
+      createdById: owner.id,
+      name: "Revival Club",
+      description: null,
+      visibility: "PUBLIC",
+    });
+
+    const originalClubBook = await addBookToClub({
+      clubId: club.id,
+      bookId: book!.id,
+      addedById: owner.id,
+      status: "READ",
+    });
+
+    await removeClubBook({
+      clubId: club.id,
+      clubBookId: originalClubBook.id,
+      removedById: owner.id,
+    });
+
+    const revivedClubBook = await addBookToClub({
+      clubId: club.id,
+      bookId: book!.id,
+      addedById: owner.id,
+      status: "WANT_TO_READ",
+    });
+
+    expect(revivedClubBook.id).toBe(originalClubBook.id);
+    expect(revivedClubBook.status).toBe("WANT_TO_READ");
+    expect(revivedClubBook.removedAt).toBeNull();
+
+    const clubBooks = await listClubBooks(club.id);
+    expect(clubBooks).toHaveLength(1);
+    expect(clubBooks[0]?.id).toBe(originalClubBook.id);
+    expect(clubBooks[0]?.status).toBe("WANT_TO_READ");
   });
 });

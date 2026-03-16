@@ -1,23 +1,19 @@
 import Image from "next/image";
 import Link from "next/link";
 
-import { importBookAction } from "@/app/(protected)/books/search/actions";
+import { AddBookToClubsModal } from "@/components/books/add-book-to-clubs-modal";
 import { BookSearchForm } from "@/components/books/book-search-form";
-import { ImportBookButton } from "@/components/books/import-book-button";
 import { Badge } from "@/components/ui/badge";
 import { buttonStyles } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { requireCurrentUser } from "@/lib/auth/server";
+import { summarizeManageableClubBookTargets } from "@/lib/clubs/book-targets";
 import {
   GoogleBooksQueryValidationError,
   searchGoogleBooks,
 } from "@/lib/books/google";
-import { findBooksByGoogleVolumeIds } from "@/lib/books/repository";
+import { listManageableClubBookTargetsByGoogleVolumeIds } from "@/lib/clubs/repository";
 import type { BookSearchMode, BookSearchPage } from "@/lib/books/types";
-
-const errorMessages: Record<string, string> = {
-  "missing-volume-id": "Select a valid book before importing.",
-  "book-not-found": "Google Books could not find that volume.",
-};
 const SEARCH_PAGE_SIZE = 18;
 const advancedFilterKeys = [
   "title",
@@ -52,6 +48,14 @@ function parseBooleanParam(value: string | string[] | undefined) {
   return values.some(
     (item) => item === "1" || item === "true" || item === "on",
   );
+}
+
+function readMessage(value: string | string[] | undefined) {
+  if (Array.isArray(value)) {
+    return value[0] ?? null;
+  }
+
+  return value ?? null;
 }
 
 function readAdvancedFilters(
@@ -160,6 +164,7 @@ function createEmptySearchResult(
 }
 
 export default async function BookSearchPage({ searchParams }: Props.Page) {
+  const currentUser = await requireCurrentUser();
   const params = await searchParams;
   const basicQuery = getParam(params.q).trim();
   const titleOnly = parseBooleanParam(params.titleOnly);
@@ -174,8 +179,8 @@ export default async function BookSearchPage({ searchParams }: Props.Page) {
     searchMode === "advanced" ? hasAdvancedFilters : basicQuery.length >= 2;
 
   const requestedPage = parsePage(params.page);
-  const errorCode = getParam(params.error);
-  const errorMessage = errorMessages[errorCode];
+  const message = readMessage(params.message);
+  const actionError = readMessage(params.error);
 
   let searchError: string | null = null;
   const searchResult = shouldSearch
@@ -223,11 +228,18 @@ export default async function BookSearchPage({ searchParams }: Props.Page) {
     titleOnly,
     advancedFilters,
   );
+  const currentSearchHref = createSearchHref(
+    searchResult.page,
+    searchMode,
+    basicQuery,
+    titleOnly,
+    advancedFilters,
+  );
 
-  const importedBooks = await findBooksByGoogleVolumeIds(
+  const clubTargetsByVolumeId = await listManageableClubBookTargetsByGoogleVolumeIds(
+    currentUser.id,
     results.map((result) => result.googleVolumeId),
   );
-  const importedSet = new Set(importedBooks.map((book) => book.googleVolumeId));
   const resultCount = searchResult.totalItems;
 
   return (
@@ -279,9 +291,15 @@ export default async function BookSearchPage({ searchParams }: Props.Page) {
         isAdvancedOpen={isAdvancedOpen}
       />
 
-      {errorMessage ? (
+      {message ? (
+        <p className="rounded-md border border-[#b9d6cf] bg-[#eef9f5] p-3 text-sm text-[#125547]">
+          {message}
+        </p>
+      ) : null}
+
+      {actionError ? (
         <p className="rounded-md border border-[#d39e95] bg-[#fff2ef] p-3 text-sm text-[#7e1f14]">
-          {errorMessage}
+          {actionError}
         </p>
       ) : null}
 
@@ -353,11 +371,20 @@ export default async function BookSearchPage({ searchParams }: Props.Page) {
       {results.length > 0 ? (
         <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
           {results.map((book) => {
-            const isImported = importedSet.has(book.googleVolumeId);
+            const clubTargets = clubTargetsByVolumeId[book.googleVolumeId] ?? [];
+            const addSummary = summarizeManageableClubBookTargets(clubTargets);
             const authorsText =
               book.authors.length > 0
                 ? book.authors.join(", ")
                 : "Unknown author";
+            const availabilityText =
+              addSummary.state === "no-manageable-clubs"
+                ? "Create or manage a club before adding this book."
+                : addSummary.state === "all-already-added"
+                  ? "Already added to every club you manage."
+                  : addSummary.alreadyAddedCount > 0
+                    ? `Already added to ${addSummary.alreadyAddedCount} club${addSummary.alreadyAddedCount === 1 ? "" : "s"}. You can add it to ${addSummary.addableCount} more.`
+                    : `Ready to add to ${addSummary.addableCount} club${addSummary.addableCount === 1 ? "" : "s"}.`;
 
             return (
               <Card
@@ -403,9 +430,7 @@ export default async function BookSearchPage({ searchParams }: Props.Page) {
                   </div>
 
                   <div className="rounded-lg border border-(--border)/70 bg-(--surface)/70 px-3 py-2 text-sm text-(--muted)">
-                    {isImported
-                      ? "Cached in your local database and ready to open."
-                      : "Not cached yet. Import to persist this book locally."}
+                    {availabilityText}
                   </div>
 
                   <div className="mt-auto flex items-center gap-2">
@@ -419,14 +444,13 @@ export default async function BookSearchPage({ searchParams }: Props.Page) {
                     >
                       Details
                     </Link>
-                    <form action={importBookAction} className="flex-1">
-                      <input
-                        type="hidden"
-                        name="googleVolumeId"
-                        value={book.googleVolumeId}
-                      />
-                      <ImportBookButton className="w-full" />
-                    </form>
+                    <AddBookToClubsModal
+                      googleVolumeId={book.googleVolumeId}
+                      bookTitle={book.title}
+                      clubTargets={clubTargets}
+                      returnTo={currentSearchHref}
+                      triggerClassName="flex-1"
+                    />
                   </div>
                 </CardContent>
               </Card>

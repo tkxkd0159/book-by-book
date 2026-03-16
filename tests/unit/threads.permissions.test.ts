@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   canCreateThreadPosts,
   canCreateThreads,
+  canDeleteThreads,
   canManageThreadPins,
   canManageThreadPost,
   canViewThreads,
@@ -21,6 +22,9 @@ describe("thread permissions", () => {
     expect(canManageThreadPins("OWNER")).toBe(true);
     expect(canManageThreadPins("ADMIN")).toBe(true);
     expect(canManageThreadPins("MEMBER")).toBe(false);
+    expect(canDeleteThreads("OWNER")).toBe(true);
+    expect(canDeleteThreads("ADMIN")).toBe(true);
+    expect(canDeleteThreads("MEMBER")).toBe(false);
   });
 
   it("requires authorship for post mutation", () => {

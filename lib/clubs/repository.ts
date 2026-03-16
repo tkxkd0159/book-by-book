@@ -84,6 +84,12 @@ type InvitationLookupRow = ClubInvitationRow & {
   effectiveStatus: ClubInvitationStatus;
 };
 
+type ManageableClubBookTargetRow = {
+  googleVolumeId: string;
+  clubId: string;
+  status: ClubBookStatus;
+};
+
 export type ClubSummary = ClubRecord & {
   memberCount: number;
   currentUserRole: ClubMemberRole | null;
@@ -114,8 +120,18 @@ export type ClubBookWithBook = ClubBookRecord & {
 
 export type ManageableClubSummary = Pick<
   ClubSummary,
-  "id" | "name" | "visibility" | "currentUserRole"
->;
+  "id" | "name" | "visibility"
+> & {
+  currentUserRole: Extract<ClubMemberRole, "OWNER" | "ADMIN">;
+};
+
+export type ManageableClubBookTarget = {
+  clubId: string;
+  clubName: string;
+  currentUserRole: ClubMemberRole;
+  alreadyAdded: boolean;
+  existingStatus: ClubBookStatus | null;
+};
 
 const CLUB_INVITATION_TTL_DAYS = 7;
 type QueryExecutor = typeof sql;
@@ -317,8 +333,83 @@ export async function listManageableClubsForUser(userId: string) {
     id: row.id,
     name: row.name,
     visibility: row.visibility,
-    currentUserRole: row.currentUserRole,
+    currentUserRole: row.currentUserRole as Extract<
+      ClubMemberRole,
+      "OWNER" | "ADMIN"
+    >,
   }));
+}
+
+export async function listManageableClubBookTargetsByGoogleVolumeIds(
+  userId: string,
+  googleVolumeIds: string[],
+) {
+  const normalizedVolumeIds = Array.from(
+    new Set(
+      googleVolumeIds
+        .map((googleVolumeId) => googleVolumeId.trim())
+        .filter((googleVolumeId) => googleVolumeId.length > 0),
+    ),
+  );
+
+  if (normalizedVolumeIds.length === 0) {
+    return {} satisfies Record<string, ManageableClubBookTarget[]>;
+  }
+
+  const clubs = await listManageableClubsForUser(userId);
+  if (clubs.length === 0) {
+    return Object.fromEntries(
+      normalizedVolumeIds.map((googleVolumeId) => [googleVolumeId, []]),
+    ) satisfies Record<string, ManageableClubBookTarget[]>;
+  }
+
+  const clubIds = clubs.map((club) => club.id);
+  const rows = await sql<ManageableClubBookTargetRow[]>`
+    select
+      books.google_volume_id as "googleVolumeId",
+      club_books.club_id::text as "clubId",
+      club_books.status
+    from bookapp.club_books
+    join bookapp.books on books.id = club_books.book_id
+    where books.google_volume_id in ${sql(normalizedVolumeIds)}
+      and club_books.club_id in ${sql(clubIds)}
+      and club_books.removed_at is null
+  `;
+
+  const activeTargets = new Map<string, ClubBookStatus>();
+  for (const row of rows) {
+    activeTargets.set(`${row.googleVolumeId}:${row.clubId}`, row.status);
+  }
+
+  return Object.fromEntries(
+    normalizedVolumeIds.map((googleVolumeId) => [
+      googleVolumeId,
+      clubs.map((club) => {
+        const existingStatus =
+          activeTargets.get(`${googleVolumeId}:${club.id}`) ?? null;
+
+        return {
+          clubId: club.id,
+          clubName: club.name,
+          currentUserRole: club.currentUserRole,
+          alreadyAdded: existingStatus !== null,
+          existingStatus,
+        };
+      }),
+    ]),
+  ) satisfies Record<string, ManageableClubBookTarget[]>;
+}
+
+export async function listManageableClubBookTargetsForGoogleVolumeId(
+  userId: string,
+  googleVolumeId: string,
+) {
+  const targetsByVolumeId = await listManageableClubBookTargetsByGoogleVolumeIds(
+    userId,
+    [googleVolumeId],
+  );
+
+  return targetsByVolumeId[googleVolumeId.trim()] ?? [];
 }
 
 export async function findClubDetail(clubId: string, userId: string) {
