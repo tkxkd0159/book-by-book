@@ -61,10 +61,16 @@ export function ClubBookCard({ clubBook, clubId, canManage }: ClubBookCardProps)
 
         <div className="mt-auto flex flex-wrap gap-2">
           <Link
+            href={`/clubs/${clubId}/books/${clubBook.id}`}
+            className={buttonStyles({ size: "sm" })}
+          >
+            Discussion
+          </Link>
+          <Link
             href={`/books/${encodeURIComponent(clubBook.book.googleVolumeId)}`}
             className={buttonStyles({ variant: "secondary", size: "sm" })}
           >
-            Open book
+            Book details
           </Link>
         </div>
 

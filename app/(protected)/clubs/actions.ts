@@ -16,6 +16,7 @@ import {
   removeClubBook,
   revokeClubInvitation,
 } from "@/lib/clubs/repository";
+import { createThread } from "@/lib/threads/repository";
 import {
   parseClubBookStatus,
   parseClubDescription,
@@ -26,6 +27,7 @@ import {
   parseSafeReturnTo,
 } from "@/lib/clubs/validation";
 import { requireCurrentUser } from "@/lib/auth/server";
+import { parseThreadBody, parseThreadTitle } from "@/lib/threads/validation";
 
 function appendMessage(pathname: string, key: string, value: string) {
   const [path, existingQuery = ""] = pathname.split("?");
@@ -252,6 +254,32 @@ export async function addBookToClubFromVolumeAction(formData: FormData) {
     revalidatePath(`/clubs/${clubId}`);
     revalidatePath(`/books/${encodeURIComponent(googleVolumeId)}`);
     redirect(appendMessage(returnTo, "message", "Book added to the club."));
+  } catch (error) {
+    rethrowIfRedirect(error);
+    redirect(appendMessage(returnTo, "error", getErrorMessage(error)));
+  }
+}
+
+export async function createThreadAction(formData: FormData) {
+  const currentUser = await requireCurrentUser();
+  const clubId = parseInternalId(formData.get("clubId"), "Club");
+  const clubBookId = parseInternalId(formData.get("clubBookId"), "Club book");
+  const returnTo = parseSafeReturnTo(
+    formData.get("returnTo"),
+    `/clubs/${clubId}/books/${clubBookId}`,
+  );
+
+  try {
+    await createThread({
+      clubId,
+      clubBookId,
+      authorId: currentUser.id,
+      title: parseThreadTitle(formData.get("title")),
+      body: parseThreadBody(formData.get("body")),
+    });
+
+    revalidatePath(`/clubs/${clubId}/books/${clubBookId}`);
+    redirect(appendMessage(returnTo, "message", "Thread created."));
   } catch (error) {
     rethrowIfRedirect(error);
     redirect(appendMessage(returnTo, "error", getErrorMessage(error)));
