@@ -49,10 +49,6 @@ export async function proxy(request: NextRequest) {
     secret: resolveAuthSecret(),
   });
 
-  if (pathname === "/signin" && token) {
-    return NextResponse.redirect(new URL("/books/search", request.url));
-  }
-
   if (isPublicPath(pathname)) {
     return NextResponse.next();
   }
