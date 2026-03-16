@@ -7,6 +7,7 @@ import { UserAvatar } from "@/components/auth/user-avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button, buttonStyles } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { createManageSectionHref } from "@/lib/clubs/manage-paths";
 import {
   canChangeClubMemberRole,
   canRemoveClubMember,
@@ -66,7 +67,12 @@ export function ClubMembersSection({
     return null;
   }
 
-  const managementReturnTo = returnTo ?? `/clubs/${club.id}/manage?tab=members`;
+  const managementReturnTo =
+    returnTo ??
+    createManageSectionHref({
+      clubId: club.id,
+      section: "members",
+    });
   const showManagementActions = mode === "manage" && Boolean(returnTo);
   const roleCounts: Record<MemberRoleFilter, number> = {
     ALL: members.length,

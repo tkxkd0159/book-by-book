@@ -1,6 +1,7 @@
 "use client";
 
 import { AlertTriangle, X } from "lucide-react";
+import { usePathname, useSearchParams } from "next/navigation";
 import { useId, useState } from "react";
 
 import { deleteClubAction } from "@/app/(protected)/clubs/actions";
@@ -10,7 +11,7 @@ import { ModalShell } from "@/components/ui/modal-shell";
 type DeleteClubButtonProps = {
   clubId: string;
   clubName: string;
-  returnTo: string;
+  returnTo?: string;
 };
 
 export function DeleteClubButton({
@@ -20,6 +21,11 @@ export function DeleteClubButton({
 }: DeleteClubButtonProps) {
   const [open, setOpen] = useState(false);
   const titleId = useId();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const currentQuery = searchParams.toString();
+  const resolvedReturnTo =
+    returnTo ?? (currentQuery ? `${pathname}?${currentQuery}` : pathname);
 
   function closeModal() {
     setOpen(false);
@@ -78,7 +84,7 @@ export function DeleteClubButton({
 
           <form action={deleteClubAction} className="flex flex-wrap gap-2">
             <input type="hidden" name="clubId" value={clubId} />
-            <input type="hidden" name="returnTo" value={returnTo} />
+            <input type="hidden" name="returnTo" value={resolvedReturnTo} />
             <Button type="button" variant="secondary" onClick={closeModal}>
               Cancel
             </Button>

@@ -16,24 +16,23 @@ export function PostComposer({
   returnTo,
 }: PostComposerProps) {
   return (
-    <form action={createThreadPostAction} className="space-y-4">
+    <form action={createThreadPostAction} className="space-y-3">
       <input type="hidden" name="clubId" value={clubId} />
       <input type="hidden" name="threadId" value={threadId} />
       <input type="hidden" name="returnTo" value={returnTo} />
 
-      <label className="block space-y-2 text-sm font-medium">
-        <span>Write a reply</span>
-        <Textarea
-          name="body"
-          placeholder="Add your thoughts to the thread."
-          maxLength={5000}
-          required
-        />
-      </label>
+      <Textarea
+        name="body"
+        aria-label="Reply body"
+        placeholder="Share your reply."
+        maxLength={5000}
+        required
+        className="min-h-24 bg-(--surface)"
+      />
 
       <Button type="submit">
         <Send aria-hidden className="h-4 w-4 shrink-0" />
-        Post reply
+        Post
       </Button>
     </form>
   );

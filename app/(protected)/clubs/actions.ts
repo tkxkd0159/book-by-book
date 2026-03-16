@@ -7,6 +7,10 @@ import { isRedirectError } from "next/dist/client/components/redirect-error";
 import { ensureBookInDatabase } from "@/lib/books/repository";
 import { ClubError, isClubError } from "@/lib/clubs/errors";
 import {
+  createManageEntryHref,
+  createManageSectionHref,
+} from "@/lib/clubs/manage-paths";
+import {
   acceptClubInvitation,
   addBookToClub,
   changeClubMemberRole,
@@ -92,6 +96,19 @@ function revalidateReturnTo(returnTo: string) {
 function revalidateClubPages(clubId: string) {
   revalidatePath(`/clubs/${clubId}`);
   revalidatePath(`/clubs/${clubId}/manage`);
+  revalidatePath(createManageEntryHref(clubId));
+  revalidatePath(
+    createManageSectionHref({
+      clubId,
+      section: "board",
+    }),
+  );
+  revalidatePath(
+    createManageSectionHref({
+      clubId,
+      section: "invite",
+    }),
+  );
 }
 
 export async function createClubAction(formData: FormData) {
@@ -165,7 +182,7 @@ export async function changeClubMemberRoleAction(formData: FormData) {
   const nextRole = parseManageableClubMemberRole(formData.get("nextRole"));
   const returnTo = parseSafeReturnTo(
     formData.get("returnTo"),
-    `/clubs/${clubId}/manage?tab=members`,
+    createManageEntryHref(clubId),
   );
 
   try {
@@ -191,7 +208,7 @@ export async function removeClubMemberAction(formData: FormData) {
   const targetUserId = parseInternalId(formData.get("targetUserId"), "Member");
   const returnTo = parseSafeReturnTo(
     formData.get("returnTo"),
-    `/clubs/${clubId}/manage?tab=members`,
+    createManageEntryHref(clubId),
   );
 
   try {
@@ -219,7 +236,7 @@ export async function transferClubOwnershipAction(formData: FormData) {
   );
   const returnTo = parseSafeReturnTo(
     formData.get("returnTo"),
-    `/clubs/${clubId}/manage?tab=members`,
+    createManageEntryHref(clubId),
   );
 
   try {
@@ -261,7 +278,10 @@ export async function createInvitationAction(formData: FormData) {
   const clubId = parseInternalId(formData.get("clubId"), "Club");
   const returnTo = parseSafeReturnTo(
     formData.get("returnTo"),
-    `/clubs/${clubId}/manage?tab=invite`,
+    createManageSectionHref({
+      clubId,
+      section: "invite",
+    }),
   );
 
   try {
@@ -292,7 +312,10 @@ export async function revokeInvitationAction(formData: FormData) {
   const invitationId = parseInternalId(formData.get("invitationId"), "Invitation");
   const returnTo = parseSafeReturnTo(
     formData.get("returnTo"),
-    `/clubs/${clubId}/manage?tab=invite`,
+    createManageSectionHref({
+      clubId,
+      section: "invite",
+    }),
   );
 
   try {
@@ -366,7 +389,10 @@ export async function moveClubBookAction(formData: FormData) {
   const clubBookId = parseInternalId(formData.get("clubBookId"), "Club book");
   const returnTo = parseSafeReturnTo(
     formData.get("returnTo"),
-    `/clubs/${clubId}/manage?tab=board`,
+    createManageSectionHref({
+      clubId,
+      section: "board",
+    }),
   );
 
   try {
@@ -391,7 +417,10 @@ export async function removeClubBookAction(formData: FormData) {
   const clubBookId = parseInternalId(formData.get("clubBookId"), "Club book");
   const returnTo = parseSafeReturnTo(
     formData.get("returnTo"),
-    `/clubs/${clubId}/manage?tab=board`,
+    createManageSectionHref({
+      clubId,
+      section: "board",
+    }),
   );
 
   try {

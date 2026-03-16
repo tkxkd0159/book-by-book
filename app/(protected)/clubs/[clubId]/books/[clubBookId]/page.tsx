@@ -207,7 +207,7 @@ export default async function ClubBookDiscussionPage({
         </div>
       </section>
 
-      <section className="space-y-4">
+      <section className="space-y-5 pt-2">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div className="space-y-1">
             <h2 className="text-2xl font-semibold">Discussion threads</h2>

@@ -21,14 +21,19 @@ async function addFixtureBookToClub(
 async function openFixtureBookCardDetails(
   page: import("@playwright/test").Page,
 ) {
-  await page
-    .getByLabel("Toggle details for The Test-Driven Book Club")
-    .click();
+  await page.getByLabel("Toggle details for The Test-Driven Book Club").click();
+}
+
+async function openThreadCard(
+  page: import("@playwright/test").Page,
+  threadTitle: string,
+) {
+  await page.getByLabel(`Open thread ${threadTitle}`).click();
 }
 
 async function openManagePage(page: import("@playwright/test").Page) {
   await page.getByRole("link", { name: "Manage" }).click();
-  await expect(page).toHaveURL(/\/clubs\/[0-9a-f-]+\/manage(?:\?|$)/i);
+  await expect(page).toHaveURL(/\/clubs\/[0-9a-f-]+\/manage\/members(?:\?|$)/i);
 }
 
 async function openManageTab(
@@ -38,11 +43,11 @@ async function openManageTab(
   await page.getByRole("link", { name: tabName, exact: true }).click();
 }
 
-async function openStartThreadModal(
-  page: import("@playwright/test").Page,
-) {
+async function openStartThreadModal(page: import("@playwright/test").Page) {
   await page.getByRole("button", { name: "Start a thread" }).click();
-  await expect(page.locator('body > [data-modal-root="start-thread"]')).toBeVisible();
+  await expect(
+    page.locator('body > [data-modal-root="start-thread"]'),
+  ).toBeVisible();
   return page.getByRole("dialog");
 }
 
@@ -87,7 +92,9 @@ test("club member can open a club-book discussion page and create a thread", asy
   ).toBeVisible();
   await expect(page.getByText("No threads yet.")).toBeVisible();
   const openedDialog = await openStartThreadModal(page);
-  await openedDialog.getByRole("button", { name: "Close start-thread modal" }).click();
+  await openedDialog
+    .getByRole("button", { name: "Close start-thread modal" })
+    .click();
   await expect(page.getByRole("dialog")).toHaveCount(0);
 
   const escapedDialog = await openStartThreadModal(page);
@@ -108,10 +115,10 @@ test("club member can open a club-book discussion page and create a thread", asy
 
   await expect(page.getByText("Thread created.")).toBeVisible();
   await expect(
-    page.getByRole("link", { name: "Chapter one reactions" }),
+    page.getByLabel("Open thread Chapter one reactions"),
   ).toBeVisible();
 
-  await page.getByRole("link", { name: "Chapter one reactions" }).click();
+  await openThreadCard(page, "Chapter one reactions");
   await expect(
     page.getByRole("heading", { name: "Chapter one reactions" }),
   ).toBeVisible();
@@ -142,10 +149,12 @@ test("post authors can create, edit, and delete their own posts while non-author
   });
 
   await expect(
-    page.getByRole("link", { name: "Post lifecycle thread" }),
+    page.getByLabel("Open thread Post lifecycle thread"),
   ).toBeVisible();
-  await page.getByRole("link", { name: "Post lifecycle thread" }).click();
-  await expect(page).toHaveURL(/\/clubs\/[0-9a-f-]+\/threads\/[0-9a-f-]+(?:\?|$)/i);
+  await openThreadCard(page, "Post lifecycle thread");
+  await expect(page).toHaveURL(
+    /\/clubs\/[0-9a-f-]+\/threads\/[0-9a-f-]+(?:\?|$)/i,
+  );
   await expect(
     page.getByRole("heading", { name: "Post lifecycle thread" }),
   ).toBeVisible();
@@ -156,26 +165,44 @@ test("post authors can create, edit, and delete their own posts while non-author
   await expect(page.getByText("You joined the club.")).toBeVisible();
 
   await page.goto(threadUrl);
-  await page.getByLabel("Write a reply").fill("My first reaction.");
-  await page.getByRole("button", { name: "Post reply" }).click();
+  await expect(page.getByText("Add a reply")).toHaveCount(0);
+  await expect(
+    page.getByText(
+      "Keep the discussion moving with questions, reactions, and notes.",
+    ),
+  ).toHaveCount(0);
+  await page.getByLabel("Reply body").fill("My first reaction.");
+  await page.getByRole("button", { name: "Post" }).click();
   await expect(page.getByText("Post created.")).toBeVisible();
   await expect(postBody(page, "My first reaction.")).toBeVisible();
+  await expect(page.getByTestId("thread-post-meta").first()).toContainText(
+    "Member Reader",
+  );
 
-  await page.getByText("Edit post").click();
-  await page.getByLabel("Edit your reply").fill("My updated reaction.");
-  await page.getByRole("button", { name: "Update post" }).click();
+  await page.getByRole("button", { name: "Edit post" }).click();
+  await page.getByLabel("Edit reply").fill("My updated reaction.");
+  await page.getByRole("button", { name: "Save" }).click();
   await expect(page.getByText("Post updated.")).toBeVisible();
   await expect(postBody(page, "My updated reaction.")).toBeVisible();
+  await expect(page.getByTestId("thread-post-meta").first()).toContainText(
+    "edited",
+  );
 
   await signInAs(page, "owner", threadUrl);
-  await expect(page.getByRole("button", { name: "Delete post" })).toHaveCount(0);
-  await expect(page.getByText("Edit post")).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Delete post" })).toHaveCount(
+    0,
+  );
+  await expect(page.getByRole("button", { name: "Edit post" })).toHaveCount(0);
   await expect(postBody(page, "My updated reaction.")).toBeVisible();
 
   await signInAs(page, "member", threadUrl);
   await page.getByRole("button", { name: "Delete post" }).click();
   await expect(page.getByText("Post deleted.")).toBeVisible();
-  await expect(page.getByText("This post was deleted.")).toBeVisible();
+  await expect(page.getByText("[deleted]")).toBeVisible();
+  await expect(page.getByTestId("thread-post-meta").first()).toContainText(
+    "[deleted]",
+  );
+  await expect(page.getByText("Member Reader")).toHaveCount(0);
 });
 
 test("club admins can pin a thread and move it ahead of newer threads", async ({
@@ -201,22 +228,32 @@ test("club admins can pin a thread and move it ahead of newer threads", async ({
     title: "Earlier thread",
     body: "Created first.",
   });
-  await expect(page.getByRole("link", { name: "Earlier thread" })).toBeVisible();
+  await expect(page.getByLabel("Open thread Earlier thread")).toBeVisible();
 
   await submitThreadFromModal(page, {
     title: "Later thread",
     body: "Created second.",
   });
-  await expect(page.getByRole("link", { name: "Later thread" })).toBeVisible();
+  await expect(page.getByLabel("Open thread Later thread")).toBeVisible();
 
-  await page.getByRole("link", { name: "Earlier thread" }).click();
-  await expect(page).toHaveURL(/\/clubs\/[0-9a-f-]+\/threads\/[0-9a-f-]+(?:\?|$)/i);
-  await page.locator("section").first().getByRole("button", { name: "Pin thread" }).click();
+  await openThreadCard(page, "Earlier thread");
+  await expect(page).toHaveURL(
+    /\/clubs\/[0-9a-f-]+\/threads\/[0-9a-f-]+(?:\?|$)/i,
+  );
+  await page
+    .locator("section")
+    .first()
+    .getByRole("button", { name: "Pin" })
+    .click();
   await expect(page.getByText("Thread pinned.")).toBeVisible();
 
   await page.getByRole("link", { name: "Back to discussion list" }).click();
-  await expect(page.locator("h3 a").nth(0)).toHaveText("Earlier thread");
-  await expect(page.locator("h3 a").nth(1)).toHaveText("Later thread");
+  await expect(page.getByLabel("Open thread Earlier thread")).toBeVisible();
+  await expect(page.getByLabel("Open thread Later thread")).toBeVisible();
+  await expect(page.locator("h3").nth(0)).toHaveText("Earlier thread");
+  await expect(page.locator("h3").nth(1)).toHaveText("Later thread");
+  await page.getByRole("button", { name: "Unpin" }).first().click();
+  await expect(page.getByText("Thread unpinned.")).toBeVisible();
 });
 
 test("archived club books keep discussion readable but disable new thread creation", async ({
@@ -225,7 +262,9 @@ test("archived club books keep discussion readable but disable new thread creati
   await signInAs(page, "owner", "/clubs/new");
 
   await page.getByLabel("Name").fill("Archived Discussion Club");
-  await page.getByLabel("Description").fill("Used for archived discussion coverage.");
+  await page
+    .getByLabel("Description")
+    .fill("Used for archived discussion coverage.");
   await page.getByLabel("Visibility").selectOption("PUBLIC");
   await page.getByRole("button", { name: "Create club" }).click();
 
@@ -237,30 +276,38 @@ test("archived club books keep discussion readable but disable new thread creati
   await page.goto(clubUrl);
   await openFixtureBookCardDetails(page);
   await page.getByRole("link", { name: "Discussion" }).click();
-  await expect(page).toHaveURL(/\/clubs\/[0-9a-f-]+\/books\/[0-9a-f-]+(?:\?|$)/i);
+  await expect(page).toHaveURL(
+    /\/clubs\/[0-9a-f-]+\/books\/[0-9a-f-]+(?:\?|$)/i,
+  );
   const discussionUrl = page.url();
 
   await submitThreadFromModal(page, {
     title: "Archived thread",
     body: "This thread should survive archive.",
   });
-  await expect(page.getByRole("link", { name: "Archived thread" })).toBeVisible();
+  await expect(page.getByLabel("Open thread Archived thread")).toBeVisible();
 
   await page.goto(clubUrl);
   await openManagePage(page);
   await openManageTab(page, "Reading board");
-  await expect(page).toHaveURL(/\/clubs\/[0-9a-f-]+\/manage\?tab=board/i);
+  await expect(page).toHaveURL(/\/clubs\/[0-9a-f-]+\/manage\/board(?:\?|$)/i);
   await openFixtureBookCardDetails(page);
   await expect(page.getByRole("button", { name: "Remove" })).toBeVisible();
   await page.getByRole("button", { name: "Remove" }).click();
   await expect(page.getByText("Book removed.")).toBeVisible();
-  await expect(page).toHaveURL(/\/clubs\/[0-9a-f-]+\/manage\?tab=board&message=/i);
+  await expect(page).toHaveURL(
+    /\/clubs\/[0-9a-f-]+\/manage\/board\?message=/i,
+  );
 
   await page.goto(discussionUrl);
   await expect(page.getByText("Archived book")).toBeVisible();
-  await expect(page.getByText("This club book has been archived.")).toBeVisible();
-  await expect(page.getByRole("button", { name: "Start a thread" })).toHaveCount(0);
-  await expect(page.getByRole("link", { name: "Archived thread" })).toBeVisible();
+  await expect(
+    page.getByText("This club book has been archived."),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "Start a thread" }),
+  ).toHaveCount(0);
+  await expect(page.getByLabel("Open thread Archived thread")).toBeVisible();
 });
 
 test("club admins can delete threads while members cannot", async ({
@@ -269,7 +316,9 @@ test("club admins can delete threads while members cannot", async ({
   await signInAs(page, "owner", "/clubs/new");
 
   await page.getByLabel("Name").fill("Thread Moderation UI Club");
-  await page.getByLabel("Description").fill("Used for thread deletion coverage.");
+  await page
+    .getByLabel("Description")
+    .fill("Used for thread deletion coverage.");
   await page.getByLabel("Visibility").selectOption("PUBLIC");
   await page.getByRole("button", { name: "Create club" }).click();
 
@@ -286,21 +335,27 @@ test("club admins can delete threads while members cannot", async ({
     title: "Delete me",
     body: "This thread should be removable.",
   });
-  await page.getByRole("link", { name: "Delete me" }).click();
-  await expect(page).toHaveURL(/\/clubs\/[0-9a-f-]+\/threads\/[0-9a-f-]+(?:\?|$)/i);
+  await openThreadCard(page, "Delete me");
+  await expect(page).toHaveURL(
+    /\/clubs\/[0-9a-f-]+\/threads\/[0-9a-f-]+(?:\?|$)/i,
+  );
   const threadUrl = page.url();
 
   await signInAs(page, "member", clubPath);
   await page.getByRole("button", { name: "Join club" }).click();
   await expect(page.getByText("You joined the club.")).toBeVisible();
   await page.goto(threadUrl);
-  await expect(page.getByRole("button", { name: "Delete thread" })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Delete thread" })).toHaveCount(
+    0,
+  );
 
   await signInAs(page, "owner", threadUrl);
   await page.getByRole("button", { name: "Delete thread" }).click();
-  await expect(page).toHaveURL(/\/clubs\/[0-9a-f-]+\/books\/[0-9a-f-]+(?:\?|$)/i);
+  await expect(page).toHaveURL(
+    /\/clubs\/[0-9a-f-]+\/books\/[0-9a-f-]+(?:\?|$)/i,
+  );
   await expect(page.getByText("Thread deleted.")).toBeVisible();
-  await expect(page.getByRole("link", { name: "Delete me" })).toHaveCount(0);
+  await expect(page.getByLabel("Open thread Delete me")).toHaveCount(0);
 });
 
 test("non-members see forbidden pages for discussion and thread routes", async ({
@@ -309,7 +364,9 @@ test("non-members see forbidden pages for discussion and thread routes", async (
   await signInAs(page, "owner", "/clubs/new");
 
   await page.getByLabel("Name").fill("Members Only Discussion Club");
-  await page.getByLabel("Description").fill("Discussion stays inside the club.");
+  await page
+    .getByLabel("Description")
+    .fill("Discussion stays inside the club.");
   await page.getByLabel("Visibility").selectOption("PUBLIC");
   await page.getByRole("button", { name: "Create club" }).click();
 
@@ -321,16 +378,22 @@ test("non-members see forbidden pages for discussion and thread routes", async (
   await page.goto(clubPath);
   await openFixtureBookCardDetails(page);
   await page.getByRole("link", { name: "Discussion" }).click();
-  await expect(page).toHaveURL(/\/clubs\/[0-9a-f-]+\/books\/[0-9a-f-]+(?:\?|$)/i);
+  await expect(page).toHaveURL(
+    /\/clubs\/[0-9a-f-]+\/books\/[0-9a-f-]+(?:\?|$)/i,
+  );
   const discussionUrl = page.url();
 
   await submitThreadFromModal(page, {
     title: "Locked chapter talk",
     body: "Only members should see this thread.",
   });
-  await expect(page.getByRole("link", { name: "Locked chapter talk" })).toBeVisible();
-  await page.getByRole("link", { name: "Locked chapter talk" }).click();
-  await expect(page).toHaveURL(/\/clubs\/[0-9a-f-]+\/threads\/[0-9a-f-]+(?:\?|$)/i);
+  await expect(
+    page.getByLabel("Open thread Locked chapter talk"),
+  ).toBeVisible();
+  await openThreadCard(page, "Locked chapter talk");
+  await expect(page).toHaveURL(
+    /\/clubs\/[0-9a-f-]+\/threads\/[0-9a-f-]+(?:\?|$)/i,
+  );
   const threadUrl = page.url();
 
   await signInAs(page, "stranger", "/clubs");

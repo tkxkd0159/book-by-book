@@ -28,7 +28,7 @@ export function PinThreadButton({
 
       <Button type="submit" variant="secondary" size="sm">
         <Pin aria-hidden className="h-4 w-4 shrink-0" />
-        {isPinned ? "Unpin thread" : "Pin thread"}
+        {isPinned ? "Unpin" : "Pin"}
       </Button>
     </form>
   );

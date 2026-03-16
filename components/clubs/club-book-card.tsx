@@ -6,6 +6,7 @@ import {
   removeClubBookAction,
 } from "@/app/(protected)/clubs/actions";
 import { Button, buttonStyles } from "@/components/ui/button";
+import { createManageSectionHref } from "@/lib/clubs/manage-paths";
 import {
   CLUB_BOOK_STATUS_LABELS,
   CLUB_BOOK_STATUS_ORDER,
@@ -37,7 +38,12 @@ export function ClubBookCard({
   showManageControls,
   returnTo,
 }: ClubBookCardProps) {
-  const managementReturnTo = returnTo ?? `/clubs/${clubId}/manage?tab=board`;
+  const managementReturnTo =
+    returnTo ??
+    createManageSectionHref({
+      clubId,
+      section: "board",
+    });
 
   return (
     <details className="group rounded-xl border border-(--border)/80 bg-(--surface)">

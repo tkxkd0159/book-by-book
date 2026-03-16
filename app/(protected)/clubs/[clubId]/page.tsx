@@ -10,6 +10,7 @@ import { ClubMembersSection } from "@/components/clubs/club-members-section";
 import { ClubSectionBoard } from "@/components/clubs/club-section-board";
 import { Badge } from "@/components/ui/badge";
 import { buttonStyles } from "@/components/ui/button";
+import { createManageEntryHref } from "@/lib/clubs/manage-paths";
 import {
   canLeaveClub,
   canJoinClub,
@@ -175,7 +176,7 @@ export default async function ClubDetailPage({
 
           <div className="flex flex-wrap gap-2">
             {canManage ? (
-              <Link href={`/clubs/${club.id}/manage`} className={buttonStyles({})}>
+              <Link href={createManageEntryHref(club.id)} className={buttonStyles({})}>
                 Manage
               </Link>
             ) : null}

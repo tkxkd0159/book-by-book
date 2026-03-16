@@ -34,8 +34,8 @@ export function ClubBookThreadList({
   }
 
   return (
-    <div className="space-y-4">
-      <div className="grid gap-4">
+    <div className="space-y-5">
+      <div className="grid gap-5">
         {threads.items.map((thread) => (
           <ThreadCard
             key={thread.id}

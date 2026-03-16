@@ -3,9 +3,8 @@ import Link from "next/link";
 import { forbidden, notFound } from "next/navigation";
 
 import { deleteThreadAction } from "@/app/(protected)/clubs/actions";
-import { PostActions } from "@/components/threads/post-actions";
-import { PinThreadButton } from "@/components/threads/pin-thread-button";
 import { PostComposer } from "@/components/threads/post-composer";
+import { ThreadPostCard } from "@/components/threads/thread-post-card";
 import { Badge } from "@/components/ui/badge";
 import { Button, buttonStyles } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -18,11 +17,7 @@ import {
   CLUB_BOOK_STATUS_LABELS,
 } from "@/lib/clubs/presentation";
 import { ThreadError } from "@/lib/threads/errors";
-import {
-  createDiscussionPageHref,
-  getThreadPostDisplayBody,
-  hasThreadPostBeenEdited,
-} from "@/lib/threads/presentation";
+import { createDiscussionPageHref } from "@/lib/threads/presentation";
 import { findThreadDetail } from "@/lib/threads/repository";
 
 type ThreadDetailPageProps = {
@@ -59,7 +54,10 @@ async function loadThreadDetailData(input: {
       page: input.page,
     });
   } catch (caughtError) {
-    if (caughtError instanceof ThreadError && caughtError.code === "NOT_FOUND") {
+    if (
+      caughtError instanceof ThreadError &&
+      caughtError.code === "NOT_FOUND"
+    ) {
       notFound();
     }
 
@@ -76,7 +74,10 @@ export default async function ThreadDetailPage({
     return null;
   }
 
-  const [{ clubId, threadId }, query] = await Promise.all([params, searchParams]);
+  const [{ clubId, threadId }, query] = await Promise.all([
+    params,
+    searchParams,
+  ]);
   const page = readPage(query.page);
   const message = readMessage(query.message);
   const error = readMessage(query.error);
@@ -99,7 +100,6 @@ export default async function ThreadDetailPage({
   const { thread, posts } = detail;
   const basePath = `/clubs/${clubId}/threads/${threadId}`;
   const currentPath = createDiscussionPageHref(basePath, page);
-  const canManagePins = isClubAdmin(detail.currentUserRole);
   const canDeleteThread = canDeleteThreads(detail.currentUserRole);
 
   return (
@@ -125,14 +125,14 @@ export default async function ThreadDetailPage({
             </Badge>
             {thread.isPinned ? <Badge variant="accent">Pinned</Badge> : null}
             {thread.clubBook.removedAt ? (
-              <Badge variant="destructive">
-                Archived book
-              </Badge>
+              <Badge variant="destructive">Archived book</Badge>
             ) : null}
           </div>
 
           <div className="space-y-2">
-            <h1 className="text-3xl font-semibold leading-tight">{thread.title}</h1>
+            <h1 className="text-3xl font-semibold leading-tight">
+              {thread.title}
+            </h1>
             {thread.body ? (
               <p className="max-w-3xl whitespace-pre-wrap text-(--muted)">
                 {thread.body}
@@ -143,7 +143,9 @@ export default async function ThreadDetailPage({
           <div className="flex flex-wrap gap-x-4 gap-y-2 text-sm text-(--muted)">
             <span>{thread.author.name ?? "Unknown reader"}</span>
             <span>Started {formatDate(thread.createdAt)}</span>
-            <span>{thread.postCount} post{thread.postCount === 1 ? "" : "s"}</span>
+            <span>
+              {thread.postCount} post{thread.postCount === 1 ? "" : "s"}
+            </span>
           </div>
 
           <div className="flex flex-wrap gap-2">
@@ -161,19 +163,14 @@ export default async function ThreadDetailPage({
               <BookOpen aria-hidden className="h-4 w-4 shrink-0" />
               Book details
             </Link>
-            {canManagePins ? (
-              <PinThreadButton
-                clubId={clubId}
-                clubBookId={thread.clubBook.id}
-                threadId={threadId}
-                isPinned={thread.isPinned}
-                returnTo={currentPath}
-              />
-            ) : null}
             {canDeleteThread ? (
               <form action={deleteThreadAction}>
                 <input type="hidden" name="clubId" value={clubId} />
-                <input type="hidden" name="clubBookId" value={thread.clubBook.id} />
+                <input
+                  type="hidden"
+                  name="clubBookId"
+                  value={thread.clubBook.id}
+                />
                 <input type="hidden" name="threadId" value={threadId} />
                 <input type="hidden" name="returnTo" value={currentPath} />
                 <Button type="submit" variant="destructive">
@@ -186,21 +183,11 @@ export default async function ThreadDetailPage({
         </div>
       </section>
 
-      <section className="space-y-4">
-        <div className="space-y-1">
-          <h2 className="text-2xl font-semibold">Posts</h2>
-          <p className="text-sm text-(--muted)">Read the thread timeline here.</p>
-        </div>
+      <section className="space-y-5 pt-2">
+        <h2 className="text-2xl font-semibold">Posts</h2>
 
         <Card className="border-(--border)/90">
-          <CardContent className="space-y-4 p-5">
-            <div className="space-y-1">
-              <h3 className="text-lg font-semibold">Add a reply</h3>
-              <p className="text-sm text-(--muted)">
-                Keep the discussion moving with questions, reactions, and notes.
-              </p>
-            </div>
-
+          <CardContent className="p-5 pt-5">
             <PostComposer
               clubId={clubId}
               threadId={threadId}
@@ -214,29 +201,16 @@ export default async function ThreadDetailPage({
             No posts yet.
           </p>
         ) : (
-          <div className="grid gap-4">
+          <div className="space-y-3 pt-1">
             {posts.items.map((post) => (
-              <Card key={post.id} className="border-(--border)/80 bg-(--surface)">
-                <CardContent className="space-y-3 p-5">
-                  <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-(--muted)">
-                    <span>{post.author.name ?? "Unknown reader"}</span>
-                    <span>{formatDate(post.createdAt)}</span>
-                    {hasThreadPostBeenEdited(post) ? <span>Edited</span> : null}
-                    {post.deletedAt ? <span>Deleted</span> : null}
-                  </div>
-                  <p className="whitespace-pre-wrap text-sm leading-6 text-foreground">
-                    {getThreadPostDisplayBody(post)}
-                  </p>
-                  {post.authorId === currentUser.id ? (
-                    <PostActions
-                      clubId={clubId}
-                      threadId={threadId}
-                      post={post}
-                      returnTo={currentPath}
-                    />
-                  ) : null}
-                </CardContent>
-              </Card>
+              <ThreadPostCard
+                key={post.id}
+                clubId={clubId}
+                threadId={threadId}
+                post={post}
+                returnTo={currentPath}
+                currentUserId={currentUser.id}
+              />
             ))}
           </div>
         )}
