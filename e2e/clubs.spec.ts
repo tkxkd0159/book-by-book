@@ -3,7 +3,19 @@ import { expect, test } from "@playwright/test";
 import { resetApp, signInAs } from "./helpers/auth";
 
 const CLUB_BOOK_URL = "/books/club-test-book";
-const CLUB_DETAIL_URL_PATTERN = /\/clubs\/[0-9a-f-]+(?:\?|$)/i;
+const CLUB_DETAIL_URL_PATTERN = /\/clubs\/[0-9a-f-]+\/board(?:\?|$)/i;
+
+function clubBoardPathFromUrl(url: string) {
+  return new URL(url).pathname;
+}
+
+function clubRootPathFromUrl(url: string) {
+  return clubBoardPathFromUrl(url).replace(/\/(board|members)$/, "");
+}
+
+function clubManageMembersPathFromUrl(url: string) {
+  return `${clubRootPathFromUrl(url)}/manage/members`;
+}
 
 test.beforeEach(async ({ request }) => {
   await resetApp(request);
@@ -74,7 +86,7 @@ test("user can create a public club and another user can join it", async ({
   await expect(page.getByRole("button", { name: "Leave club" })).toBeVisible();
   await expect(page.getByRole("link", { name: "Manage" })).toHaveCount(0);
   await openMembersTab(page);
-  await expect(page).toHaveURL(/\/clubs\/[0-9a-f-]+\?tab=members/i);
+  await expect(page).toHaveURL(/\/clubs\/[0-9a-f-]+\/members(?:\?|$)/i);
   await expect(page.getByRole("heading", { name: "Members" })).toBeVisible();
   await expect(page.getByText("Owner Reader")).toBeVisible();
   await expect(page.getByText("Member Reader")).toBeVisible();
@@ -128,8 +140,8 @@ test("private invite can be created and accepted by the matching user", async ({
   await page.getByRole("button", { name: "Create club" }).click();
 
   await expect(page).toHaveURL(CLUB_DETAIL_URL_PATTERN);
-  const clubPath = new URL(page.url()).pathname;
-  await page.goto(`${clubPath}/manage`);
+  const managePath = clubManageMembersPathFromUrl(page.url());
+  await page.goto(managePath);
   await expect(page).toHaveURL(/\/clubs\/[0-9a-f-]+\/manage\/members(?:\?|$)/i);
   await expect(page.getByRole("heading", { name: "Members" })).toBeVisible();
   await expect(page.getByRole("link", { name: "Invite", exact: true })).toBeVisible();
@@ -161,7 +173,7 @@ test("private invite can be created and accepted by the matching user", async ({
   await expect(page.getByText("Invitation accepted.")).toBeVisible();
   await expect(page.getByRole("button", { name: "Leave club" })).toBeVisible();
   await openMembersTab(page);
-  await expect(page).toHaveURL(/\/clubs\/[0-9a-f-]+\?tab=members/i);
+  await expect(page).toHaveURL(/\/clubs\/[0-9a-f-]+\/members(?:\?|$)/i);
   await expect(page.getByRole("heading", { name: "Members" })).toBeVisible();
 });
 
@@ -179,11 +191,11 @@ test("members and non-members cannot access the manage page", async ({
   await expect(
     page.getByRole("heading", { name: "Invite Guard Club" }),
   ).toBeVisible();
-  const clubPath = new URL(page.url()).pathname;
-  const manageUrl = `${clubPath}/manage`;
+  const clubBoardPath = clubBoardPathFromUrl(page.url());
+  const manageUrl = clubManageMembersPathFromUrl(page.url());
 
   await signInAs(page, "member", "/clubs");
-  await page.goto(clubPath);
+  await page.goto(clubBoardPath);
 
   await page.getByRole("button", { name: "Join club" }).click();
   await expect(page.getByText("You joined the club.")).toBeVisible();
@@ -208,7 +220,7 @@ test("private clubs stay out of discovery for non-members", async ({ page }) => 
   await page.getByRole("button", { name: "Create club" }).click();
 
   await expect(page).toHaveURL(CLUB_DETAIL_URL_PATTERN);
-  const clubPath = new URL(page.url()).pathname;
+  const clubBoardPath = clubBoardPathFromUrl(page.url());
   await openManagePage(page);
   await expect(page.getByRole("link", { name: "Invite", exact: true })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Private invites" })).toHaveCount(0);
@@ -217,7 +229,7 @@ test("private clubs stay out of discovery for non-members", async ({ page }) => 
   await expect(page.getByRole("heading", { name: "Discover Public Clubs" })).toBeVisible();
   await expect(page.getByText("Stealth Readers")).toHaveCount(0);
 
-  const response = await page.goto(clubPath);
+  const response = await page.goto(clubBoardPath);
   expect(response?.status()).toBe(403);
   await expect(page.getByRole("heading", { name: "Forbidden" })).toBeVisible();
 });
@@ -233,9 +245,9 @@ test("member can leave a public club and see it in discovery again", async ({
   await page.getByRole("button", { name: "Create club" }).click();
 
   await expect(page).toHaveURL(CLUB_DETAIL_URL_PATTERN);
-  const clubPath = new URL(page.url()).pathname;
+  const clubBoardPath = clubBoardPathFromUrl(page.url());
 
-  await signInAs(page, "member", clubPath);
+  await signInAs(page, "member", clubBoardPath);
   await page.getByRole("button", { name: "Join club" }).click();
   await expect(page.getByText("You joined the club.")).toBeVisible();
   await expect(page.getByRole("button", { name: "Leave club" })).toBeVisible();
@@ -258,14 +270,14 @@ test("owner can promote a member, transfer ownership, and then leave", async ({
   await page.getByRole("button", { name: "Create club" }).click();
 
   await expect(page).toHaveURL(CLUB_DETAIL_URL_PATTERN);
-  const clubPath = new URL(page.url()).pathname;
+  const clubBoardPath = clubBoardPathFromUrl(page.url());
   await expect(page.getByRole("button", { name: "Leave club" })).toHaveCount(0);
 
-  await signInAs(page, "member", clubPath);
+  await signInAs(page, "member", clubBoardPath);
   await page.getByRole("button", { name: "Join club" }).click();
   await expect(page.getByText("You joined the club.")).toBeVisible();
 
-  await signInAs(page, "owner", clubPath);
+  await signInAs(page, "owner", clubBoardPath);
   await openManagePage(page);
   await expect(page).toHaveURL(/\/clubs\/[0-9a-f-]+\/manage\/members(?:\?|$)/i);
   await expect(page.getByRole("link", { name: "Invite", exact: true })).toHaveCount(0);
@@ -284,14 +296,14 @@ test("owner can promote a member, transfer ownership, and then leave", async ({
   await expect(page.getByText("Ownership transferred.")).toBeVisible();
   await expect(page.getByRole("heading", { name: "Danger zone" })).toHaveCount(0);
 
-  await page.goto(clubPath);
+  await page.goto(clubBoardPath);
   await expect(page.getByRole("button", { name: "Leave club" })).toBeVisible();
 
   await page.getByRole("button", { name: "Leave club" }).click();
   await expect(page).toHaveURL(/\/clubs\?message=/);
   await expect(page.getByText("You left the club.")).toBeVisible();
 
-  await signInAs(page, "member", clubPath);
+  await signInAs(page, "member", clubBoardPath);
   await expect(page.getByRole("button", { name: "Leave club" })).toHaveCount(0);
   await openManagePage(page);
   await expect(page).toHaveURL(/\/clubs\/[0-9a-f-]+\/manage\/members(?:\?|$)/i);
@@ -310,24 +322,24 @@ test("owner and admins can both use Add admin from the manage page", async ({
   await page.getByRole("button", { name: "Create club" }).click();
 
   await expect(page).toHaveURL(CLUB_DETAIL_URL_PATTERN);
-  const clubPath = new URL(page.url()).pathname;
+  const clubBoardPath = clubBoardPathFromUrl(page.url());
 
-  await signInAs(page, "member", clubPath);
+  await signInAs(page, "member", clubBoardPath);
   await page.getByRole("button", { name: "Join club" }).click();
   await expect(page.getByText("You joined the club.")).toBeVisible();
 
-  await signInAs(page, "stranger", clubPath);
+  await signInAs(page, "stranger", clubBoardPath);
   await page.getByRole("button", { name: "Join club" }).click();
   await expect(page.getByText("You joined the club.")).toBeVisible();
 
-  await signInAs(page, "owner", clubPath);
+  await signInAs(page, "owner", clubBoardPath);
   await openManagePage(page);
   await expect(page.getByRole("link", { name: "Invite", exact: true })).toHaveCount(0);
   await expect(page.getByRole("heading", { name: "Danger zone" })).toBeVisible();
   await page.getByRole("button", { name: "Add admin for Member Reader" }).click();
   await expect(page.getByText("Member role updated.")).toBeVisible();
 
-  await signInAs(page, "member", clubPath);
+  await signInAs(page, "member", clubBoardPath);
   await expect(page.getByRole("link", { name: "Manage" })).toBeVisible();
   await openManagePage(page);
   await expect(page.getByRole("heading", { name: "Danger zone" })).toHaveCount(0);
@@ -383,11 +395,11 @@ test("club admin can add, move, and remove a book in section management", async 
   await expect(
     page.getByRole("heading", { name: "Section Operators" }),
   ).toBeVisible();
-  const clubUrl = page.url();
+  const clubBoardPath = clubBoardPathFromUrl(page.url());
 
   await addFixtureBookToClub(page, "Section Operators");
 
-  await page.goto(clubUrl);
+  await page.goto(clubBoardPath);
   await expect(page.getByText("The Test-Driven Book Club")).toBeVisible();
   await expect(page.getByRole("link", { name: "Book details" })).toHaveCount(0);
   await expect(

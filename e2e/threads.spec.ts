@@ -2,6 +2,8 @@ import { expect, test } from "@playwright/test";
 
 import { resetApp, signInAs } from "./helpers/auth";
 
+const CLUB_BOARD_URL_PATTERN = /\/clubs\/[0-9a-f-]+\/board(?:\?|$)/i;
+
 function postBody(page: import("@playwright/test").Page, text: string) {
   return page.locator("p").filter({ hasText: text }).first();
 }
@@ -78,12 +80,12 @@ test("club member can open a club-book discussion page and create a thread", asy
   await page.getByLabel("Visibility").selectOption("PUBLIC");
   await page.getByRole("button", { name: "Create club" }).click();
 
-  await expect(page).toHaveURL(/\/clubs\/[0-9a-f-]+(?:\?|$)/i);
-  const clubUrl = page.url();
+  await expect(page).toHaveURL(CLUB_BOARD_URL_PATTERN);
+  const clubBoardPath = new URL(page.url()).pathname;
 
   await addFixtureBookToClub(page, "Discussion Launch Club");
 
-  await page.goto(clubUrl);
+  await page.goto(clubBoardPath);
   await openFixtureBookCardDetails(page);
   await page.getByRole("link", { name: "Discussion" }).click();
 
@@ -135,12 +137,12 @@ test("post authors can create, edit, and delete their own posts while non-author
   await page.getByLabel("Visibility").selectOption("PUBLIC");
   await page.getByRole("button", { name: "Create club" }).click();
 
-  await expect(page).toHaveURL(/\/clubs\/[0-9a-f-]+(?:\?|$)/i);
-  const clubPath = new URL(page.url()).pathname;
+  await expect(page).toHaveURL(CLUB_BOARD_URL_PATTERN);
+  const clubBoardPath = new URL(page.url()).pathname;
 
   await addFixtureBookToClub(page, "Post Lifecycle Club");
 
-  await page.goto(clubPath);
+  await page.goto(clubBoardPath);
   await openFixtureBookCardDetails(page);
   await page.getByRole("link", { name: "Discussion" }).click();
   await submitThreadFromModal(page, {
@@ -160,7 +162,7 @@ test("post authors can create, edit, and delete their own posts while non-author
   ).toBeVisible();
   const threadUrl = page.url();
 
-  await signInAs(page, "member", clubPath);
+  await signInAs(page, "member", clubBoardPath);
   await page.getByRole("button", { name: "Join club" }).click();
   await expect(page.getByText("You joined the club.")).toBeVisible();
 
@@ -215,12 +217,12 @@ test("club admins can pin a thread and move it ahead of newer threads", async ({
   await page.getByLabel("Visibility").selectOption("PUBLIC");
   await page.getByRole("button", { name: "Create club" }).click();
 
-  await expect(page).toHaveURL(/\/clubs\/[0-9a-f-]+(?:\?|$)/i);
-  const clubUrl = page.url();
+  await expect(page).toHaveURL(CLUB_BOARD_URL_PATTERN);
+  const clubBoardPath = new URL(page.url()).pathname;
 
   await addFixtureBookToClub(page, "Pin Ordering Club");
 
-  await page.goto(clubUrl);
+  await page.goto(clubBoardPath);
   await openFixtureBookCardDetails(page);
   await page.getByRole("link", { name: "Discussion" }).click();
 
@@ -236,18 +238,13 @@ test("club admins can pin a thread and move it ahead of newer threads", async ({
   });
   await expect(page.getByLabel("Open thread Later thread")).toBeVisible();
 
-  await openThreadCard(page, "Earlier thread");
-  await expect(page).toHaveURL(
-    /\/clubs\/[0-9a-f-]+\/threads\/[0-9a-f-]+(?:\?|$)/i,
-  );
   await page
-    .locator("section")
-    .first()
+    .getByLabel("Open thread Earlier thread")
+    .locator("xpath=..")
     .getByRole("button", { name: "Pin" })
     .click();
   await expect(page.getByText("Thread pinned.")).toBeVisible();
 
-  await page.getByRole("link", { name: "Back to discussion list" }).click();
   await expect(page.getByLabel("Open thread Earlier thread")).toBeVisible();
   await expect(page.getByLabel("Open thread Later thread")).toBeVisible();
   await expect(page.locator("h3").nth(0)).toHaveText("Earlier thread");
@@ -268,12 +265,12 @@ test("archived club books keep discussion readable but disable new thread creati
   await page.getByLabel("Visibility").selectOption("PUBLIC");
   await page.getByRole("button", { name: "Create club" }).click();
 
-  await expect(page).toHaveURL(/\/clubs\/[0-9a-f-]+(?:\?|$)/i);
-  const clubUrl = page.url();
+  await expect(page).toHaveURL(CLUB_BOARD_URL_PATTERN);
+  const clubBoardPath = new URL(page.url()).pathname;
 
   await addFixtureBookToClub(page, "Archived Discussion Club");
 
-  await page.goto(clubUrl);
+  await page.goto(clubBoardPath);
   await openFixtureBookCardDetails(page);
   await page.getByRole("link", { name: "Discussion" }).click();
   await expect(page).toHaveURL(
@@ -287,7 +284,7 @@ test("archived club books keep discussion readable but disable new thread creati
   });
   await expect(page.getByLabel("Open thread Archived thread")).toBeVisible();
 
-  await page.goto(clubUrl);
+  await page.goto(clubBoardPath);
   await openManagePage(page);
   await openManageTab(page, "Reading board");
   await expect(page).toHaveURL(/\/clubs\/[0-9a-f-]+\/manage\/board(?:\?|$)/i);
@@ -322,12 +319,12 @@ test("club admins can delete threads while members cannot", async ({
   await page.getByLabel("Visibility").selectOption("PUBLIC");
   await page.getByRole("button", { name: "Create club" }).click();
 
-  await expect(page).toHaveURL(/\/clubs\/[0-9a-f-]+(?:\?|$)/i);
-  const clubPath = new URL(page.url()).pathname;
+  await expect(page).toHaveURL(CLUB_BOARD_URL_PATTERN);
+  const clubBoardPath = new URL(page.url()).pathname;
 
   await addFixtureBookToClub(page, "Thread Moderation UI Club");
 
-  await page.goto(clubPath);
+  await page.goto(clubBoardPath);
   await openFixtureBookCardDetails(page);
   await page.getByRole("link", { name: "Discussion" }).click();
 
@@ -341,7 +338,7 @@ test("club admins can delete threads while members cannot", async ({
   );
   const threadUrl = page.url();
 
-  await signInAs(page, "member", clubPath);
+  await signInAs(page, "member", clubBoardPath);
   await page.getByRole("button", { name: "Join club" }).click();
   await expect(page.getByText("You joined the club.")).toBeVisible();
   await page.goto(threadUrl);
@@ -370,12 +367,12 @@ test("non-members see forbidden pages for discussion and thread routes", async (
   await page.getByLabel("Visibility").selectOption("PUBLIC");
   await page.getByRole("button", { name: "Create club" }).click();
 
-  await expect(page).toHaveURL(/\/clubs\/[0-9a-f-]+(?:\?|$)/i);
-  const clubPath = new URL(page.url()).pathname;
+  await expect(page).toHaveURL(CLUB_BOARD_URL_PATTERN);
+  const clubBoardPath = new URL(page.url()).pathname;
 
   await addFixtureBookToClub(page, "Members Only Discussion Club");
 
-  await page.goto(clubPath);
+  await page.goto(clubBoardPath);
   await openFixtureBookCardDetails(page);
   await page.getByRole("link", { name: "Discussion" }).click();
   await expect(page).toHaveURL(

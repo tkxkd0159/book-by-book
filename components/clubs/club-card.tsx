@@ -2,6 +2,7 @@ import { UserPlus } from "lucide-react";
 import Link from "next/link";
 
 import { joinClubAction } from "@/app/(protected)/clubs/actions";
+import { createClubEntryHref } from "@/lib/clubs/view-paths";
 import {
   CLUB_MEMBER_COUNT_BADGE_VARIANT,
   CLUB_ROLE_BADGE_VARIANTS,
@@ -24,7 +25,7 @@ export function ClubCard({ club, returnTo }: ClubCardProps) {
     <Card className="group relative overflow-hidden border-2 transition-all duration-200 hover:-translate-y-1 hover:shadow-[0_18px_34px_rgba(42,32,18,0.12)] focus-within:-translate-y-1 focus-within:shadow-[0_18px_34px_rgba(42,32,18,0.12)]">
       <div className="pointer-events-none absolute inset-x-0 top-0 h-1 bg-linear-to-r from-(--accent)/70 via-[#cb8b39]/50 to-(--accent)/70" />
       <Link
-        href={`/clubs/${club.id}`}
+        href={createClubEntryHref(club.id)}
         aria-label={`Open ${club.name}`}
         className="absolute inset-0 z-0 rounded-xl focus:outline-none focus-visible:ring-2 focus-visible:ring-(--accent-soft) focus-visible:ring-offset-2 focus-visible:ring-offset-(--surface-strong)"
       />

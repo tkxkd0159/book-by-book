@@ -11,6 +11,10 @@ import {
   createManageSectionHref,
 } from "@/lib/clubs/manage-paths";
 import {
+  createClubEntryHref,
+  createClubSectionHref,
+} from "@/lib/clubs/view-paths";
+import {
   acceptClubInvitation,
   addBookToClub,
   changeClubMemberRole,
@@ -95,6 +99,13 @@ function revalidateReturnTo(returnTo: string) {
 
 function revalidateClubPages(clubId: string) {
   revalidatePath(`/clubs/${clubId}`);
+  revalidatePath(createClubEntryHref(clubId));
+  revalidatePath(
+    createClubSectionHref({
+      clubId,
+      section: "members",
+    }),
+  );
   revalidatePath(`/clubs/${clubId}/manage`);
   revalidatePath(createManageEntryHref(clubId));
   revalidatePath(
@@ -132,7 +143,11 @@ export async function createClubAction(formData: FormData) {
 
     revalidatePath("/clubs");
     redirect(
-      appendMessage(`/clubs/${club.id}`, "message", "Club created successfully."),
+      appendMessage(
+        createClubEntryHref(club.id),
+        "message",
+        "Club created successfully.",
+      ),
     );
   } catch (error) {
     rethrowIfRedirect(error);
@@ -143,7 +158,10 @@ export async function createClubAction(formData: FormData) {
 export async function joinClubAction(formData: FormData) {
   const currentUser = await requireCurrentUser();
   const clubId = parseInternalId(formData.get("clubId"), "Club");
-  const returnTo = parseSafeReturnTo(formData.get("returnTo"), `/clubs/${clubId}`);
+  const returnTo = parseSafeReturnTo(
+    formData.get("returnTo"),
+    createClubEntryHref(clubId),
+  );
 
   try {
     await joinPublicClub({ clubId, userId: currentUser.id });
@@ -159,7 +177,10 @@ export async function joinClubAction(formData: FormData) {
 export async function leaveClubAction(formData: FormData) {
   const currentUser = await requireCurrentUser();
   const clubId = parseInternalId(formData.get("clubId"), "Club");
-  const returnTo = parseSafeReturnTo(formData.get("returnTo"), `/clubs/${clubId}`);
+  const returnTo = parseSafeReturnTo(
+    formData.get("returnTo"),
+    createClubEntryHref(clubId),
+  );
 
   try {
     await leaveClub({
@@ -258,7 +279,10 @@ export async function transferClubOwnershipAction(formData: FormData) {
 export async function deleteClubAction(formData: FormData) {
   const currentUser = await requireCurrentUser();
   const clubId = parseInternalId(formData.get("clubId"), "Club");
-  const returnTo = parseSafeReturnTo(formData.get("returnTo"), `/clubs/${clubId}`);
+  const returnTo = parseSafeReturnTo(
+    formData.get("returnTo"),
+    createManageEntryHref(clubId),
+  );
 
   try {
     await deleteClub({
@@ -340,9 +364,13 @@ export async function acceptInvitationAction(formData: FormData) {
   try {
     const result = await acceptClubInvitation({ token, user: currentUser });
     revalidatePath("/clubs");
-    revalidatePath(`/clubs/${result.clubId}`);
+    revalidateClubPages(result.clubId);
     redirect(
-      appendMessage(`/clubs/${result.clubId}`, "message", "Invitation accepted."),
+      appendMessage(
+        createClubEntryHref(result.clubId),
+        "message",
+        "Invitation accepted.",
+      ),
     );
   } catch (error) {
     rethrowIfRedirect(error);
@@ -361,7 +389,10 @@ export async function addBookToClubAction(formData: FormData) {
   const clubId = parseInternalId(formData.get("clubId"), "Club");
   const bookId = parseInternalId(formData.get("bookId"), "Book");
   const status = parseClubBookStatus(formData.get("status"));
-  const returnTo = parseSafeReturnTo(formData.get("returnTo"), `/clubs/${clubId}`);
+  const returnTo = parseSafeReturnTo(
+    formData.get("returnTo"),
+    createClubEntryHref(clubId),
+  );
 
   try {
     await enforceMutationRateLimit({
@@ -375,7 +406,8 @@ export async function addBookToClubAction(formData: FormData) {
       addedById: currentUser.id,
       status,
     });
-    revalidatePath(`/clubs/${clubId}`);
+    revalidateClubPages(clubId);
+    revalidateReturnTo(returnTo);
     redirect(appendMessage(returnTo, "message", "Book added to the club."));
   } catch (error) {
     rethrowIfRedirect(error);
@@ -505,7 +537,7 @@ export async function addBookToClubsFromVolumeAction(formData: FormData) {
           addedById: currentUser.id,
           status: "WANT_TO_READ",
         });
-        revalidatePath(`/clubs/${clubId}`);
+        revalidateClubPages(clubId);
       }),
     );
 

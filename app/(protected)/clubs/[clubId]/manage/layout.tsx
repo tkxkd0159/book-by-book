@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { buttonStyles } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { isClubOwner } from "@/lib/clubs/permissions";
+import { createClubEntryHref } from "@/lib/clubs/view-paths";
 import {
   CLUB_MEMBER_COUNT_BADGE_VARIANT,
   CLUB_ROLE_BADGE_VARIANTS,
@@ -63,7 +64,7 @@ export default async function ClubManageLayout({
 
           <div className="flex flex-wrap gap-2">
             <Link
-              href={`/clubs/${club.id}`}
+              href={createClubEntryHref(club.id)}
               className={buttonStyles({ variant: "secondary" })}
             >
               Back to club

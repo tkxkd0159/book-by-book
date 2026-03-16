@@ -10,6 +10,7 @@ import { buttonStyles } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { getCurrentUser } from "@/lib/auth/server";
 import { isClubAdmin, isClubMember } from "@/lib/clubs/permissions";
+import { createClubEntryHref } from "@/lib/clubs/view-paths";
 import {
   CLUB_BOOK_STATUS_BADGE_VARIANTS,
   CLUB_BOOK_STATUS_LABELS,
@@ -190,7 +191,7 @@ export default async function ClubBookDiscussionPage({
 
           <div className="flex flex-wrap gap-2">
             <Link
-              href={`/clubs/${club.id}`}
+              href={createClubEntryHref(club.id)}
               className={buttonStyles({ variant: "secondary" })}
             >
               <ArrowLeft aria-hidden className="h-4 w-4 shrink-0" />
