@@ -7,7 +7,9 @@ export default defineConfig({
   fullyParallel: false,
   forbidOnly: Boolean(process.env.CI),
   retries: process.env.CI ? 2 : 0,
-  workers: process.env.CI ? 1 : undefined,
+  // These E2E suites share one dev server and one mutable fixture database.
+  // Cross-project concurrency lets one browser reset state out from under another.
+  workers: 1,
   reporter: process.env.CI ? "github" : "html",
   use: {
     baseURL: e2eBaseUrl,

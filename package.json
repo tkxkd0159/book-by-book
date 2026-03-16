@@ -10,7 +10,7 @@
     "prestart": "node scripts/ensure-local-postgres.mjs",
     "start": "next start",
     "lint": "eslint",
-    "test:unit": "NODE_ENV=test vitest run tests/unit",
+    "test": "NODE_ENV=test vitest run tests/unit",
     "test:integration": "NODE_ENV=test vitest run tests/integration",
     "test:e2e": "NODE_ENV=test playwright test"
   },
@@ -23,14 +23,14 @@
   },
   "devDependencies": {
     "@playwright/test": "^1.58.2",
-    "@tailwindcss/postcss": "^4",
-    "@types/node": "^20",
-    "@types/react": "^19",
-    "@types/react-dom": "^19",
-    "eslint": "^9",
+    "@tailwindcss/postcss": "^4.2.1",
+    "@types/node": "^24.12.0",
+    "@types/react": "^19.2.14",
+    "@types/react-dom": "^19.2.3",
+    "eslint": "^10.0.3",
     "eslint-config-next": "16.1.6",
-    "tailwindcss": "^4",
-    "typescript": "^5",
+    "tailwindcss": "^4.2.1",
+    "typescript": "^5.9.3",
     "vitest": "^4.1.0"
   }
 }
