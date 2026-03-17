@@ -1,10 +1,10 @@
-import { ArrowLeft, ArrowRight, BookOpen, Trash2 } from "lucide-react";
+import { ArrowLeft, BookOpen, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { forbidden, notFound } from "next/navigation";
 
 import { deleteThreadAction } from "@/app/(protected)/clubs/actions";
+import { InfiniteThreadComments } from "@/components/threads/infinite-thread-comments";
 import { PostComposer } from "@/components/threads/post-composer";
-import { ThreadPostCard } from "@/components/threads/thread-post-card";
 import { Badge } from "@/components/ui/badge";
 import { Button, buttonStyles } from "@/components/ui/button";
 import { getCurrentUser } from "@/lib/auth/server";
@@ -16,7 +16,6 @@ import {
   CLUB_BOOK_STATUS_LABELS,
 } from "@/lib/clubs/presentation";
 import { ThreadError } from "@/lib/threads/errors";
-import { createDiscussionPageHref } from "@/lib/threads/presentation";
 import { findThreadDetail } from "@/lib/threads/repository";
 
 type ThreadDetailPageProps = {
@@ -25,12 +24,6 @@ type ThreadDetailPageProps = {
 };
 
 type ThreadDetailData = Awaited<ReturnType<typeof findThreadDetail>>;
-
-function readPage(value: string | string[] | undefined) {
-  const raw = Array.isArray(value) ? value[0] : value;
-  const parsed = Number.parseInt(raw ?? "", 10);
-  return Number.isFinite(parsed) && parsed > 0 ? parsed : 1;
-}
 
 function formatDate(date: Date) {
   return new Intl.DateTimeFormat("en-US", {
@@ -43,14 +36,12 @@ async function loadThreadDetailData(input: {
   clubId: string;
   threadId: string;
   userId: string;
-  page: number;
 }): Promise<ThreadDetailData> {
   try {
     return await findThreadDetail({
       clubId: input.clubId,
       threadId: input.threadId,
       userId: input.userId,
-      page: input.page,
     });
   } catch (caughtError) {
     if (
@@ -77,9 +68,10 @@ export default async function ThreadDetailPage({
     params,
     searchParams,
   ]);
-  const page = readPage(query.page);
   const message = readMessage(query.message);
   const error = readMessage(query.error);
+  const restoreAfter = readMessage(query.after);
+  const focusPostId = readMessage(query.focusPostId);
   const club = await findClubDetail(clubId, currentUser.id);
 
   if (!club) {
@@ -94,11 +86,9 @@ export default async function ThreadDetailPage({
     clubId,
     threadId,
     userId: currentUser.id,
-    page,
   });
   const { thread, posts } = detail;
   const basePath = `/clubs/${clubId}/threads/${threadId}`;
-  const currentPath = createDiscussionPageHref(basePath, page);
   const canDeleteThread = canDeleteThreads(detail.currentUserRole);
 
   return (
@@ -171,7 +161,7 @@ export default async function ThreadDetailPage({
                   value={thread.clubBook.id}
                 />
                 <input type="hidden" name="threadId" value={threadId} />
-                <input type="hidden" name="returnTo" value={currentPath} />
+                <input type="hidden" name="returnTo" value={basePath} />
                 <Button type="submit" variant="destructive">
                   <Trash2 aria-hidden className="h-4 w-4 shrink-0" />
                   Delete thread
@@ -194,58 +184,20 @@ export default async function ThreadDetailPage({
           <PostComposer
             clubId={clubId}
             threadId={threadId}
-            returnTo={currentPath}
+            returnTo={basePath}
             placeholder="Add a comment."
           />
         </div>
 
-        {posts.items.length === 0 ? (
-          <p className="rounded-xl border border-dashed border-(--border) bg-(--surface) p-5 text-sm text-(--muted)">
-            No comments yet.
-          </p>
-        ) : (
-          <div className="space-y-4 pt-1">
-            {posts.items.map((post) => (
-              <ThreadPostCard
-                key={post.id}
-                clubId={clubId}
-                threadId={threadId}
-                post={post}
-                replies={post.replies}
-                returnTo={currentPath}
-                currentUserId={currentUser.id}
-              />
-            ))}
-          </div>
-        )}
-
-        {posts.hasPreviousPage || posts.hasNextPage ? (
-          <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-(--border) bg-(--surface) px-4 py-3 text-sm text-(--muted)">
-            <span>
-              Page {posts.page} of {posts.totalPages}
-            </span>
-            <div className="flex gap-2">
-              {posts.hasPreviousPage ? (
-                <Link
-                  href={createDiscussionPageHref(basePath, posts.page - 1)}
-                  className={buttonStyles({ variant: "secondary", size: "sm" })}
-                >
-                  <ArrowLeft aria-hidden className="h-4 w-4 shrink-0" />
-                  Previous
-                </Link>
-              ) : null}
-              {posts.hasNextPage ? (
-                <Link
-                  href={createDiscussionPageHref(basePath, posts.page + 1)}
-                  className={buttonStyles({ variant: "secondary", size: "sm" })}
-                >
-                  Next
-                  <ArrowRight aria-hidden className="h-4 w-4 shrink-0" />
-                </Link>
-              ) : null}
-            </div>
-          </div>
-        ) : null}
+        <InfiniteThreadComments
+          clubId={clubId}
+          threadId={threadId}
+          basePath={basePath}
+          currentUserId={currentUser.id}
+          posts={posts}
+          initialRestoreAfter={restoreAfter}
+          initialFocusPostId={focusPostId}
+        />
       </section>
     </div>
   );

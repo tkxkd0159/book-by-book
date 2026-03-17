@@ -33,10 +33,44 @@ export function hasThreadPostBeenEdited(input: {
   return !input.deletedAt && input.updatedAt.getTime() !== input.createdAt.getTime();
 }
 
-export function createDiscussionPageHref(basePath: string, page: number) {
-  if (page <= 1) {
-    return basePath;
+export function createDiscussionRestoreHref(
+  basePath: string,
+  options: {
+    after?: string | null;
+    focusThreadId?: string | null;
+    focusPostId?: string | null;
+    hash?: string | null;
+  } = {},
+) {
+  const url = new URL(basePath, "http://localhost");
+
+  if (options.after !== undefined) {
+    if (options.after) {
+      url.searchParams.set("after", options.after);
+    } else {
+      url.searchParams.delete("after");
+    }
   }
 
-  return `${basePath}?page=${page}`;
+  if (options.focusThreadId !== undefined) {
+    if (options.focusThreadId) {
+      url.searchParams.set("focusThreadId", options.focusThreadId);
+    } else {
+      url.searchParams.delete("focusThreadId");
+    }
+  }
+
+  if (options.focusPostId !== undefined) {
+    if (options.focusPostId) {
+      url.searchParams.set("focusPostId", options.focusPostId);
+    } else {
+      url.searchParams.delete("focusPostId");
+    }
+  }
+
+  if (options.hash !== undefined) {
+    url.hash = options.hash ? `#${options.hash}` : "";
+  }
+
+  return `${url.pathname}${url.search}${url.hash}`;
 }

@@ -296,6 +296,9 @@ CREATE INDEX IF NOT EXISTS threads_club_created_at_idx ON threads(club_id, creat
 CREATE INDEX IF NOT EXISTS threads_club_book_created_at_idx ON threads(club_book_id, created_at DESC);
 CREATE INDEX IF NOT EXISTS threads_book_created_at_idx ON threads(book_id, created_at DESC);
 CREATE INDEX IF NOT EXISTS threads_author_created_at_idx ON threads(author_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS threads_club_book_feed_idx
+ON threads(club_id, club_book_id, is_pinned DESC, created_at DESC, id DESC)
+WHERE deleted_at IS NULL;
 
 CREATE TABLE IF NOT EXISTS thread_posts (
   id         uuid        PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -323,6 +326,9 @@ FOR EACH ROW EXECUTE FUNCTION set_updated_at();
 CREATE INDEX IF NOT EXISTS thread_posts_thread_created_at_idx ON thread_posts(thread_id, created_at);
 CREATE INDEX IF NOT EXISTS thread_posts_thread_parent_created_at_idx ON thread_posts(thread_id, parent_post_id, created_at, id);
 CREATE INDEX IF NOT EXISTS thread_posts_author_created_at_idx ON thread_posts(author_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS thread_posts_thread_top_level_created_at_idx
+ON thread_posts(thread_id, created_at, id)
+WHERE parent_post_id IS NULL;
 
 -- -------------------------------------------------------------------
 -- Personal shelves (custom lists) + items

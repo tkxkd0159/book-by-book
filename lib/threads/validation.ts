@@ -5,9 +5,30 @@ import { ThreadError } from "@/lib/threads/errors";
 const THREAD_TITLE_MAX_LENGTH = 160;
 const THREAD_BODY_MAX_LENGTH = 5_000;
 const THREAD_POST_BODY_MAX_LENGTH = 5_000;
-const DEFAULT_DISCUSSION_PAGE = 1;
-const DEFAULT_DISCUSSION_PAGE_SIZE = 20;
-const MAX_DISCUSSION_PAGE_SIZE = 50;
+const DEFAULT_DISCUSSION_LIMIT = 20;
+const MAX_DISCUSSION_LIMIT = 50;
+
+type EncodedThreadListCursor = {
+  isPinned: boolean;
+  createdAtMicros: string;
+  id: string;
+};
+
+type EncodedThreadCommentCursor = {
+  createdAtMicros: string;
+  id: string;
+};
+
+export type ThreadListCursor = {
+  isPinned: boolean;
+  createdAtMicros: string;
+  id: string;
+};
+
+export type ThreadCommentCursor = {
+  createdAtMicros: string;
+  id: string;
+};
 
 function readString(value: FormDataEntryValue | string | null | undefined) {
   return typeof value === "string" ? value : "";
@@ -28,6 +49,48 @@ function parseWithThreadError<T>(result: z.ZodSafeParseResult<T>) {
 
   const message = result.error.issues[0]?.message ?? "Enter a valid value.";
   throw new ThreadError("VALIDATION", message);
+}
+
+function encodeOpaqueCursor(value: string) {
+  if (typeof window === "undefined") {
+    return Buffer.from(value, "utf8").toString("base64url");
+  }
+
+  return window
+    .btoa(value)
+    .replace(/\+/g, "-")
+    .replace(/\//g, "_")
+    .replace(/=+$/u, "");
+}
+
+function decodeOpaqueCursor(value: string) {
+  if (typeof window === "undefined") {
+    return Buffer.from(value, "base64url").toString("utf8");
+  }
+
+  const normalized = value
+    .replace(/-/g, "+")
+    .replace(/_/g, "/")
+    .padEnd(Math.ceil(value.length / 4) * 4, "=");
+
+  return window.atob(normalized);
+}
+
+function parseCursorPayload<T>(
+  value: FormDataEntryValue | string | null | undefined,
+  fallback: null,
+  parsePayload: (payload: unknown) => T,
+) {
+  const normalized = readString(value).trim();
+  if (!normalized) {
+    return fallback;
+  }
+
+  try {
+    return parsePayload(JSON.parse(decodeOpaqueCursor(normalized)));
+  } catch {
+    throw new ThreadError("VALIDATION", "Cursor is invalid.");
+  }
 }
 
 const threadTitleSchema = z
@@ -69,24 +132,42 @@ const threadPostBodySchema = z
       ),
   );
 
-const pageNumberSchema = z.coerce
+const discussionLimitSchema = z.coerce
   .number()
-  .int("Page must be a whole number.")
-  .min(1, "Page must be 1 or greater.");
-
-const pageSizeSchema = z.coerce
-  .number()
-  .int("Page size must be a whole number.")
-  .min(1, "Page size must be 1 or greater.")
+  .int("Limit must be a whole number.")
+  .min(1, "Limit must be 1 or greater.")
   .max(
-    MAX_DISCUSSION_PAGE_SIZE,
-    `Page size must be ${MAX_DISCUSSION_PAGE_SIZE} or fewer.`,
+    MAX_DISCUSSION_LIMIT,
+    `Limit must be ${MAX_DISCUSSION_LIMIT} or fewer.`,
   );
 
-export type DiscussionPagination = {
-  page: number;
-  pageSize: number;
-};
+const encodedThreadListCursorSchema = z.object({
+  isPinned: z.boolean(),
+  createdAtMicros: z.string().regex(/^\d+$/u),
+  id: z.string().min(1),
+});
+
+const encodedThreadCommentCursorSchema = z.object({
+  createdAtMicros: z.string().regex(/^\d+$/u),
+  id: z.string().min(1),
+});
+
+function mapEncodedThreadListCursor(cursor: EncodedThreadListCursor): ThreadListCursor {
+  return {
+    isPinned: cursor.isPinned,
+    createdAtMicros: cursor.createdAtMicros,
+    id: cursor.id,
+  };
+}
+
+function mapEncodedThreadCommentCursor(
+  cursor: EncodedThreadCommentCursor,
+): ThreadCommentCursor {
+  return {
+    createdAtMicros: cursor.createdAtMicros,
+    id: cursor.id,
+  };
+}
 
 export function parseThreadTitle(
   value: FormDataEntryValue | string | null | undefined,
@@ -115,40 +196,66 @@ export function parseOptionalParentPostId(
   return normalized.length > 0 ? normalized : null;
 }
 
-export function parseDiscussionPage(
-  value: FormDataEntryValue | string | number | null | undefined,
-) {
-  const normalized =
-    typeof value === "number" ? value : readString(value).trim() || DEFAULT_DISCUSSION_PAGE;
-
-  return parseWithThreadError(pageNumberSchema.safeParse(normalized));
-}
-
-export function parseDiscussionPageSize(
+export function parseDiscussionLimit(
   value: FormDataEntryValue | string | number | null | undefined,
 ) {
   const normalized =
     typeof value === "number"
       ? value
-      : readString(value).trim() || DEFAULT_DISCUSSION_PAGE_SIZE;
+      : readString(value).trim() || DEFAULT_DISCUSSION_LIMIT;
 
-  return parseWithThreadError(pageSizeSchema.safeParse(normalized));
+  return parseWithThreadError(discussionLimitSchema.safeParse(normalized));
 }
 
-export function normalizeDiscussionPagination(input: {
-  page?: number | null;
-  pageSize?: number | null;
-}): DiscussionPagination {
-  return {
-    page: parseDiscussionPage(input.page),
-    pageSize: parseDiscussionPageSize(input.pageSize),
-  };
+export function createThreadListCursor(input: {
+  isPinned: boolean;
+  createdAtMicros: number | string;
+  id: string;
+}) {
+  return encodeOpaqueCursor(
+    JSON.stringify({
+      isPinned: input.isPinned,
+      createdAtMicros: String(input.createdAtMicros),
+      id: input.id,
+    } satisfies EncodedThreadListCursor),
+  );
+}
+
+export function parseThreadListCursor(
+  value: FormDataEntryValue | string | null | undefined,
+) {
+  return parseCursorPayload(value, null, (payload) =>
+    mapEncodedThreadListCursor(
+      parseWithThreadError(encodedThreadListCursorSchema.safeParse(payload)),
+    ),
+  );
+}
+
+export function createThreadCommentCursor(input: {
+  createdAtMicros: number | string;
+  id: string;
+}) {
+  return encodeOpaqueCursor(
+    JSON.stringify({
+      createdAtMicros: String(input.createdAtMicros),
+      id: input.id,
+    } satisfies EncodedThreadCommentCursor),
+  );
+}
+
+export function parseThreadCommentCursor(
+  value: FormDataEntryValue | string | null | undefined,
+) {
+  return parseCursorPayload(value, null, (payload) =>
+    mapEncodedThreadCommentCursor(
+      parseWithThreadError(encodedThreadCommentCursorSchema.safeParse(payload)),
+    ),
+  );
 }
 
 export {
-  DEFAULT_DISCUSSION_PAGE,
-  DEFAULT_DISCUSSION_PAGE_SIZE,
-  MAX_DISCUSSION_PAGE_SIZE,
+  DEFAULT_DISCUSSION_LIMIT,
+  MAX_DISCUSSION_LIMIT,
   THREAD_BODY_MAX_LENGTH,
   THREAD_POST_BODY_MAX_LENGTH,
   THREAD_TITLE_MAX_LENGTH,

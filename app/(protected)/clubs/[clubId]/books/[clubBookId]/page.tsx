@@ -41,12 +41,6 @@ function readMessage(value: string | string[] | undefined) {
   return value ?? null;
 }
 
-function readPage(value: string | string[] | undefined) {
-  const raw = Array.isArray(value) ? value[0] : value;
-  const parsed = Number.parseInt(raw ?? "", 10);
-  return Number.isFinite(parsed) && parsed > 0 ? parsed : 1;
-}
-
 function formatDate(value: Date) {
   return new Intl.DateTimeFormat("en-US", {
     dateStyle: "medium",
@@ -57,7 +51,6 @@ async function loadClubBookDiscussionData(input: {
   clubId: string;
   clubBookId: string;
   userId: string;
-  page: number;
 }): Promise<ClubBookDiscussionData> {
   try {
     const [discussion, threads] = await Promise.all([
@@ -70,7 +63,6 @@ async function loadClubBookDiscussionData(input: {
         clubId: input.clubId,
         clubBookId: input.clubBookId,
         userId: input.userId,
-        page: input.page,
       }),
     ]);
 
@@ -97,9 +89,10 @@ export default async function ClubBookDiscussionPage({
   }
 
   const [{ clubId, clubBookId }, query] = await Promise.all([params, searchParams]);
-  const page = readPage(query.page);
   const message = readMessage(query.message);
   const error = readMessage(query.error);
+  const restoreAfter = readMessage(query.after);
+  const focusThreadId = readMessage(query.focusThreadId);
   const club = await findClubDetail(clubId, currentUser.id);
 
   if (!club) {
@@ -114,7 +107,6 @@ export default async function ClubBookDiscussionPage({
     clubId,
     clubBookId,
     userId: currentUser.id,
-    page,
   });
   const { clubBook } = discussion;
   const archived = Boolean(clubBook.removedAt);
@@ -242,6 +234,8 @@ export default async function ClubBookDiscussionPage({
           canManagePins={canManagePins}
           threads={threads}
           archived={archived}
+          initialRestoreAfter={restoreAfter}
+          initialFocusThreadId={focusThreadId}
         />
       </section>
     </div>

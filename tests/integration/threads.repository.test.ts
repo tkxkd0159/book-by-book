@@ -90,12 +90,13 @@ describe("thread repository integration", () => {
       userId: member.id,
     });
 
-    expect(listed.totalItems).toBe(2);
     expect(listed.items.map((thread) => thread.id)).toEqual([
       firstThread.id,
       secondThread.id,
     ]);
     expect(listed.items[0]?.isPinned).toBe(true);
+    expect(listed.hasMore).toBe(false);
+    expect(listed.nextCursor).toBeNull();
 
     const discussionContext = await findDiscussionClubBook({
       clubId: club.id,
@@ -109,6 +110,57 @@ describe("thread repository integration", () => {
       threadId: firstThread.id,
       unpinnedById: owner.id,
     });
+  });
+
+  it("rejects malformed thread and comment cursors", async () => {
+    const owner = await getRequiredUser("owner");
+    const book = await findBookByGoogleVolumeId(TEST_BOOK_VOLUME_ID);
+
+    const club = await createClub({
+      createdById: owner.id,
+      name: "Cursor Validation Club",
+      description: null,
+      visibility: "PUBLIC",
+    });
+
+    const clubBook = await addBookToClub({
+      clubId: club.id,
+      bookId: book!.id,
+      addedById: owner.id,
+      status: "READING",
+    });
+
+    const thread = await createThread({
+      clubId: club.id,
+      clubBookId: clubBook.id,
+      authorId: owner.id,
+      title: "Cursor validation thread",
+      body: null,
+    });
+
+    await expect(
+      listThreadsForClubBook({
+        clubId: club.id,
+        clubBookId: clubBook.id,
+        userId: owner.id,
+        afterCursor: "not-a-cursor",
+      }),
+    ).rejects.toMatchObject({
+      code: "VALIDATION",
+      message: "Cursor is invalid.",
+    } satisfies Partial<ThreadError>);
+
+    await expect(
+      findThreadDetail({
+        clubId: club.id,
+        threadId: thread.id,
+        userId: owner.id,
+        afterCursor: "also-not-a-cursor",
+      }),
+    ).rejects.toMatchObject({
+      code: "VALIDATION",
+      message: "Cursor is invalid.",
+    } satisfies Partial<ThreadError>);
   });
 
   it("rejects new thread creation after a club book is archived but still exposes existing discussion", async () => {
@@ -262,10 +314,11 @@ describe("thread repository integration", () => {
       threadId: thread.id,
       userId: member.id,
     });
-    expect(detail.posts.totalItems).toBe(1);
     expect(detail.posts.items[0]?.id).toBe(post.id);
     expect(detail.posts.items[0]?.deletedAt).toBeTruthy();
     expect(detail.posts.items[0]?.replies).toEqual([]);
+    expect(detail.posts.hasMore).toBe(false);
+    expect(detail.posts.nextCursor).toBeNull();
   });
 
   it("supports one-depth replies and keeps child replies visible after a parent is deleted", async () => {
@@ -362,7 +415,6 @@ describe("thread repository integration", () => {
       userId: member.id,
     });
     expect(detailBeforeDelete.thread.postCount).toBe(2);
-    expect(detailBeforeDelete.posts.totalItems).toBe(1);
     expect(detailBeforeDelete.posts.items[0]?.body).toBe("Top-level thought.");
     expect(detailBeforeDelete.posts.items[0]?.replies.map((reply) => reply.body)).toEqual([
       "Child reply.",
@@ -454,22 +506,24 @@ describe("thread repository integration", () => {
       clubId: club.id,
       clubBookId: clubBook.id,
       userId: owner.id,
-      page: 1,
-      pageSize: 2,
+      limit: 2,
     });
     const secondPage = await listThreadsForClubBook({
       clubId: club.id,
       clubBookId: clubBook.id,
       userId: owner.id,
-      page: 2,
-      pageSize: 2,
+      afterCursor: firstPage.nextCursor,
+      limit: 2,
     });
 
-    expect(firstPage.totalItems).toBe(3);
     expect(firstPage.items).toHaveLength(2);
     expect(firstPage.items[0]?.id).toBe(threads[1]!.id);
+    expect(firstPage.hasMore).toBe(true);
+    expect(firstPage.nextCursor).toBeTruthy();
     expect(secondPage.items).toHaveLength(1);
     expect(secondPage.items[0]?.id).toBe(threads[0]!.id);
+    expect(secondPage.hasMore).toBe(false);
+    expect(secondPage.nextCursor).toBeNull();
 
     const topLevelPosts = [];
     for (const body of ["Post One", "Post Two", "Post Three"]) {
@@ -496,18 +550,16 @@ describe("thread repository integration", () => {
       clubId: club.id,
       threadId: threads[1]!.id,
       userId: owner.id,
-      page: 1,
-      pageSize: 2,
+      limit: 2,
     });
     const detailPageTwo = await findThreadDetail({
       clubId: club.id,
       threadId: threads[1]!.id,
       userId: owner.id,
-      page: 2,
-      pageSize: 2,
+      afterCursor: detailPageOne.posts.nextCursor,
+      limit: 2,
     });
 
-    expect(detailPageOne.posts.totalItems).toBe(3);
     expect(detailPageOne.thread.postCount).toBe(4);
     expect(detailPageOne.posts.items.map((post) => post.body)).toEqual([
       "Post One",
@@ -520,6 +572,10 @@ describe("thread repository integration", () => {
     expect(detailPageTwo.posts.items.map((post) => post.body)).toEqual([
       "Post Three",
     ]);
+    expect(detailPageOne.posts.hasMore).toBe(true);
+    expect(detailPageOne.posts.nextCursor).toBeTruthy();
+    expect(detailPageTwo.posts.hasMore).toBe(false);
+    expect(detailPageTwo.posts.nextCursor).toBeNull();
   });
 
   it("lets club admins delete threads and cascades related posts", async () => {

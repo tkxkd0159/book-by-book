@@ -33,7 +33,10 @@ export function ThreadCard({
   const authorName = thread.author.name?.trim() || "Unknown reader";
 
   return (
-    <Card className="group relative overflow-hidden border-2 border-(--border)/85 bg-(--surface) transition-all duration-200 hover:-translate-y-1 hover:shadow-[0_18px_34px_rgba(42,32,18,0.12)] focus-within:-translate-y-1 focus-within:shadow-[0_18px_34px_rgba(42,32,18,0.12)]">
+    <Card
+      id={`thread-${thread.id}`}
+      className="group relative scroll-mt-28 overflow-hidden border-2 border-(--border)/85 bg-(--surface) transition-all duration-200 hover:-translate-y-1 hover:shadow-[0_18px_34px_rgba(42,32,18,0.12)] focus-within:-translate-y-1 focus-within:shadow-[0_18px_34px_rgba(42,32,18,0.12)] sm:scroll-mt-32"
+    >
       <div className="pointer-events-none absolute inset-x-0 top-0 h-1 bg-linear-to-r from-(--accent)/70 via-[#cb8b39]/50 to-(--accent)/70" />
       <Link
         href={`/clubs/${clubId}/threads/${thread.id}`}

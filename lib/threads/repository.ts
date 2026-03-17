@@ -15,7 +15,13 @@ import {
   canViewThreads,
   isThreadPostAuthor,
 } from "@/lib/threads/permissions";
-import { normalizeDiscussionPagination } from "@/lib/threads/validation";
+import {
+  createThreadCommentCursor,
+  createThreadListCursor,
+  parseDiscussionLimit,
+  parseThreadCommentCursor,
+  parseThreadListCursor,
+} from "@/lib/threads/validation";
 import { ThreadError } from "@/lib/threads/errors";
 
 type QueryExecutor = typeof sql;
@@ -58,6 +64,7 @@ type ThreadRow = {
   createdAt: Date;
   updatedAt: Date;
   deletedAt: Date | null;
+  cursorCreatedAtMicros?: string;
 };
 
 type ThreadSummaryRow = ThreadRow & {
@@ -95,6 +102,7 @@ type ThreadPostRow = {
   deletedAt: Date | null;
   authorName: string | null;
   authorImageUrl: string | null;
+  cursorCreatedAtMicros?: string;
 };
 
 type ThreadPostForMutationRow = ThreadPostRow & {
@@ -131,14 +139,11 @@ export type ThreadComment = ThreadPostWithAuthor & {
   replies: ThreadPostWithAuthor[];
 };
 
-export type PaginatedResult<T> = {
+export type CursorPaginationResult<T> = {
   items: T[];
-  page: number;
-  pageSize: number;
-  totalItems: number;
-  totalPages: number;
-  hasPreviousPage: boolean;
-  hasNextPage: boolean;
+  nextCursor: string | null;
+  endCursor: string | null;
+  hasMore: boolean;
 };
 
 export type ThreadDetail = ThreadSummary & {
@@ -242,24 +247,23 @@ function mapThreadDetail(row: ThreadDetailRow): ThreadDetail {
   };
 }
 
-function createPaginationResult<T>(input: {
-  items: T[];
-  page: number;
-  pageSize: number;
-  totalItems: number;
-}): PaginatedResult<T> {
-  const totalPages = input.totalItems > 0
-    ? Math.ceil(input.totalItems / input.pageSize)
-    : 1;
-
+function createCursorPaginationResult<TRow, TItem>(input: {
+  rows: TRow[];
+  limit: number;
+  mapItem: (row: TRow) => TItem;
+  getCursor: (row: TRow) => string;
+}): CursorPaginationResult<TItem> {
+  const hasMore = input.rows.length > input.limit;
+  const visibleRows = hasMore
+    ? input.rows.slice(0, input.limit)
+    : input.rows;
+  const lastRow = visibleRows.at(-1) ?? null;
+  const endCursor = lastRow ? input.getCursor(lastRow) : null;
   return {
-    items: input.items,
-    page: input.page,
-    pageSize: input.pageSize,
-    totalItems: input.totalItems,
-    totalPages,
-    hasPreviousPage: input.page > 1,
-    hasNextPage: input.page < totalPages,
+    items: visibleRows.map(input.mapItem),
+    nextCursor: hasMore ? endCursor : null,
+    endCursor,
+    hasMore,
   };
 }
 
@@ -425,61 +429,101 @@ export async function listThreadsForClubBook(input: {
   clubId: string;
   clubBookId: string;
   userId: string;
-  page?: number | null;
-  pageSize?: number | null;
+  afterCursor?: string | null;
+  limit?: number | null;
 }) {
   await findDiscussionClubBook(input);
 
-  const { page, pageSize } = normalizeDiscussionPagination({
-    page: input.page,
-    pageSize: input.pageSize,
-  });
-  const offset = (page - 1) * pageSize;
+  const limit = parseDiscussionLimit(input.limit);
+  const afterCursor = parseThreadListCursor(input.afterCursor);
+  const queryLimit = limit + 1;
 
-  const [countRow] = await sql<{ totalItems: number }[]>`
-    select count(*)::int as "totalItems"
-    from bookapp.threads
-    where club_id = ${input.clubId}::uuid
-      and club_book_id = ${input.clubBookId}::uuid
-      and deleted_at is null
-  `;
+  const rows = afterCursor
+    ? await sql<ThreadSummaryRow[]>`
+      select
+        threads.id::text as id,
+        threads.club_id::text as "clubId",
+        threads.club_book_id::text as "clubBookId",
+        threads.book_id::text as "bookId",
+        threads.author_id::text as "authorId",
+        threads.title,
+        threads.body,
+        threads.is_locked as "isLocked",
+        threads.is_pinned as "isPinned",
+        threads.created_at as "createdAt",
+        ((extract(epoch from threads.created_at) * 1000000)::bigint)::text as "cursorCreatedAtMicros",
+        threads.updated_at as "updatedAt",
+        threads.deleted_at as "deletedAt",
+        users.name as "authorName",
+        users.image_url as "authorImageUrl",
+        (
+          select count(*)::int
+          from bookapp.thread_posts
+          where thread_posts.thread_id = threads.id
+        ) as "postCount"
+      from bookapp.threads
+      join bookapp.users on users.id = threads.author_id
+      where threads.club_id = ${input.clubId}::uuid
+        and threads.club_book_id = ${input.clubBookId}::uuid
+        and threads.deleted_at is null
+        and (
+          threads.is_pinned < ${afterCursor.isPinned}
+          or (
+            threads.is_pinned = ${afterCursor.isPinned}
+            and (extract(epoch from threads.created_at) * 1000000)::bigint
+              < ${afterCursor.createdAtMicros}::bigint
+          )
+          or (
+            threads.is_pinned = ${afterCursor.isPinned}
+            and (extract(epoch from threads.created_at) * 1000000)::bigint
+              = ${afterCursor.createdAtMicros}::bigint
+            and threads.id < ${afterCursor.id}::uuid
+          )
+        )
+      order by threads.is_pinned desc, threads.created_at desc, threads.id desc
+      limit ${queryLimit}
+    `
+    : await sql<ThreadSummaryRow[]>`
+      select
+        threads.id::text as id,
+        threads.club_id::text as "clubId",
+        threads.club_book_id::text as "clubBookId",
+        threads.book_id::text as "bookId",
+        threads.author_id::text as "authorId",
+        threads.title,
+        threads.body,
+        threads.is_locked as "isLocked",
+        threads.is_pinned as "isPinned",
+        threads.created_at as "createdAt",
+        ((extract(epoch from threads.created_at) * 1000000)::bigint)::text as "cursorCreatedAtMicros",
+        threads.updated_at as "updatedAt",
+        threads.deleted_at as "deletedAt",
+        users.name as "authorName",
+        users.image_url as "authorImageUrl",
+        (
+          select count(*)::int
+          from bookapp.thread_posts
+          where thread_posts.thread_id = threads.id
+        ) as "postCount"
+      from bookapp.threads
+      join bookapp.users on users.id = threads.author_id
+      where threads.club_id = ${input.clubId}::uuid
+        and threads.club_book_id = ${input.clubBookId}::uuid
+        and threads.deleted_at is null
+      order by threads.is_pinned desc, threads.created_at desc, threads.id desc
+      limit ${queryLimit}
+    `;
 
-  const rows = await sql<ThreadSummaryRow[]>`
-    select
-      threads.id::text as id,
-      threads.club_id::text as "clubId",
-      threads.club_book_id::text as "clubBookId",
-      threads.book_id::text as "bookId",
-      threads.author_id::text as "authorId",
-      threads.title,
-      threads.body,
-      threads.is_locked as "isLocked",
-      threads.is_pinned as "isPinned",
-      threads.created_at as "createdAt",
-      threads.updated_at as "updatedAt",
-      threads.deleted_at as "deletedAt",
-      users.name as "authorName",
-      users.image_url as "authorImageUrl",
-      (
-        select count(*)::int
-        from bookapp.thread_posts
-        where thread_posts.thread_id = threads.id
-      ) as "postCount"
-    from bookapp.threads
-    join bookapp.users on users.id = threads.author_id
-    where threads.club_id = ${input.clubId}::uuid
-      and threads.club_book_id = ${input.clubBookId}::uuid
-      and threads.deleted_at is null
-    order by threads.is_pinned desc, threads.created_at desc, threads.id desc
-    limit ${pageSize}
-    offset ${offset}
-  `;
-
-  return createPaginationResult({
-    items: rows.map(mapThreadSummary),
-    page,
-    pageSize,
-    totalItems: countRow?.totalItems ?? 0,
+  return createCursorPaginationResult({
+    rows,
+    limit,
+    mapItem: mapThreadSummary,
+    getCursor: (row) =>
+      createThreadListCursor({
+        isPinned: row.isPinned,
+        createdAtMicros: row.cursorCreatedAtMicros ?? row.createdAt.getTime() * 1000,
+        id: row.id,
+      }),
   });
 }
 
@@ -553,19 +597,17 @@ export async function findThreadDetail(input: {
   clubId: string;
   threadId: string;
   userId: string;
-  page?: number | null;
-  pageSize?: number | null;
+  afterCursor?: string | null;
+  limit?: number | null;
 }) {
   const membership = await getMembership(sql, input.clubId, input.userId);
   if (!membership || !canViewThreads(membership.role)) {
     throw new ThreadError("NOT_FOUND", "Thread not found.");
   }
 
-  const { page, pageSize } = normalizeDiscussionPagination({
-    page: input.page,
-    pageSize: input.pageSize,
-  });
-  const offset = (page - 1) * pageSize;
+  const limit = parseDiscussionLimit(input.limit);
+  const afterCursor = parseThreadCommentCursor(input.afterCursor);
+  const queryLimit = limit + 1;
 
   const [threadRow] = await sql<ThreadDetailRow[]>`
     select
@@ -619,35 +661,62 @@ export async function findThreadDetail(input: {
     throw new ThreadError("NOT_FOUND", "Thread not found.");
   }
 
-  const [countRow] = await sql<{ totalItems: number }[]>`
-    select count(*)::int as "totalItems"
-    from bookapp.thread_posts
-    where thread_id = ${input.threadId}::uuid
-      and parent_post_id is null
-  `;
+  const topLevelRows = afterCursor
+    ? await sql<ThreadPostRow[]>`
+      select
+        thread_posts.id::text as id,
+        thread_posts.thread_id::text as "threadId",
+        thread_posts.parent_post_id::text as "parentPostId",
+        thread_posts.author_id::text as "authorId",
+        thread_posts.body,
+        thread_posts.created_at as "createdAt",
+        ((extract(epoch from thread_posts.created_at) * 1000000)::bigint)::text as "cursorCreatedAtMicros",
+        thread_posts.updated_at as "updatedAt",
+        thread_posts.deleted_at as "deletedAt",
+        users.name as "authorName",
+        users.image_url as "authorImageUrl"
+      from bookapp.thread_posts
+      join bookapp.users on users.id = thread_posts.author_id
+      where thread_posts.thread_id = ${input.threadId}::uuid
+        and thread_posts.parent_post_id is null
+        and (
+          (extract(epoch from thread_posts.created_at) * 1000000)::bigint
+            > ${afterCursor.createdAtMicros}::bigint
+          or (
+            (extract(epoch from thread_posts.created_at) * 1000000)::bigint
+              = ${afterCursor.createdAtMicros}::bigint
+            and thread_posts.id > ${afterCursor.id}::uuid
+          )
+        )
+      order by thread_posts.created_at asc, thread_posts.id asc
+      limit ${queryLimit}
+    `
+    : await sql<ThreadPostRow[]>`
+      select
+        thread_posts.id::text as id,
+        thread_posts.thread_id::text as "threadId",
+        thread_posts.parent_post_id::text as "parentPostId",
+        thread_posts.author_id::text as "authorId",
+        thread_posts.body,
+        thread_posts.created_at as "createdAt",
+        ((extract(epoch from thread_posts.created_at) * 1000000)::bigint)::text as "cursorCreatedAtMicros",
+        thread_posts.updated_at as "updatedAt",
+        thread_posts.deleted_at as "deletedAt",
+        users.name as "authorName",
+        users.image_url as "authorImageUrl"
+      from bookapp.thread_posts
+      join bookapp.users on users.id = thread_posts.author_id
+      where thread_posts.thread_id = ${input.threadId}::uuid
+        and thread_posts.parent_post_id is null
+      order by thread_posts.created_at asc, thread_posts.id asc
+      limit ${queryLimit}
+    `;
 
-  const topLevelRows = await sql<ThreadPostRow[]>`
-    select
-      thread_posts.id::text as id,
-      thread_posts.thread_id::text as "threadId",
-      thread_posts.parent_post_id::text as "parentPostId",
-      thread_posts.author_id::text as "authorId",
-      thread_posts.body,
-      thread_posts.created_at as "createdAt",
-      thread_posts.updated_at as "updatedAt",
-      thread_posts.deleted_at as "deletedAt",
-      users.name as "authorName",
-      users.image_url as "authorImageUrl"
-    from bookapp.thread_posts
-    join bookapp.users on users.id = thread_posts.author_id
-    where thread_posts.thread_id = ${input.threadId}::uuid
-      and thread_posts.parent_post_id is null
-    order by thread_posts.created_at asc, thread_posts.id asc
-    limit ${pageSize}
-    offset ${offset}
-  `;
-
-  const topLevelIds = topLevelRows.map((post) => post.id);
+  const hasMore = topLevelRows.length > limit;
+  const visibleTopLevelRows = hasMore
+    ? topLevelRows.slice(0, limit)
+    : topLevelRows;
+  const topLevelIds = visibleTopLevelRows.map((post) => post.id);
   const replyRows = topLevelIds.length > 0
     ? await sql<ThreadPostRow[]>`
       select
@@ -687,15 +756,29 @@ export async function findThreadDetail(input: {
   return {
     currentUserRole: membership.role,
     thread: mapThreadDetail(threadRow),
-    posts: createPaginationResult({
-      items: topLevelRows.map((post) => ({
+    posts: {
+      items: visibleTopLevelRows.map((post) => ({
         ...mapThreadPost(post),
         replies: repliesByParentId.get(post.id) ?? [],
       })),
-      page,
-      pageSize,
-      totalItems: countRow?.totalItems ?? 0,
-    }),
+      nextCursor: hasMore && visibleTopLevelRows.length > 0
+        ? createThreadCommentCursor({
+          createdAtMicros:
+              visibleTopLevelRows[visibleTopLevelRows.length - 1]!.cursorCreatedAtMicros
+              ?? visibleTopLevelRows[visibleTopLevelRows.length - 1]!.createdAt.getTime() * 1000,
+          id: visibleTopLevelRows[visibleTopLevelRows.length - 1]!.id,
+        })
+        : null,
+      endCursor: visibleTopLevelRows.length > 0
+        ? createThreadCommentCursor({
+          createdAtMicros:
+              visibleTopLevelRows[visibleTopLevelRows.length - 1]!.cursorCreatedAtMicros
+              ?? visibleTopLevelRows[visibleTopLevelRows.length - 1]!.createdAt.getTime() * 1000,
+          id: visibleTopLevelRows[visibleTopLevelRows.length - 1]!.id,
+        })
+        : null,
+      hasMore,
+    },
   };
 }
 

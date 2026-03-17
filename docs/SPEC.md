@@ -417,9 +417,9 @@ Milestone 3 — Threads
 - Basic pagination
 
 Milestone 4 — Personal Shelves + Reviews
-- Create shelves. We need to refactor "import" feature to be reusable for both club book addition and shelf item addition, since both require adding a book to the DB by googleVolumeId. So reanme "import" button to "Add book" and reuse for both flows.
+- Create shelves. We need to refactor "Add Book" feature to be reusable for both club book addition and shelf item addition, since both require adding a book to the DB by googleVolumeId.
 - Add/remove books from shelves
-- Create/edit/delete review
+- Create/edit/delete review per book. If any user leaves a review, the book data will be saved in our DB like "Add Book" flow, so we can show the review on the book detail page and link to the book from the profile. User can set rating from 1 to 5 starts and write a review body. We can show the average rating on the book detail page as well by calculating the average of all reviews for that book.
 - Profile reviewed list
 
 ## 14) Implementation Notes (Practical Defaults)

@@ -1,8 +1,34 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, type APIRequestContext } from "@playwright/test";
 
 import { resetApp, signInAs } from "./helpers/auth";
 
 const CLUB_BOARD_URL_PATTERN = /\/clubs\/[0-9a-f-]+\/board(?:\?|$)/i;
+const discussionPathPattern = /^\/clubs\/([^/]+)\/books\/([^/]+)$/i;
+const threadPathPattern = /^\/clubs\/([^/]+)\/threads\/([^/]+)$/i;
+
+function parseDiscussionPath(pathname: string) {
+  const match = pathname.match(discussionPathPattern);
+  if (!match) {
+    throw new Error(`Expected a discussion path, received ${pathname}.`);
+  }
+
+  return {
+    clubId: match[1]!,
+    clubBookId: match[2]!,
+  };
+}
+
+function parseThreadPath(pathname: string) {
+  const match = pathname.match(threadPathPattern);
+  if (!match) {
+    throw new Error(`Expected a thread detail path, received ${pathname}.`);
+  }
+
+  return {
+    clubId: match[1]!,
+    threadId: match[2]!,
+  };
+}
 
 function postBody(page: import("@playwright/test").Page, text: string) {
   return page.locator("p").filter({ hasText: text }).first();
@@ -79,6 +105,61 @@ async function submitThreadFromModal(
   await dialog.getByLabel("Thread title").fill(input.title);
   await dialog.getByLabel("Opening note").fill(input.body);
   await dialog.getByRole("button", { name: "Start thread" }).click();
+}
+
+async function createDiscussionThreads(
+  request: APIRequestContext,
+  page: import("@playwright/test").Page,
+  count: number,
+  prefix: string,
+) {
+  await expect(page).toHaveURL(/\/clubs\/[0-9a-f-]+\/books\/[0-9a-f-]+(?:\?|$)/i);
+  const { clubId, clubBookId } = parseDiscussionPath(new URL(page.url()).pathname);
+  const response = await request.post("/api/test/threads", {
+    data: {
+      kind: "threads",
+      clubId,
+      clubBookId,
+      count,
+      prefix,
+      user: "owner",
+    },
+  });
+  expect(response.ok()).toBeTruthy();
+
+  await page.reload();
+  await expect(
+    page.getByLabel(`Open thread ${prefix} ${String(count).padStart(2, "0")}`),
+  ).toBeVisible();
+}
+
+async function createTopLevelComments(
+  request: APIRequestContext,
+  page: import("@playwright/test").Page,
+  count: number,
+  prefix: string,
+) {
+  await expect(page).toHaveURL(/\/clubs\/[0-9a-f-]+\/threads\/[0-9a-f-]+(?:\?|$)/i);
+  const { clubId, threadId } = parseThreadPath(new URL(page.url()).pathname);
+  const response = await request.post("/api/test/threads", {
+    data: {
+      kind: "posts",
+      clubId,
+      threadId,
+      count,
+      prefix,
+      user: "member",
+    },
+  });
+  expect(response.ok()).toBeTruthy();
+}
+
+async function expectNoClassicDiscussionPagination(
+  page: import("@playwright/test").Page,
+) {
+  await expect(page.getByRole("link", { name: "Previous" })).toHaveCount(0);
+  await expect(page.getByRole("link", { name: "Next" })).toHaveCount(0);
+  await expect(page.getByText(/Page \d+ of \d+/)).toHaveCount(0);
 }
 
 test.beforeEach(async ({ request }) => {
@@ -189,7 +270,7 @@ test("members can create one-depth replies while authors retain edit and delete 
     ),
   ).toHaveCount(0);
   await page.getByLabel("Reply body").fill("My first reaction.");
-  await page.getByRole("button", { name: "Post" }).click();
+  await page.getByRole("button", { name: "Post", exact: true }).click();
   await expect(page.getByText("Post created.")).toBeVisible();
   await expect(postBody(page, "My first reaction.")).toBeVisible();
   const topLevelComment = commentArticle(page, "My first reaction.");
@@ -407,6 +488,49 @@ test("club admins can pin a thread and move it ahead of newer threads", async ({
   await expect(page.getByText("Thread unpinned.")).toBeVisible();
 });
 
+test("discussion lists infinite-load older threads and restore later thread actions", async ({
+  page,
+  request,
+}) => {
+  await signInAs(page, "owner", "/clubs/new");
+
+  await page.getByLabel("Name").fill("Infinite Thread Club");
+  await page.getByLabel("Description").fill("Used for infinite thread list coverage.");
+  await page.getByLabel("Visibility").selectOption("PUBLIC");
+  await page.getByRole("button", { name: "Create club" }).click();
+
+  await expect(page).toHaveURL(CLUB_BOARD_URL_PATTERN);
+  const clubBoardPath = new URL(page.url()).pathname;
+
+  await addFixtureBookToClub(page, "Infinite Thread Club");
+
+  await page.goto(clubBoardPath);
+  await openFixtureBookCardDetails(page);
+  await page.getByRole("link", { name: "Discussion" }).click();
+
+  await createDiscussionThreads(request, page, 21, "Infinite thread");
+  await expectNoClassicDiscussionPagination(page);
+  await expect(page.getByRole("button", { name: "Load more" })).toBeVisible();
+  await expect(page.getByLabel("Open thread Infinite thread 01")).toHaveCount(0);
+
+  await page.getByRole("button", { name: "Load more" }).scrollIntoViewIfNeeded();
+  await expect(page.getByLabel("Open thread Infinite thread 01")).toBeVisible();
+
+  const oldestThreadCard = page
+    .getByLabel("Open thread Infinite thread 01")
+    .locator("xpath=..");
+  await oldestThreadCard.getByRole("button", { name: "Pin" }).click();
+  await expect(page.getByText("Thread pinned.")).toBeVisible();
+  await expect(page.getByLabel("Open thread Infinite thread 01")).toBeVisible();
+  await expect(page.locator("h3").nth(0)).toHaveText("Infinite thread 01");
+  await expect(page).not.toHaveURL(/after=|focusThreadId=/);
+
+  await page.getByRole("button", { name: "Unpin" }).first().click();
+  await expect(page.getByText("Thread unpinned.")).toBeVisible();
+  await expect(page.getByLabel("Open thread Infinite thread 01")).toBeVisible();
+  await expect(page).not.toHaveURL(/after=|focusThreadId=/);
+});
+
 test("archived club books keep discussion readable but disable new thread creation", async ({
   page,
 }) => {
@@ -507,6 +631,76 @@ test("club admins can delete threads while members cannot", async ({
   );
   await expect(page.getByText("Thread deleted.")).toBeVisible();
   await expect(page.getByLabel("Open thread Delete me")).toHaveCount(0);
+});
+
+test("thread comments infinite-load older batches and preserve long-feed mutations", async ({
+  page,
+  request,
+}) => {
+  await signInAs(page, "owner", "/clubs/new");
+
+  await page.getByLabel("Name").fill("Infinite Comment Club");
+  await page
+    .getByLabel("Description")
+    .fill("Used for infinite thread comment coverage.");
+  await page.getByLabel("Visibility").selectOption("PUBLIC");
+  await page.getByRole("button", { name: "Create club" }).click();
+
+  await expect(page).toHaveURL(CLUB_BOARD_URL_PATTERN);
+  const clubBoardPath = new URL(page.url()).pathname;
+
+  await addFixtureBookToClub(page, "Infinite Comment Club");
+
+  await page.goto(clubBoardPath);
+  await openFixtureBookCardDetails(page);
+  await page.getByRole("link", { name: "Discussion" }).click();
+  await submitThreadFromModal(page, {
+    title: "Infinite comments thread",
+    body: "Long-running discussion.",
+  });
+  await openThreadCard(page, "Infinite comments thread");
+  await expect(page).toHaveURL(
+    /\/clubs\/[0-9a-f-]+\/threads\/[0-9a-f-]+(?:\?|$)/i,
+  );
+  const threadUrl = page.url();
+
+  await signInAs(page, "member", clubBoardPath);
+  await page.getByRole("button", { name: "Join club" }).click();
+  await expect(page.getByText("You joined the club.")).toBeVisible();
+
+  await page.goto(threadUrl);
+  await createTopLevelComments(request, page, 21, "Long comment");
+  await page.goto(threadUrl);
+  await expectNoClassicDiscussionPagination(page);
+  await expect(page.getByRole("button", { name: "Load more" })).toBeVisible();
+  await expect(postBody(page, "Long comment 21")).toHaveCount(0);
+
+  await page.getByRole("button", { name: "Load more" }).scrollIntoViewIfNeeded();
+  await expect(postBody(page, "Long comment 21")).toBeVisible();
+
+  const laterComment = commentArticle(page, "Long comment 21");
+  await laterComment.getByRole("button", { name: "Edit post" }).click();
+  await laterComment.getByLabel("Edit reply").fill("Long comment 21 updated");
+  await laterComment.getByRole("button", { name: "Save" }).click();
+  await expect(page.getByText("Post updated.")).toBeVisible();
+  await expect(postBody(page, "Long comment 21 updated")).toBeVisible();
+  await expect(page).not.toHaveURL(/after=|focusPostId=/);
+
+  await commentArticle(page, "Long comment 21 updated")
+    .getByRole("button", { name: "Delete post" })
+    .click();
+  await expect(page.getByText("Post deleted.")).toBeVisible();
+  await expect(commentArticle(page, "This post was deleted.")).toContainText(
+    "This post was deleted.",
+  );
+  await expect(page).not.toHaveURL(/after=|focusPostId=/);
+
+  await page.goto(threadUrl);
+  await page.getByLabel("Reply body").fill("Newest long comment");
+  await page.getByRole("button", { name: "Post", exact: true }).click();
+  await expect(page.getByText("Post created.")).toBeVisible();
+  await expect(postBody(page, "Newest long comment")).toBeVisible();
+  await expect(page).not.toHaveURL(/after=|focusPostId=/);
 });
 
 test("non-members see forbidden pages for discussion and thread routes", async ({

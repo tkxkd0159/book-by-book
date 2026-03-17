@@ -40,6 +40,7 @@ import {
   unpinThread,
 } from "@/lib/threads/repository";
 import { isThreadError } from "@/lib/threads/errors";
+import { createDiscussionRestoreHref } from "@/lib/threads/presentation";
 import {
   parseClubBookStatus,
   parseClubDescription,
@@ -603,7 +604,7 @@ export async function createThreadPostAction(formData: FormData) {
   );
 
   try {
-    await createThreadPost({
+    const createdPost = await createThreadPost({
       clubId,
       threadId,
       authorId: currentUser.id,
@@ -612,7 +613,15 @@ export async function createThreadPostAction(formData: FormData) {
     });
 
     revalidatePath(`/clubs/${clubId}/threads/${threadId}`);
-    redirect(appendMessage(returnTo, "message", "Post created."));
+    redirect(
+      appendMessage(
+        createDiscussionRestoreHref(returnTo, {
+          focusPostId: createdPost.id,
+        }),
+        "message",
+        "Post created.",
+      ),
+    );
   } catch (error) {
     rethrowIfRedirect(error);
     redirect(appendMessage(returnTo, "error", getErrorMessage(error)));
@@ -638,7 +647,16 @@ export async function editThreadPostAction(formData: FormData) {
     });
 
     revalidatePath(`/clubs/${clubId}/threads/${threadId}`);
-    redirect(appendMessage(returnTo, "message", "Post updated."));
+    redirect(
+      appendMessage(
+        createDiscussionRestoreHref(returnTo, {
+          focusPostId: postId,
+          hash: `thread-post-${postId}`,
+        }),
+        "message",
+        "Post updated.",
+      ),
+    );
   } catch (error) {
     rethrowIfRedirect(error);
     redirect(appendMessage(returnTo, "error", getErrorMessage(error)));
@@ -663,7 +681,16 @@ export async function deleteThreadPostAction(formData: FormData) {
     });
 
     revalidatePath(`/clubs/${clubId}/threads/${threadId}`);
-    redirect(appendMessage(returnTo, "message", "Post deleted."));
+    redirect(
+      appendMessage(
+        createDiscussionRestoreHref(returnTo, {
+          focusPostId: postId,
+          hash: `thread-post-${postId}`,
+        }),
+        "message",
+        "Post deleted.",
+      ),
+    );
   } catch (error) {
     rethrowIfRedirect(error);
     redirect(appendMessage(returnTo, "error", getErrorMessage(error)));
@@ -727,7 +754,10 @@ export async function toggleThreadPinAction(formData: FormData) {
     revalidatePath(`/clubs/${clubId}/threads/${threadId}`);
     redirect(
       appendMessage(
-        returnTo,
+        createDiscussionRestoreHref(returnTo, {
+          focusThreadId: threadId,
+          hash: `thread-${threadId}`,
+        }),
         "message",
         intent === "unpin" ? "Thread unpinned." : "Thread pinned.",
       ),
