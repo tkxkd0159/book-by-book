@@ -1,4 +1,5 @@
 import { expect, test, type APIRequestContext } from "@playwright/test";
+import type { Locator, Page } from "@playwright/test";
 
 import { resetApp, signInAs } from "./helpers/auth";
 
@@ -38,9 +39,25 @@ function commentArticle(page: import("@playwright/test").Page, text: string) {
   return postBody(page, text).locator("xpath=ancestor::article[1]");
 }
 
+async function getViewportY(locator: Locator) {
+  const bounds = await locator.boundingBox();
+  expect(bounds).toBeTruthy();
+  return bounds!.y;
+}
+
+function expectViewportPositionStable(input: {
+  before: number;
+  after: number;
+  tolerance?: number;
+}) {
+  expect(Math.abs(input.after - input.before)).toBeLessThanOrEqual(
+    input.tolerance ?? 160,
+  );
+}
+
 async function expectCommentAnchor(
-  page: import("@playwright/test").Page,
-  article: import("@playwright/test").Locator,
+  page: Page,
+  article: Locator,
 ) {
   const articleId = await article.getAttribute("id");
   expect(articleId).toBeTruthy();
@@ -269,13 +286,21 @@ test("members can create one-depth replies while authors retain edit and delete 
       "Keep the discussion moving with questions, reactions, and notes.",
     ),
   ).toHaveCount(0);
+  const topLevelComposer = page.getByLabel("Reply body");
+  const topLevelComposerYBefore = await getViewportY(topLevelComposer);
   await page.getByLabel("Reply body").fill("My first reaction.");
   await page.getByRole("button", { name: "Post", exact: true }).click();
   await expect(page.getByText("Post created.")).toBeVisible();
   await expect(postBody(page, "My first reaction.")).toBeVisible();
+  await expect(page).toHaveURL(/#thread-post-composer$/);
+  expectViewportPositionStable({
+    before: topLevelComposerYBefore,
+    after: await getViewportY(page.getByLabel("Reply body")),
+  });
   const topLevelComment = commentArticle(page, "My first reaction.");
   const topLevelCommentId = await topLevelComment.getAttribute("id");
   expect(topLevelCommentId).toBeTruthy();
+  const topLevelReplySectionId = `${topLevelCommentId}-replies`;
   await expect(topLevelComment.getByTestId("thread-post-meta")).toContainText(
     "Member Reader",
   );
@@ -306,6 +331,7 @@ test("members can create one-depth replies while authors retain edit and delete 
   await expect(
     updatedTopLevelComment.locator("span.font-medium").filter({ hasText: "1 reply" }),
   ).toBeVisible();
+  await expect(page).toHaveURL(new RegExp(`#${topLevelReplySectionId}$`));
   await expect(
     updatedTopLevelComment.getByRole("button", { name: "Hide 1 reply" }),
   ).toBeVisible();
@@ -696,10 +722,17 @@ test("thread comments infinite-load older batches and preserve long-feed mutatio
   await expect(page).not.toHaveURL(/after=|focusPostId=/);
 
   await page.goto(threadUrl);
+  const longCommentComposer = page.getByLabel("Reply body");
+  const longCommentComposerYBefore = await getViewportY(longCommentComposer);
   await page.getByLabel("Reply body").fill("Newest long comment");
   await page.getByRole("button", { name: "Post", exact: true }).click();
   await expect(page.getByText("Post created.")).toBeVisible();
   await expect(postBody(page, "Newest long comment")).toBeVisible();
+  await expect(page).toHaveURL(/#thread-post-composer$/);
+  expectViewportPositionStable({
+    before: longCommentComposerYBefore,
+    after: await getViewportY(page.getByLabel("Reply body")),
+  });
   await expect(page).not.toHaveURL(/after=|focusPostId=/);
 });
 

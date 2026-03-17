@@ -16,6 +16,7 @@ import {
   CLUB_BOOK_STATUS_LABELS,
 } from "@/lib/clubs/presentation";
 import { ThreadError } from "@/lib/threads/errors";
+import { createDiscussionRestoreHref } from "@/lib/threads/presentation";
 import { findThreadDetail } from "@/lib/threads/repository";
 
 type ThreadDetailPageProps = {
@@ -89,6 +90,7 @@ export default async function ThreadDetailPage({
   });
   const { thread, posts } = detail;
   const basePath = `/clubs/${clubId}/threads/${threadId}`;
+  const composerAnchorId = "thread-post-composer";
   const canDeleteThread = canDeleteThreads(detail.currentUserRole);
 
   return (
@@ -180,12 +182,18 @@ export default async function ThreadDetailPage({
           </p>
         </div>
 
-        <div className="rounded-2xl border border-(--border) bg-(--surface-strong) p-4 shadow-[0_10px_22px_rgba(42,32,18,0.04)] sm:p-5">
+        <div
+          id={composerAnchorId}
+          className="scroll-mt-28 rounded-2xl border border-(--border) bg-(--surface-strong) p-4 shadow-[0_10px_22px_rgba(42,32,18,0.04)] sm:scroll-mt-32 sm:p-5"
+        >
           <PostComposer
             clubId={clubId}
             threadId={threadId}
-            returnTo={basePath}
+            returnTo={createDiscussionRestoreHref(basePath, {
+              hash: composerAnchorId,
+            })}
             placeholder="Add a comment."
+            scrollRestoreTargetId={composerAnchorId}
           />
         </div>
 

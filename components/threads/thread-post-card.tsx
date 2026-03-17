@@ -189,6 +189,7 @@ export function ThreadPostCard({
   const postAnchorId = `thread-post-${post.id}`;
   const anchoredReturnTo = withHash(returnTo, postAnchorId);
   const replySectionId = `${postAnchorId}-replies`;
+  const replySectionReturnTo = withHash(returnTo, replySectionId);
   const activeHash = useSyncExternalStore(
     subscribeToHashChange,
     getHashSnapshot,
@@ -451,13 +452,14 @@ export function ThreadPostCard({
               <PostComposer
                 clubId={clubId}
                 threadId={threadId}
-                returnTo={returnTo}
+                returnTo={replySectionReturnTo}
                 parentPostId={post.id}
                 textareaLabel={`Reply to ${authorName}`}
                 placeholder="Add a reply."
                 compact
                 autoFocus
                 onCancel={cancelReplying}
+                scrollRestoreTargetId={replySectionId}
               />
             </div>
           ) : null}

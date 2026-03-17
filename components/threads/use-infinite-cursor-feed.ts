@@ -64,16 +64,21 @@ export function useInfiniteCursorFeed<T>({
   const currentRestoreAfter = endCursor;
 
   const finishRestore = useCallback((focusId: string | null) => {
+    const focusElementId = focusId ? getFocusElementId(focusId) : null;
+    const shouldScrollToFocus = focusElementId
+      ? window.location.hash === `#${focusElementId}`
+      : false;
+
     setRestorePending(false);
     stripRestoreSearchParams();
 
-    if (!focusId) {
+    if (!focusElementId || !shouldScrollToFocus) {
       return;
     }
 
     window.requestAnimationFrame(() => {
       document
-        .getElementById(getFocusElementId(focusId))
+        .getElementById(focusElementId)
         ?.scrollIntoView({ block: "center", behavior: "smooth" });
     });
   }, [getFocusElementId]);
