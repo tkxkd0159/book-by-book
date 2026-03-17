@@ -51,7 +51,7 @@ export function ThreadCard({
               </Badge>
             ) : null}
             <Badge variant="neutral">
-              {thread.postCount} repl{thread.postCount === 1 ? "y" : "ies"}
+              {thread.postCount} comment{thread.postCount === 1 ? "" : "s"}
             </Badge>
           </div>
 

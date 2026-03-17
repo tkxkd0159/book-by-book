@@ -101,6 +101,7 @@ type ThreadRecord = {
 type ThreadPostRecord = {
   id: string;
   threadId: string;
+  parentPostId: string | null;
   authorId: string;
   body: string;
   createdAt: Date;

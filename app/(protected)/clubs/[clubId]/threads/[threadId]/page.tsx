@@ -7,9 +7,8 @@ import { PostComposer } from "@/components/threads/post-composer";
 import { ThreadPostCard } from "@/components/threads/thread-post-card";
 import { Badge } from "@/components/ui/badge";
 import { Button, buttonStyles } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
 import { getCurrentUser } from "@/lib/auth/server";
-import { isClubAdmin, isClubMember } from "@/lib/clubs/permissions";
+import { isClubMember } from "@/lib/clubs/permissions";
 import { findClubDetail } from "@/lib/clubs/repository";
 import { canDeleteThreads } from "@/lib/threads/permissions";
 import {
@@ -144,7 +143,7 @@ export default async function ThreadDetailPage({
             <span>{thread.author.name ?? "Unknown reader"}</span>
             <span>Started {formatDate(thread.createdAt)}</span>
             <span>
-              {thread.postCount} post{thread.postCount === 1 ? "" : "s"}
+              {thread.postCount} comment{thread.postCount === 1 ? "" : "s"}
             </span>
           </div>
 
@@ -184,30 +183,35 @@ export default async function ThreadDetailPage({
       </section>
 
       <section className="space-y-5 pt-2">
-        <h2 className="text-2xl font-semibold">Posts</h2>
+        <div className="space-y-1">
+          <h2 className="text-2xl font-semibold">Comments</h2>
+          <p className="text-sm text-(--muted)">
+            Start a new top-level comment or jump into an existing reply thread.
+          </p>
+        </div>
 
-        <Card className="border-(--border)/90">
-          <CardContent className="p-5 pt-5">
-            <PostComposer
-              clubId={clubId}
-              threadId={threadId}
-              returnTo={currentPath}
-            />
-          </CardContent>
-        </Card>
+        <div className="rounded-2xl border border-(--border) bg-(--surface-strong) p-4 shadow-[0_10px_22px_rgba(42,32,18,0.04)] sm:p-5">
+          <PostComposer
+            clubId={clubId}
+            threadId={threadId}
+            returnTo={currentPath}
+            placeholder="Add a comment."
+          />
+        </div>
 
         {posts.items.length === 0 ? (
           <p className="rounded-xl border border-dashed border-(--border) bg-(--surface) p-5 text-sm text-(--muted)">
-            No posts yet.
+            No comments yet.
           </p>
         ) : (
-          <div className="space-y-3 pt-1">
+          <div className="space-y-4 pt-1">
             {posts.items.map((post) => (
               <ThreadPostCard
                 key={post.id}
                 clubId={clubId}
                 threadId={threadId}
                 post={post}
+                replies={post.replies}
                 returnTo={currentPath}
                 currentUserId={currentUser.id}
               />

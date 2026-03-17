@@ -300,12 +300,19 @@ CREATE INDEX IF NOT EXISTS threads_author_created_at_idx ON threads(author_id, c
 CREATE TABLE IF NOT EXISTS thread_posts (
   id         uuid        PRIMARY KEY DEFAULT gen_random_uuid(),
   thread_id  uuid        NOT NULL REFERENCES threads(id) ON DELETE CASCADE,
+  parent_post_id uuid,
   author_id  uuid        NOT NULL REFERENCES users(id) ON DELETE RESTRICT,
   body       text        NOT NULL,
 
   created_at timestamptz NOT NULL DEFAULT now(),
   updated_at timestamptz NOT NULL DEFAULT now(),
-  deleted_at timestamptz
+  deleted_at timestamptz,
+
+  CONSTRAINT thread_posts_thread_id_id_uniq UNIQUE (thread_id, id),
+  CONSTRAINT thread_posts_parent_post_fk
+    FOREIGN KEY (thread_id, parent_post_id)
+    REFERENCES thread_posts(thread_id, id)
+    ON DELETE CASCADE
 );
 
 DROP TRIGGER IF EXISTS trg_thread_posts_updated_at ON thread_posts;
@@ -314,6 +321,7 @@ BEFORE UPDATE ON thread_posts
 FOR EACH ROW EXECUTE FUNCTION set_updated_at();
 
 CREATE INDEX IF NOT EXISTS thread_posts_thread_created_at_idx ON thread_posts(thread_id, created_at);
+CREATE INDEX IF NOT EXISTS thread_posts_thread_parent_created_at_idx ON thread_posts(thread_id, parent_post_id, created_at, id);
 CREATE INDEX IF NOT EXISTS thread_posts_author_created_at_idx ON thread_posts(author_id, created_at DESC);
 
 -- -------------------------------------------------------------------

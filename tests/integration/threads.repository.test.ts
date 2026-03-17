@@ -265,6 +265,135 @@ describe("thread repository integration", () => {
     expect(detail.posts.totalItems).toBe(1);
     expect(detail.posts.items[0]?.id).toBe(post.id);
     expect(detail.posts.items[0]?.deletedAt).toBeTruthy();
+    expect(detail.posts.items[0]?.replies).toEqual([]);
+  });
+
+  it("supports one-depth replies and keeps child replies visible after a parent is deleted", async () => {
+    const owner = await getRequiredUser("owner");
+    const member = await getRequiredUser("member");
+    const book = await findBookByGoogleVolumeId(TEST_BOOK_VOLUME_ID);
+
+    const club = await createClub({
+      createdById: owner.id,
+      name: "Reply Depth Club",
+      description: null,
+      visibility: "PUBLIC",
+    });
+
+    await joinPublicClub({
+      clubId: club.id,
+      userId: member.id,
+    });
+
+    const clubBook = await addBookToClub({
+      clubId: club.id,
+      bookId: book!.id,
+      addedById: owner.id,
+      status: "READING",
+    });
+
+    const thread = await createThread({
+      clubId: club.id,
+      clubBookId: clubBook.id,
+      authorId: owner.id,
+      title: "Reply depth thread",
+      body: null,
+    });
+
+    const parentPost = await createThreadPost({
+      clubId: club.id,
+      threadId: thread.id,
+      authorId: member.id,
+      body: "Top-level thought.",
+    });
+    const childReply = await createThreadPost({
+      clubId: club.id,
+      threadId: thread.id,
+      authorId: owner.id,
+      body: "Child reply.",
+      parentPostId: parentPost.id,
+    });
+
+    expect(childReply.parentPostId).toBe(parentPost.id);
+
+    await expect(
+      createThreadPost({
+        clubId: club.id,
+        threadId: thread.id,
+        authorId: member.id,
+        body: "Too deep.",
+        parentPostId: childReply.id,
+      }),
+    ).rejects.toMatchObject({
+      code: "CONFLICT",
+      message: "Replies can only target top-level posts.",
+    } satisfies Partial<ThreadError>);
+
+    const secondThread = await createThread({
+      clubId: club.id,
+      clubBookId: clubBook.id,
+      authorId: owner.id,
+      title: "Another thread",
+      body: null,
+    });
+    const secondThreadPost = await createThreadPost({
+      clubId: club.id,
+      threadId: secondThread.id,
+      authorId: owner.id,
+      body: "Wrong thread parent.",
+    });
+
+    await expect(
+      createThreadPost({
+        clubId: club.id,
+        threadId: thread.id,
+        authorId: member.id,
+        body: "Wrong target.",
+        parentPostId: secondThreadPost.id,
+      }),
+    ).rejects.toMatchObject({
+      code: "NOT_FOUND",
+      message: "Reply target not found.",
+    } satisfies Partial<ThreadError>);
+
+    const detailBeforeDelete = await findThreadDetail({
+      clubId: club.id,
+      threadId: thread.id,
+      userId: member.id,
+    });
+    expect(detailBeforeDelete.thread.postCount).toBe(2);
+    expect(detailBeforeDelete.posts.totalItems).toBe(1);
+    expect(detailBeforeDelete.posts.items[0]?.body).toBe("Top-level thought.");
+    expect(detailBeforeDelete.posts.items[0]?.replies.map((reply) => reply.body)).toEqual([
+      "Child reply.",
+    ]);
+
+    await deleteThreadPost({
+      clubId: club.id,
+      postId: parentPost.id,
+      deletedById: member.id,
+    });
+
+    await expect(
+      createThreadPost({
+        clubId: club.id,
+        threadId: thread.id,
+        authorId: owner.id,
+        body: "Late reply.",
+        parentPostId: parentPost.id,
+      }),
+    ).rejects.toMatchObject({
+      code: "CONFLICT",
+      message: "Deleted posts cannot accept replies.",
+    } satisfies Partial<ThreadError>);
+
+    const detailAfterDelete = await findThreadDetail({
+      clubId: club.id,
+      threadId: thread.id,
+      userId: owner.id,
+    });
+    expect(detailAfterDelete.posts.items[0]?.deletedAt).toBeTruthy();
+    expect(detailAfterDelete.posts.items[0]?.replies[0]?.id).toBe(childReply.id);
   });
 
   it("restricts pinning to club admins and paginates thread and post queries deterministically", async () => {
@@ -342,14 +471,26 @@ describe("thread repository integration", () => {
     expect(secondPage.items).toHaveLength(1);
     expect(secondPage.items[0]?.id).toBe(threads[0]!.id);
 
+    const topLevelPosts = [];
     for (const body of ["Post One", "Post Two", "Post Three"]) {
-      await createThreadPost({
-        clubId: club.id,
-        threadId: threads[1]!.id,
-        authorId: member.id,
-        body,
-      });
+      topLevelPosts.push(
+        await createThreadPost({
+          clubId: club.id,
+          threadId: threads[1]!.id,
+          authorId: member.id,
+          body,
+        }),
+      );
     }
+
+    const firstReply = await createThreadPost({
+      clubId: club.id,
+      threadId: threads[1]!.id,
+      authorId: owner.id,
+      body: "Reply to Post One",
+      parentPostId: topLevelPosts[0]?.id,
+    });
+    expect(firstReply.parentPostId).toBeTruthy();
 
     const detailPageOne = await findThreadDetail({
       clubId: club.id,
@@ -367,10 +508,15 @@ describe("thread repository integration", () => {
     });
 
     expect(detailPageOne.posts.totalItems).toBe(3);
+    expect(detailPageOne.thread.postCount).toBe(4);
     expect(detailPageOne.posts.items.map((post) => post.body)).toEqual([
       "Post One",
       "Post Two",
     ]);
+    expect(detailPageOne.posts.items[0]?.replies.map((reply) => reply.body)).toEqual([
+      "Reply to Post One",
+    ]);
+    expect(detailPageOne.posts.items[1]?.replies).toEqual([]);
     expect(detailPageTwo.posts.items.map((post) => post.body)).toEqual([
       "Post Three",
     ]);

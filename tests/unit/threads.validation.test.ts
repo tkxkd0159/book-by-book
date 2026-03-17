@@ -5,6 +5,7 @@ import {
   normalizeDiscussionPagination,
   parseDiscussionPage,
   parseDiscussionPageSize,
+  parseOptionalParentPostId,
   parseThreadBody,
   parseThreadPostBody,
   parseThreadTitle,
@@ -24,6 +25,11 @@ describe("thread validation", () => {
 
   it("requires non-empty post bodies", () => {
     expect(() => parseThreadPostBody(" \n ")).toThrow(ThreadError);
+  });
+
+  it("treats an empty parent post id as null", () => {
+    expect(parseOptionalParentPostId("")).toBeNull();
+    expect(parseOptionalParentPostId("  post-123  ")).toBe("post-123");
   });
 
   it("parses page numbers and page size defaults", () => {

@@ -57,16 +57,15 @@ import {
 } from "@/lib/rate-limit/mutation";
 import {
   parseThreadBody,
+  parseOptionalParentPostId,
   parseThreadPostBody,
   parseThreadTitle,
 } from "@/lib/threads/validation";
 
 function appendMessage(pathname: string, key: string, value: string) {
-  const [path, existingQuery = ""] = pathname.split("?");
-  const params = new URLSearchParams(existingQuery);
-  params.set(key, value);
-  const query = params.toString();
-  return query ? `${path}?${query}` : path;
+  const url = new URL(pathname, "http://localhost");
+  url.searchParams.set(key, value);
+  return `${url.pathname}${url.search}${url.hash}`;
 }
 
 function getErrorMessage(error: unknown) {
@@ -93,8 +92,8 @@ function pluralize(label: string, count: number) {
 }
 
 function revalidateReturnTo(returnTo: string) {
-  const path = returnTo.split("?")[0] ?? returnTo;
-  revalidatePath(path);
+  const url = new URL(returnTo, "http://localhost");
+  revalidatePath(url.pathname);
 }
 
 function revalidateClubPages(clubId: string) {
@@ -609,6 +608,7 @@ export async function createThreadPostAction(formData: FormData) {
       threadId,
       authorId: currentUser.id,
       body: parseThreadPostBody(formData.get("body")),
+      parentPostId: parseOptionalParentPostId(formData.get("parentPostId")),
     });
 
     revalidatePath(`/clubs/${clubId}/threads/${threadId}`);

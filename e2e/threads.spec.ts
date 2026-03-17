@@ -8,6 +8,21 @@ function postBody(page: import("@playwright/test").Page, text: string) {
   return page.locator("p").filter({ hasText: text }).first();
 }
 
+function commentArticle(page: import("@playwright/test").Page, text: string) {
+  return postBody(page, text).locator("xpath=ancestor::article[1]");
+}
+
+async function expectCommentAnchor(
+  page: import("@playwright/test").Page,
+  article: import("@playwright/test").Locator,
+) {
+  const articleId = await article.getAttribute("id");
+  expect(articleId).toBeTruthy();
+  await expect(page).toHaveURL(new RegExp(`#${articleId}$`));
+  await expect(page.locator(`#${articleId}`)).toBeInViewport();
+  return articleId as string;
+}
+
 async function addFixtureBookToClub(
   page: import("@playwright/test").Page,
   clubName: string,
@@ -124,10 +139,10 @@ test("club member can open a club-book discussion page and create a thread", asy
   await expect(
     page.getByRole("heading", { name: "Chapter one reactions" }),
   ).toBeVisible();
-  await expect(page.getByText("No posts yet.")).toBeVisible();
+  await expect(page.getByText("No comments yet.")).toBeVisible();
 });
 
-test("post authors can create, edit, and delete their own posts while non-authors cannot", async ({
+test("members can create one-depth replies while authors retain edit and delete control", async ({
   page,
 }) => {
   await signInAs(page, "owner", "/clubs/new");
@@ -177,18 +192,122 @@ test("post authors can create, edit, and delete their own posts while non-author
   await page.getByRole("button", { name: "Post" }).click();
   await expect(page.getByText("Post created.")).toBeVisible();
   await expect(postBody(page, "My first reaction.")).toBeVisible();
-  await expect(page.getByTestId("thread-post-meta").first()).toContainText(
+  const topLevelComment = commentArticle(page, "My first reaction.");
+  const topLevelCommentId = await topLevelComment.getAttribute("id");
+  expect(topLevelCommentId).toBeTruthy();
+  await expect(topLevelComment.getByTestId("thread-post-meta")).toContainText(
     "Member Reader",
   );
 
-  await page.getByRole("button", { name: "Edit post" }).click();
-  await page.getByLabel("Edit reply").fill("My updated reaction.");
-  await page.getByRole("button", { name: "Save" }).click();
+  await topLevelComment.getByRole("button", { name: "Edit post" }).click();
+  await topLevelComment.getByLabel("Edit reply").fill("My updated reaction.");
+  await topLevelComment.getByRole("button", { name: "Save" }).click();
   await expect(page.getByText("Post updated.")).toBeVisible();
-  await expect(postBody(page, "My updated reaction.")).toBeVisible();
-  await expect(page.getByTestId("thread-post-meta").first()).toContainText(
+  const updatedTopLevelComment = page.locator(`#${topLevelCommentId}`);
+  await expect(updatedTopLevelComment).toContainText("My updated reaction.");
+  await expectCommentAnchor(page, updatedTopLevelComment);
+  await expect(updatedTopLevelComment.getByTestId("thread-post-meta")).toContainText(
     "edited",
   );
+
+  await updatedTopLevelComment
+    .getByRole("button", { name: "Reply to Member Reader" })
+    .click();
+  const firstReplyComposer = updatedTopLevelComment.getByRole("textbox", {
+    name: "Reply to Member Reader",
+  });
+  await firstReplyComposer.fill("Nested reply one.");
+  await firstReplyComposer
+    .locator("xpath=ancestor::form[1]")
+    .getByRole("button", { name: "Post" })
+    .click();
+  await expect(page.getByText("Post created.")).toBeVisible();
+  await expect(
+    updatedTopLevelComment.locator("span.font-medium").filter({ hasText: "1 reply" }),
+  ).toBeVisible();
+  await expect(
+    updatedTopLevelComment.getByRole("button", { name: "Hide 1 reply" }),
+  ).toBeVisible();
+  await expect(postBody(page, "Nested reply one.")).toBeVisible();
+
+  const firstReplyComment = commentArticle(page, "Nested reply one.");
+  const firstReplyCommentId = await firstReplyComment.getAttribute("id");
+  expect(firstReplyCommentId).toBeTruthy();
+  await expect(
+    firstReplyComment.getByRole("button", { name: /Reply/i }),
+  ).toHaveCount(0);
+  await expect(
+    firstReplyComment.getByRole("button", { name: /^(Show|Hide) \d+ repl/i }),
+  ).toHaveCount(0);
+
+  const freshThreadPage = await page.context().newPage();
+  await signInAs(freshThreadPage, "member", threadUrl);
+  const freshTopLevelComment = freshThreadPage.locator(`#${topLevelCommentId}`);
+  await expect(
+    freshTopLevelComment.getByRole("button", { name: "Show 1 reply" }),
+  ).toBeVisible();
+  await expect(freshThreadPage.locator(`#${firstReplyCommentId}`)).toBeHidden();
+  await freshThreadPage.close();
+
+  await page.reload();
+  await expect(updatedTopLevelComment.getByRole("button", { name: "Hide 1 reply" })).toBeVisible();
+  await expect(page.locator(`#${firstReplyCommentId}`)).toBeVisible();
+
+  await updatedTopLevelComment
+    .getByRole("button", { name: "Hide 1 reply" })
+    .click();
+  await expect(page.locator(`#${firstReplyCommentId}`)).toBeHidden();
+  await page.reload();
+  await expect(updatedTopLevelComment.getByRole("button", { name: "Show 1 reply" })).toBeVisible();
+  await expect(page.locator(`#${firstReplyCommentId}`)).toBeHidden();
+
+  await page.goto(`${threadUrl}#${firstReplyCommentId}`);
+  await expect(updatedTopLevelComment.getByRole("button", { name: "Hide 1 reply" })).toBeVisible();
+  await expect(page.locator(`#${firstReplyCommentId}`)).toBeVisible();
+
+  await page.goto(threadUrl);
+  await expect(updatedTopLevelComment.getByRole("button", { name: "Show 1 reply" })).toBeVisible();
+  await expect(page.locator(`#${firstReplyCommentId}`)).toBeHidden();
+
+  await updatedTopLevelComment
+    .getByRole("button", { name: "Reply to Member Reader" })
+    .click();
+  await expect(updatedTopLevelComment.getByRole("button", { name: "Hide 1 reply" })).toBeVisible();
+  await expect(updatedTopLevelComment.getByRole("textbox", {
+    name: "Reply to Member Reader",
+  })).toBeVisible();
+  await expect(page.locator(`#${firstReplyCommentId}`)).toBeVisible();
+
+  await page.locator(`#${firstReplyCommentId}`).getByRole("button", { name: "Edit post" }).click();
+  await page.locator(`#${firstReplyCommentId}`).getByLabel("Edit reply").fill("Nested reply updated.");
+  await page.locator(`#${firstReplyCommentId}`).getByRole("button", { name: "Save" }).click();
+  await expect(page.getByText("Post updated.")).toBeVisible();
+  const updatedReplyComment = page.locator(`#${firstReplyCommentId}`);
+  await expect(updatedReplyComment).toContainText("Nested reply updated.");
+  await expectCommentAnchor(page, updatedReplyComment);
+  await expect(updatedReplyComment.getByTestId("thread-post-meta")).toContainText(
+    "edited",
+  );
+
+  await updatedTopLevelComment
+    .getByRole("button", { name: "Reply to Member Reader" })
+    .click();
+  const secondReplyComposer = updatedTopLevelComment.getByRole("textbox", {
+    name: "Reply to Member Reader",
+  });
+  await secondReplyComposer.fill("Still here reply.");
+  await secondReplyComposer
+    .locator("xpath=ancestor::form[1]")
+    .getByRole("button", { name: "Post" })
+    .click();
+  await expect(page.getByText("Post created.")).toBeVisible();
+  await expect(
+    updatedTopLevelComment.locator("span.font-medium").filter({ hasText: "2 replies" }),
+  ).toBeVisible();
+  await expect(
+    updatedTopLevelComment.getByRole("button", { name: "Hide 2 replies" }),
+  ).toBeVisible();
+  await expect(postBody(page, "Still here reply.")).toBeVisible();
 
   await signInAs(page, "owner", threadUrl);
   await expect(page.getByRole("button", { name: "Delete post" })).toHaveCount(
@@ -196,15 +315,50 @@ test("post authors can create, edit, and delete their own posts while non-author
   );
   await expect(page.getByRole("button", { name: "Edit post" })).toHaveCount(0);
   await expect(postBody(page, "My updated reaction.")).toBeVisible();
+  await expect(postBody(page, "Still here reply.")).toBeVisible();
 
   await signInAs(page, "member", threadUrl);
-  await page.getByRole("button", { name: "Delete post" }).click();
+  await page
+    .locator(`#${firstReplyCommentId}`)
+    .getByRole("button", { name: "Delete post" })
+    .click();
   await expect(page.getByText("Post deleted.")).toBeVisible();
-  await expect(page.getByText("[deleted]")).toBeVisible();
-  await expect(page.getByTestId("thread-post-meta").first()).toContainText(
+  const deletedReplyComment = page.locator(`#${firstReplyCommentId}`);
+  await expect(deletedReplyComment.getByTestId("thread-post-meta")).toContainText(
     "[deleted]",
   );
-  await expect(page.getByText("Member Reader")).toHaveCount(0);
+  await expectCommentAnchor(page, deletedReplyComment);
+
+  await page
+    .locator(`#${topLevelCommentId}`)
+    .getByRole("button", { name: "Delete post" })
+    .first()
+    .click();
+  await expect(page.getByText("Post deleted.")).toBeVisible();
+  const deletedTopLevelComment = page.locator(`#${topLevelCommentId}`);
+  await expect(deletedTopLevelComment).toContainText("This post was deleted.");
+  await expect(
+    deletedTopLevelComment.getByTestId("thread-post-meta").first(),
+  ).toContainText("[deleted]");
+  await expectCommentAnchor(page, deletedTopLevelComment);
+  const deletedParentReplyToggle = deletedTopLevelComment.getByRole("button", {
+    name: /^(Show|Hide) 2 replies$/,
+  });
+  await expect(deletedParentReplyToggle).toBeVisible();
+  if (!(await postBody(page, "Still here reply.").isVisible())) {
+    await deletedTopLevelComment.getByRole("button", { name: "Show 2 replies" }).click();
+    await expect(postBody(page, "Still here reply.")).toBeVisible();
+  }
+  await deletedTopLevelComment.getByRole("button", { name: "Hide 2 replies" }).click();
+  await expect(postBody(page, "Still here reply.")).toBeHidden();
+  await page.reload();
+  await expect(deletedTopLevelComment.getByRole("button", { name: "Show 2 replies" })).toBeVisible();
+  await expect(postBody(page, "Still here reply.")).toBeHidden();
+  await deletedTopLevelComment.getByRole("button", { name: "Show 2 replies" }).click();
+  await expect(postBody(page, "Still here reply.")).toBeVisible();
+  await expect(
+    commentArticle(page, "Still here reply.").getByRole("button", { name: /Reply/i }),
+  ).toHaveCount(0);
 });
 
 test("club admins can pin a thread and move it ahead of newer threads", async ({

@@ -87,6 +87,7 @@ type ThreadDetailRow = ThreadSummaryRow & {
 type ThreadPostRow = {
   id: string;
   threadId: string;
+  parentPostId: string | null;
   authorId: string;
   body: string;
   createdAt: Date;
@@ -124,6 +125,10 @@ export type ThreadSummary = ThreadRecord & {
 
 export type ThreadPostWithAuthor = ThreadPostRecord & {
   author: ThreadAuthor;
+};
+
+export type ThreadComment = ThreadPostWithAuthor & {
+  replies: ThreadPostWithAuthor[];
 };
 
 export type PaginatedResult<T> = {
@@ -198,6 +203,7 @@ function mapThreadPost(row: ThreadPostRow): ThreadPostWithAuthor {
   return {
     id: row.id,
     threadId: row.threadId,
+    parentPostId: row.parentPostId,
     authorId: row.authorId,
     body: row.body,
     createdAt: row.createdAt,
@@ -346,6 +352,7 @@ async function getThreadPostForMutation(
     select
       thread_posts.id::text as id,
       thread_posts.thread_id::text as "threadId",
+      thread_posts.parent_post_id::text as "parentPostId",
       thread_posts.author_id::text as "authorId",
       thread_posts.body,
       thread_posts.created_at as "createdAt",
@@ -360,6 +367,33 @@ async function getThreadPostForMutation(
     where thread_posts.id = ${postId}::uuid
       and threads.club_id = ${clubId}::uuid
       and threads.deleted_at is null
+    limit 1
+  `;
+
+  return post ?? null;
+}
+
+async function getReplyTargetPost(
+  query: QueryExecutor,
+  threadId: string,
+  postId: string,
+) {
+  const [post] = await query<ThreadPostRow[]>`
+    select
+      thread_posts.id::text as id,
+      thread_posts.thread_id::text as "threadId",
+      thread_posts.parent_post_id::text as "parentPostId",
+      thread_posts.author_id::text as "authorId",
+      thread_posts.body,
+      thread_posts.created_at as "createdAt",
+      thread_posts.updated_at as "updatedAt",
+      thread_posts.deleted_at as "deletedAt",
+      users.name as "authorName",
+      users.image_url as "authorImageUrl"
+    from bookapp.thread_posts
+    join bookapp.users on users.id = thread_posts.author_id
+    where thread_posts.id = ${postId}::uuid
+      and thread_posts.thread_id = ${threadId}::uuid
     limit 1
   `;
 
@@ -589,12 +623,14 @@ export async function findThreadDetail(input: {
     select count(*)::int as "totalItems"
     from bookapp.thread_posts
     where thread_id = ${input.threadId}::uuid
+      and parent_post_id is null
   `;
 
-  const postRows = await sql<ThreadPostRow[]>`
+  const topLevelRows = await sql<ThreadPostRow[]>`
     select
       thread_posts.id::text as id,
       thread_posts.thread_id::text as "threadId",
+      thread_posts.parent_post_id::text as "parentPostId",
       thread_posts.author_id::text as "authorId",
       thread_posts.body,
       thread_posts.created_at as "createdAt",
@@ -605,16 +641,57 @@ export async function findThreadDetail(input: {
     from bookapp.thread_posts
     join bookapp.users on users.id = thread_posts.author_id
     where thread_posts.thread_id = ${input.threadId}::uuid
+      and thread_posts.parent_post_id is null
     order by thread_posts.created_at asc, thread_posts.id asc
     limit ${pageSize}
     offset ${offset}
   `;
 
+  const topLevelIds = topLevelRows.map((post) => post.id);
+  const replyRows = topLevelIds.length > 0
+    ? await sql<ThreadPostRow[]>`
+      select
+        thread_posts.id::text as id,
+        thread_posts.thread_id::text as "threadId",
+        thread_posts.parent_post_id::text as "parentPostId",
+        thread_posts.author_id::text as "authorId",
+        thread_posts.body,
+        thread_posts.created_at as "createdAt",
+        thread_posts.updated_at as "updatedAt",
+        thread_posts.deleted_at as "deletedAt",
+        users.name as "authorName",
+        users.image_url as "authorImageUrl"
+      from bookapp.thread_posts
+      join bookapp.users on users.id = thread_posts.author_id
+      where thread_posts.thread_id = ${input.threadId}::uuid
+        and thread_posts.parent_post_id in ${sql(topLevelIds)}
+      order by
+        thread_posts.parent_post_id asc,
+        thread_posts.created_at asc,
+        thread_posts.id asc
+    `
+    : [];
+
+  const repliesByParentId = new Map<string, ThreadPostWithAuthor[]>();
+  for (const reply of replyRows) {
+    const parentPostId = reply.parentPostId;
+    if (!parentPostId) {
+      continue;
+    }
+
+    const entries = repliesByParentId.get(parentPostId) ?? [];
+    entries.push(mapThreadPost(reply));
+    repliesByParentId.set(parentPostId, entries);
+  }
+
   return {
     currentUserRole: membership.role,
     thread: mapThreadDetail(threadRow),
     posts: createPaginationResult({
-      items: postRows.map(mapThreadPost),
+      items: topLevelRows.map((post) => ({
+        ...mapThreadPost(post),
+        replies: repliesByParentId.get(post.id) ?? [],
+      })),
       page,
       pageSize,
       totalItems: countRow?.totalItems ?? 0,
@@ -627,6 +704,7 @@ export async function createThreadPost(input: {
   threadId: string;
   authorId: string;
   body: string;
+  parentPostId?: string | null;
 }) {
   return sql.begin(async (tx) => {
     const query = asQueryExecutor(tx);
@@ -640,20 +718,52 @@ export async function createThreadPost(input: {
       throw new ThreadError("NOT_FOUND", "Thread not found.");
     }
 
+    let parentPostId: string | null = null;
+    if (input.parentPostId) {
+      const parentPost = await getReplyTargetPost(
+        query,
+        thread.id,
+        input.parentPostId,
+      );
+
+      if (!parentPost) {
+        throw new ThreadError("NOT_FOUND", "Reply target not found.");
+      }
+
+      if (parentPost.parentPostId) {
+        throw new ThreadError(
+          "CONFLICT",
+          "Replies can only target top-level posts.",
+        );
+      }
+
+      if (parentPost.deletedAt) {
+        throw new ThreadError(
+          "CONFLICT",
+          "Deleted posts cannot accept replies.",
+        );
+      }
+
+      parentPostId = parentPost.id;
+    }
+
     const [post] = await query<ThreadPostRow[]>`
       insert into bookapp.thread_posts (
         thread_id,
+        parent_post_id,
         author_id,
         body
       )
       values (
         ${thread.id}::uuid,
+        ${parentPostId}::uuid,
         ${input.authorId}::uuid,
         ${input.body}
       )
       returning
         id::text as id,
         thread_id::text as "threadId",
+        parent_post_id::text as "parentPostId",
         author_id::text as "authorId",
         body,
         created_at as "createdAt",
@@ -710,6 +820,7 @@ export async function editThreadPost(input: {
       returning
         id::text as id,
         thread_id::text as "threadId",
+        parent_post_id::text as "parentPostId",
         author_id::text as "authorId",
         body,
         created_at as "createdAt",
@@ -765,6 +876,7 @@ export async function deleteThreadPost(input: {
       returning
         id::text as id,
         thread_id::text as "threadId",
+        parent_post_id::text as "parentPostId",
         author_id::text as "authorId",
         body,
         created_at as "createdAt",

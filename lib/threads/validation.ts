@@ -108,6 +108,13 @@ export function parseThreadPostBody(
   return parseWithThreadError(threadPostBodySchema.safeParse(readString(value)));
 }
 
+export function parseOptionalParentPostId(
+  value: FormDataEntryValue | string | null | undefined,
+) {
+  const normalized = readString(value).trim();
+  return normalized.length > 0 ? normalized : null;
+}
+
 export function parseDiscussionPage(
   value: FormDataEntryValue | string | number | null | undefined,
 ) {
