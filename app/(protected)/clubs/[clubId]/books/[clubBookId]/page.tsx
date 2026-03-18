@@ -9,8 +9,7 @@ import { StartThreadModal } from "@/components/threads/start-thread-modal";
 import { Badge } from "@/components/ui/badge";
 import { buttonStyles } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { getCurrentUser } from "@/lib/auth/server";
-import { isClubAdmin, isClubMember } from "@/lib/clubs/permissions";
+import { isClubAdmin } from "@/lib/clubs/permissions";
 import { makeQueryClient } from "@/lib/query/make-query-client";
 import { seedInfiniteQueryPage } from "@/lib/query/seed-infinite-query";
 import { createClubEntryHref } from "@/lib/clubs/view-paths";
@@ -19,13 +18,15 @@ import {
   CLUB_BOOK_STATUS_LABELS,
   CLUB_ROLE_BADGE_VARIANTS,
 } from "@/lib/clubs/presentation";
-import { findClubDetail } from "@/lib/clubs/repository";
+import { loadThreadMemberRouteAccess } from "@/lib/threads/access";
 import { ThreadError } from "@/lib/threads/errors";
 import {
-  findDiscussionClubBook,
-  listThreadsForClubBook,
+  loadDiscussionDataForMember,
 } from "@/lib/threads/repository";
-import { threadListQueryKey } from "@/lib/threads/query-keys";
+import {
+  createThreadFeedCacheKey,
+  threadListQueryKey,
+} from "@/lib/threads/query-keys";
 
 type ClubBookDiscussionPageProps = {
   params: Promise<{ clubId: string; clubBookId: string }>;
@@ -33,8 +34,12 @@ type ClubBookDiscussionPageProps = {
 };
 
 type ClubBookDiscussionData = {
-  discussion: Awaited<ReturnType<typeof findDiscussionClubBook>>;
-  threads: Awaited<ReturnType<typeof listThreadsForClubBook>>;
+  access: Extract<
+    Awaited<ReturnType<typeof loadThreadMemberRouteAccess>>,
+    { status: "ok" }
+  >;
+  discussion: Awaited<ReturnType<typeof loadDiscussionDataForMember>>["discussion"];
+  threads: Awaited<ReturnType<typeof loadDiscussionDataForMember>>["threads"];
 };
 
 function readMessage(value: string | string[] | undefined) {
@@ -54,23 +59,29 @@ function formatDate(value: Date) {
 async function loadClubBookDiscussionData(input: {
   clubId: string;
   clubBookId: string;
-  userId: string;
-}): Promise<ClubBookDiscussionData> {
+}): Promise<ClubBookDiscussionData | null> {
+  const access = await loadThreadMemberRouteAccess(input.clubId);
+  if (access.status === "unauthorized") {
+    return null;
+  }
+
+  if (access.status === "not_found") {
+    notFound();
+  }
+
+  if (access.status === "forbidden") {
+    forbidden();
+  }
+
   try {
-    const [discussion, threads] = await Promise.all([
-      findDiscussionClubBook({
-        clubId: input.clubId,
-        clubBookId: input.clubBookId,
-        userId: input.userId,
-      }),
-      listThreadsForClubBook({
-        clubId: input.clubId,
-        clubBookId: input.clubBookId,
-        userId: input.userId,
-      }),
-    ]);
+    const { discussion, threads } = await loadDiscussionDataForMember({
+      clubId: input.clubId,
+      clubBookId: input.clubBookId,
+      currentUserRole: access.club.currentUserRole,
+    });
 
     return {
+      access,
       discussion,
       threads,
     };
@@ -87,38 +98,38 @@ export default async function ClubBookDiscussionPage({
   params,
   searchParams,
 }: ClubBookDiscussionPageProps) {
-  const currentUser = await getCurrentUser();
-  if (!currentUser) {
-    return null;
-  }
-
   const [{ clubId, clubBookId }, query] = await Promise.all([params, searchParams]);
   const message = readMessage(query.message);
   const error = readMessage(query.error);
   const restoreAfter = readMessage(query.after);
   const focusThreadId = readMessage(query.focusThreadId);
-  const club = await findClubDetail(clubId, currentUser.id);
-
-  if (!club) {
-    notFound();
-  }
-
-  if (!isClubMember(club.currentUserRole)) {
-    forbidden();
-  }
-
-  const { discussion, threads } = await loadClubBookDiscussionData({
+  const threadFeedCacheKey = createThreadFeedCacheKey({
+    message,
+    error,
+    after: restoreAfter,
+    focusId: focusThreadId,
+  });
+  const data = await loadClubBookDiscussionData({
     clubId,
     clubBookId,
-    userId: currentUser.id,
   });
+  if (!data) {
+    return null;
+  }
+
+  const { access, discussion, threads } = data;
   const queryClient = makeQueryClient();
   seedInfiniteQueryPage(
     queryClient,
-    threadListQueryKey({ clubId, clubBookId }),
+    threadListQueryKey({
+      clubId,
+      clubBookId,
+      cacheKey: threadFeedCacheKey,
+    }),
     threads,
   );
   const { clubBook } = discussion;
+  const { club } = access;
   const archived = Boolean(clubBook.removedAt);
   const canManagePins = isClubAdmin(discussion.currentUserRole);
 
@@ -244,6 +255,7 @@ export default async function ClubBookDiscussionPage({
             basePath={`/clubs/${clubId}/books/${clubBookId}`}
             canManagePins={canManagePins}
             archived={archived}
+            queryCacheKey={threadFeedCacheKey}
             initialRestoreAfter={restoreAfter}
             initialFocusThreadId={focusThreadId}
           />

@@ -6,6 +6,14 @@ export type ClubErrorCode =
   | "EXPIRED"
   | "UNAUTHORIZED";
 
+export const CLUB_ERROR_MESSAGES = {
+  clubNotFound: "Club not found.",
+  clubMembershipNotFound: "Club membership not found.",
+  clubMemberNotFound: "Club member not found.",
+  clubBookNotFound: "Club book not found.",
+  memberListRequiresMembership: "Only club members can view the member list.",
+} as const;
+
 export class ClubError extends Error {
   code: ClubErrorCode;
 

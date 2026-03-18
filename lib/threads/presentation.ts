@@ -1,4 +1,6 @@
 const DEFAULT_THREAD_EXCERPT_LENGTH = 220;
+const THREAD_POST_DELETED_BODY = "This post was deleted.";
+const URL_PARSE_BASE = "http://localhost";
 
 export function buildThreadExcerpt(
   body: string | null | undefined,
@@ -22,7 +24,7 @@ export function getThreadPostDisplayBody(input: {
   body: string;
   deletedAt: Date | null;
 }) {
-  return input.deletedAt ? "This post was deleted." : input.body;
+  return input.deletedAt ? THREAD_POST_DELETED_BODY : input.body;
 }
 
 export function hasThreadPostBeenEdited(input: {
@@ -42,7 +44,7 @@ export function createDiscussionRestoreHref(
     hash?: string | null;
   } = {},
 ) {
-  const url = new URL(basePath, "http://localhost");
+  const url = new URL(basePath, URL_PARSE_BASE);
 
   if (options.after !== undefined) {
     if (options.after) {
@@ -74,3 +76,5 @@ export function createDiscussionRestoreHref(
 
   return `${url.pathname}${url.search}${url.hash}`;
 }
+
+export { THREAD_POST_DELETED_BODY, URL_PARSE_BASE };

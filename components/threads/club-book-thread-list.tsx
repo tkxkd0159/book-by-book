@@ -22,6 +22,7 @@ type ClubBookThreadListProps = {
   basePath: string;
   canManagePins: boolean;
   archived: boolean;
+  queryCacheKey?: string | null;
   initialRestoreAfter?: string | null;
   initialFocusThreadId?: string | null;
 };
@@ -75,6 +76,7 @@ export function ClubBookThreadList({
   basePath,
   canManagePins,
   archived,
+  queryCacheKey = null,
   initialRestoreAfter = null,
   initialFocusThreadId = null,
 }: ClubBookThreadListProps) {
@@ -87,7 +89,8 @@ export function ClubBookThreadList({
     loadMore,
     currentRestoreAfter,
   } = useInfiniteCursorFeed({
-    queryKey: threadListQueryKey({ clubId, clubBookId }),
+    queryKey: threadListQueryKey({ clubId, clubBookId, cacheKey: queryCacheKey }),
+    restoreStateKey: queryCacheKey,
     initialRestoreAfter,
     initialFocusId: initialFocusThreadId,
     fetchPage: (after, signal) =>

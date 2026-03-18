@@ -444,6 +444,7 @@ describe("thread repository integration", () => {
       threadId: thread.id,
       userId: owner.id,
     });
+    expect(detailAfterDelete.thread.postCount).toBe(2);
     expect(detailAfterDelete.posts.items[0]?.deletedAt).toBeTruthy();
     expect(detailAfterDelete.posts.items[0]?.replies[0]?.id).toBe(childReply.id);
   });

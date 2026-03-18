@@ -1,17 +1,19 @@
-import { expect, type Page, test } from "@playwright/test";
+import type { Page } from "@playwright/test";
 
+import { expect, test } from "./fixtures/test";
+import { E2E_ROUTE_PATHS, E2E_URL_PATTERNS } from "./helpers/constants";
 import { resetApp, signInAs } from "./helpers/auth";
 
-const FIXTURE_BOOK_URL = "/books/club-test-book";
-const CLUB_DETAIL_URL_PATTERN = /\/clubs\/[0-9a-f-]+(?:\?|$)/i;
-const SEARCH_RESULTS_URL = "/books/search?advanced=1&isbn=9780140328721";
+const FIXTURE_BOOK_URL = E2E_ROUTE_PATHS.fixtureBook;
+const CLUB_DETAIL_URL_PATTERN = E2E_URL_PATTERNS.clubDetail;
+const SEARCH_RESULTS_URL = E2E_ROUTE_PATHS.searchResults;
 
 test.beforeEach(async ({ request }) => {
   await resetApp(request);
 });
 
 async function createClub(page: Page, name: string) {
-  await page.goto("/clubs/new");
+  await page.goto(E2E_ROUTE_PATHS.clubsNew);
   await page.getByLabel("Name").fill(name);
   await page.getByLabel("Description").fill(`${name} description`);
   await page.getByLabel("Visibility").selectOption("PUBLIC");
@@ -43,7 +45,7 @@ test("book detail shows an empty add-book modal when the user manages no clubs",
 test("book detail can add a book to multiple clubs and then shows them as already added", async ({
   page,
 }) => {
-  await signInAs(page, "owner", "/clubs/new");
+  await signInAs(page, "owner", E2E_ROUTE_PATHS.clubsNew);
 
   const firstClubUrl = await createClub(page, "Modal Club One");
   const secondClubUrl = await createClub(page, "Modal Club Two");
@@ -75,7 +77,7 @@ test("book detail can add a book to multiple clubs and then shows them as alread
 });
 
 test("search results use the same add-book modal flow", async ({ page }) => {
-  await signInAs(page, "owner", "/clubs/new");
+  await signInAs(page, "owner", E2E_ROUTE_PATHS.clubsNew);
   const clubUrl = await createClub(page, "Search Modal Club");
 
   await page.goto(SEARCH_RESULTS_URL);

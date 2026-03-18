@@ -16,6 +16,7 @@ import type { CursorPaginationResult } from "@/lib/threads/repository";
 
 type UseInfiniteCursorFeedOptions<T> = {
   queryKey: QueryKey;
+  restoreStateKey?: string | null;
   initialRestoreAfter?: string | null;
   initialFocusId?: string | null;
   fetchPage: (
@@ -50,6 +51,7 @@ function stripRestoreSearchParams() {
 
 export function useInfiniteCursorFeed<T>({
   queryKey,
+  restoreStateKey = null,
   initialRestoreAfter = null,
   initialFocusId = null,
   fetchPage,
@@ -115,6 +117,11 @@ export function useInfiniteCursorFeed<T>({
       finishRestore(focusId);
     });
   }, [finishRestore]);
+
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setRestorePending(Boolean(initialRestoreAfter || initialFocusId));
+  }, [initialFocusId, initialRestoreAfter, restoreStateKey]);
 
   useEffect(() => {
     if (!restorePending) {

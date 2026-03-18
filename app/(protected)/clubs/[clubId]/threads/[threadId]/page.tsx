@@ -8,11 +8,9 @@ import { InfiniteThreadComments } from "@/components/threads/infinite-thread-com
 import { PostComposer } from "@/components/threads/post-composer";
 import { Badge } from "@/components/ui/badge";
 import { Button, buttonStyles } from "@/components/ui/button";
-import { getCurrentUser } from "@/lib/auth/server";
-import { isClubMember } from "@/lib/clubs/permissions";
-import { findClubDetail } from "@/lib/clubs/repository";
 import { makeQueryClient } from "@/lib/query/make-query-client";
 import { seedInfiniteQueryPage } from "@/lib/query/seed-infinite-query";
+import { loadThreadMemberRouteAccess } from "@/lib/threads/access";
 import { canDeleteThreads } from "@/lib/threads/permissions";
 import {
   CLUB_BOOK_STATUS_BADGE_VARIANTS,
@@ -20,15 +18,24 @@ import {
 } from "@/lib/clubs/presentation";
 import { ThreadError } from "@/lib/threads/errors";
 import { createDiscussionRestoreHref } from "@/lib/threads/presentation";
-import { threadCommentsQueryKey } from "@/lib/threads/query-keys";
-import { findThreadDetail } from "@/lib/threads/repository";
+import {
+  createThreadFeedCacheKey,
+  threadCommentsQueryKey,
+} from "@/lib/threads/query-keys";
+import { findThreadDetailForMember } from "@/lib/threads/repository";
 
 type ThreadDetailPageProps = {
   params: Promise<{ clubId: string; threadId: string }>;
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 };
 
-type ThreadDetailData = Awaited<ReturnType<typeof findThreadDetail>>;
+type ThreadDetailData = {
+  access: Extract<
+    Awaited<ReturnType<typeof loadThreadMemberRouteAccess>>,
+    { status: "ok" }
+  >;
+  detail: Awaited<ReturnType<typeof findThreadDetailForMember>>;
+};
 
 function formatDate(date: Date) {
   return new Intl.DateTimeFormat("en-US", {
@@ -40,14 +47,31 @@ function formatDate(date: Date) {
 async function loadThreadDetailData(input: {
   clubId: string;
   threadId: string;
-  userId: string;
-}): Promise<ThreadDetailData> {
+}): Promise<ThreadDetailData | null> {
+  const access = await loadThreadMemberRouteAccess(input.clubId);
+  if (access.status === "unauthorized") {
+    return null;
+  }
+
+  if (access.status === "not_found") {
+    notFound();
+  }
+
+  if (access.status === "forbidden") {
+    forbidden();
+  }
+
   try {
-    return await findThreadDetail({
+    const detail = await findThreadDetailForMember({
       clubId: input.clubId,
       threadId: input.threadId,
-      userId: input.userId,
+      currentUserRole: access.club.currentUserRole,
     });
+
+    return {
+      access,
+      detail,
+    };
   } catch (caughtError) {
     if (
       caughtError instanceof ThreadError &&
@@ -64,11 +88,6 @@ export default async function ThreadDetailPage({
   params,
   searchParams,
 }: ThreadDetailPageProps) {
-  const currentUser = await getCurrentUser();
-  if (!currentUser) {
-    return null;
-  }
-
   const [{ clubId, threadId }, query] = await Promise.all([
     params,
     searchParams,
@@ -77,25 +96,29 @@ export default async function ThreadDetailPage({
   const error = readMessage(query.error);
   const restoreAfter = readMessage(query.after);
   const focusPostId = readMessage(query.focusPostId);
-  const club = await findClubDetail(clubId, currentUser.id);
-
-  if (!club) {
-    notFound();
-  }
-
-  if (!isClubMember(club.currentUserRole)) {
-    forbidden();
-  }
-
-  const detail = await loadThreadDetailData({
+  const threadCommentsCacheKey = createThreadFeedCacheKey({
+    message,
+    error,
+    after: restoreAfter,
+    focusId: focusPostId,
+  });
+  const loaded = await loadThreadDetailData({
     clubId,
     threadId,
-    userId: currentUser.id,
   });
+  if (!loaded) {
+    return null;
+  }
+
+  const { access, detail } = loaded;
   const queryClient = makeQueryClient();
   seedInfiniteQueryPage(
     queryClient,
-    threadCommentsQueryKey({ clubId, threadId }),
+    threadCommentsQueryKey({
+      clubId,
+      threadId,
+      cacheKey: threadCommentsCacheKey,
+    }),
     detail.posts,
   );
   const { thread } = detail;
@@ -212,7 +235,8 @@ export default async function ThreadDetailPage({
             clubId={clubId}
             threadId={threadId}
             basePath={basePath}
-            currentUserId={currentUser.id}
+            currentUserId={access.currentUser.id}
+            queryCacheKey={threadCommentsCacheKey}
             initialRestoreAfter={restoreAfter}
             initialFocusPostId={focusPostId}
           />

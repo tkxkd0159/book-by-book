@@ -17,6 +17,52 @@ BEGIN
 END;
 $$;
 
+CREATE OR REPLACE FUNCTION sync_club_member_count()
+RETURNS trigger
+LANGUAGE plpgsql
+AS $$
+BEGIN
+  IF TG_OP = 'INSERT' THEN
+    UPDATE bookapp.clubs
+    SET member_count = member_count + 1
+    WHERE id = NEW.club_id;
+    RETURN NEW;
+  END IF;
+
+  IF TG_OP = 'DELETE' THEN
+    UPDATE bookapp.clubs
+    SET member_count = GREATEST(member_count - 1, 0)
+    WHERE id = OLD.club_id;
+    RETURN OLD;
+  END IF;
+
+  RETURN NULL;
+END;
+$$;
+
+CREATE OR REPLACE FUNCTION sync_thread_post_count()
+RETURNS trigger
+LANGUAGE plpgsql
+AS $$
+BEGIN
+  IF TG_OP = 'INSERT' THEN
+    UPDATE bookapp.threads
+    SET post_count = post_count + 1
+    WHERE id = NEW.thread_id;
+    RETURN NEW;
+  END IF;
+
+  IF TG_OP = 'DELETE' THEN
+    UPDATE bookapp.threads
+    SET post_count = GREATEST(post_count - 1, 0)
+    WHERE id = OLD.thread_id;
+    RETURN OLD;
+  END IF;
+
+  RETURN NULL;
+END;
+$$;
+
 
 -- -------------------------------------------------------------------
 -- Dedicated DB user for application security
@@ -154,6 +200,7 @@ CREATE TABLE IF NOT EXISTS clubs (
   name          text        NOT NULL,
   description   text,
   visibility    text        NOT NULL DEFAULT 'PUBLIC',
+  member_count  integer     NOT NULL DEFAULT 0,
   created_by_id uuid        NOT NULL REFERENCES users(id) ON DELETE RESTRICT,
 
   created_at    timestamptz NOT NULL DEFAULT now(),
@@ -184,6 +231,11 @@ CREATE TABLE IF NOT EXISTS club_members (
 
 CREATE INDEX IF NOT EXISTS club_members_user_id_idx ON club_members(user_id);
 CREATE INDEX IF NOT EXISTS club_members_club_role_idx ON club_members(club_id, role);
+
+DROP TRIGGER IF EXISTS trg_club_members_member_count ON club_members;
+CREATE TRIGGER trg_club_members_member_count
+AFTER INSERT OR DELETE ON club_members
+FOR EACH ROW EXECUTE FUNCTION sync_club_member_count();
 
 -- Invitations (supports inviting by existing user_id OR by email for claim-on-signup)
 CREATE TABLE IF NOT EXISTS club_invitations (
@@ -275,6 +327,7 @@ CREATE TABLE IF NOT EXISTS threads (
 
   is_locked    boolean     NOT NULL DEFAULT false,
   is_pinned    boolean     NOT NULL DEFAULT false,
+  post_count   integer     NOT NULL DEFAULT 0,
 
   created_at   timestamptz NOT NULL DEFAULT now(),
   updated_at   timestamptz NOT NULL DEFAULT now(),
@@ -322,6 +375,11 @@ DROP TRIGGER IF EXISTS trg_thread_posts_updated_at ON thread_posts;
 CREATE TRIGGER trg_thread_posts_updated_at
 BEFORE UPDATE ON thread_posts
 FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+
+DROP TRIGGER IF EXISTS trg_thread_posts_post_count ON thread_posts;
+CREATE TRIGGER trg_thread_posts_post_count
+AFTER INSERT OR DELETE ON thread_posts
+FOR EACH ROW EXECUTE FUNCTION sync_thread_post_count();
 
 CREATE INDEX IF NOT EXISTS thread_posts_thread_created_at_idx ON thread_posts(thread_id, created_at);
 CREATE INDEX IF NOT EXISTS thread_posts_thread_parent_created_at_idx ON thread_posts(thread_id, parent_post_id, created_at, id);

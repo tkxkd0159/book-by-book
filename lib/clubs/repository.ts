@@ -14,7 +14,7 @@ import type {
   ClubVisibility,
 } from "@/types/db";
 
-import { ClubError } from "@/lib/clubs/errors";
+import { ClubError, CLUB_ERROR_MESSAGES } from "@/lib/clubs/errors";
 import {
   canChangeClubMemberRole,
   isClubAdmin,
@@ -290,11 +290,7 @@ export async function listUserClubs(userId: string) {
       clubs.created_at as "createdAt",
       clubs.updated_at as "updatedAt",
       club_members.role as "currentUserRole",
-      (
-        select count(*)::int
-        from bookapp.club_members member_counts
-        where member_counts.club_id = clubs.id
-      ) as "memberCount"
+      clubs.member_count as "memberCount"
     from bookapp.clubs
     join bookapp.club_members
       on club_members.club_id = clubs.id
@@ -316,11 +312,7 @@ export async function listDiscoverablePublicClubs(userId: string) {
       clubs.created_at as "createdAt",
       clubs.updated_at as "updatedAt",
       null::text as "currentUserRole",
-      (
-        select count(*)::int
-        from bookapp.club_members member_counts
-        where member_counts.club_id = clubs.id
-      ) as "memberCount"
+      clubs.member_count as "memberCount"
     from bookapp.clubs
     where clubs.visibility = 'PUBLIC'
       and not exists (
@@ -449,11 +441,7 @@ export async function findClubDetail(clubId: string, userId: string) {
       clubs.created_at as "createdAt",
       clubs.updated_at as "updatedAt",
       club_members.role as "currentUserRole",
-      (
-        select count(*)::int
-        from bookapp.club_members member_counts
-        where member_counts.club_id = clubs.id
-      ) as "memberCount"
+      clubs.member_count as "memberCount"
     from bookapp.clubs
     left join bookapp.club_members
       on club_members.club_id = clubs.id
@@ -470,7 +458,7 @@ export async function listClubMembers(clubId: string, viewerId: string) {
   if (!membership || !isClubMember(membership.role)) {
     throw new ClubError(
       membership ? "FORBIDDEN" : "NOT_FOUND",
-      "Only club members can view the member list.",
+      CLUB_ERROR_MESSAGES.memberListRequiresMembership,
     );
   }
 
@@ -553,7 +541,7 @@ export async function joinPublicClub(input: { clubId: string; userId: string }) 
     const query = asQueryExecutor(tx);
     const club = await getClubForUpdate(query, input.clubId);
     if (!club) {
-      throw new ClubError("NOT_FOUND", "Club not found.");
+      throw new ClubError("NOT_FOUND", CLUB_ERROR_MESSAGES.clubNotFound);
     }
 
     if (club.visibility !== "PUBLIC") {
@@ -597,7 +585,10 @@ export async function leaveClub(input: { clubId: string; userId: string }) {
     );
 
     if (!membership) {
-      throw new ClubError("NOT_FOUND", "Club membership not found.");
+      throw new ClubError(
+        "NOT_FOUND",
+        CLUB_ERROR_MESSAGES.clubMembershipNotFound,
+      );
     }
 
     if (membership.role === "OWNER") {
@@ -643,7 +634,7 @@ export async function changeClubMemberRole(input: {
     if (!membership) {
       throw new ClubError(
         "NOT_FOUND",
-        "Club membership not found.",
+        CLUB_ERROR_MESSAGES.clubMembershipNotFound,
       );
     }
 
@@ -653,7 +644,7 @@ export async function changeClubMemberRole(input: {
       input.targetUserId,
     );
     if (!targetMembership) {
-      throw new ClubError("NOT_FOUND", "Club member not found.");
+      throw new ClubError("NOT_FOUND", CLUB_ERROR_MESSAGES.clubMemberNotFound);
     }
 
     if (targetMembership.role === "OWNER") {
@@ -714,7 +705,10 @@ export async function removeClubMember(input: {
       input.removedById,
     );
     if (!membership) {
-      throw new ClubError("NOT_FOUND", "Club membership not found.");
+      throw new ClubError(
+        "NOT_FOUND",
+        CLUB_ERROR_MESSAGES.clubMembershipNotFound,
+      );
     }
 
     const targetMembership = await getMembershipForUpdate(
@@ -723,7 +717,7 @@ export async function removeClubMember(input: {
       input.targetUserId,
     );
     if (!targetMembership) {
-      throw new ClubError("NOT_FOUND", "Club member not found.");
+      throw new ClubError("NOT_FOUND", CLUB_ERROR_MESSAGES.clubMemberNotFound);
     }
 
     if (targetMembership.role === "OWNER") {
@@ -789,7 +783,7 @@ export async function transferClubOwnership(input: {
       input.nextOwnerUserId,
     );
     if (!nextOwnerMembership) {
-      throw new ClubError("NOT_FOUND", "Club member not found.");
+      throw new ClubError("NOT_FOUND", CLUB_ERROR_MESSAGES.clubMemberNotFound);
     }
 
     if (nextOwnerMembership.role !== "ADMIN") {
@@ -816,7 +810,7 @@ export async function transferClubOwnership(input: {
     `;
 
     if (!updatedClub) {
-      throw new ClubError("NOT_FOUND", "Club not found.");
+      throw new ClubError("NOT_FOUND", CLUB_ERROR_MESSAGES.clubNotFound);
     }
 
     await query`
@@ -863,7 +857,7 @@ export async function deleteClub(input: { clubId: string; deletedById: string })
     `;
 
     if (!deletedClub) {
-      throw new ClubError("NOT_FOUND", "Club not found.");
+      throw new ClubError("NOT_FOUND", CLUB_ERROR_MESSAGES.clubNotFound);
     }
 
     return mapClub(deletedClub);
@@ -1013,7 +1007,7 @@ export async function moveClubBook(input: {
     `;
 
     if (!existing || existing.removedAt) {
-      throw new ClubError("NOT_FOUND", "Club book not found.");
+      throw new ClubError("NOT_FOUND", CLUB_ERROR_MESSAGES.clubBookNotFound);
     }
 
     const nextSortOrder = await getNextSortOrder(
@@ -1087,7 +1081,7 @@ export async function removeClubBook(input: {
     `;
 
     if (!updated) {
-      throw new ClubError("NOT_FOUND", "Club book not found.");
+      throw new ClubError("NOT_FOUND", CLUB_ERROR_MESSAGES.clubBookNotFound);
     }
 
     return mapClubBook(updated);
@@ -1154,7 +1148,7 @@ export async function createClubInvitation(input: {
 
     const club = await getClubForUpdate(query, input.clubId);
     if (!club) {
-      throw new ClubError("NOT_FOUND", "Club not found.");
+      throw new ClubError("NOT_FOUND", CLUB_ERROR_MESSAGES.clubNotFound);
     }
 
     const [existingMember] = await query<{ id: string }[]>`

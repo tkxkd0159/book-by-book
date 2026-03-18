@@ -5,25 +5,32 @@ import { isE2EBypassEnabled } from "@/lib/auth/e2e";
 import {
   getTestUser,
   seedTestUsers,
-  type TestUserKey,
 } from "@/lib/test/fixtures";
+import {
+  E2E_DEFAULT_RETURN_TO,
+  TEST_ROUTE_ERROR_MESSAGES,
+  isTestUserKey,
+} from "@/lib/test/constants";
 
 export const runtime = "nodejs";
 
-function isTestUserKey(value: string): value is TestUserKey {
-  return value === "owner" || value === "member" || value === "stranger";
-}
-
 export async function GET(request: NextRequest) {
   if (!isE2EBypassEnabled()) {
-    return NextResponse.json({ error: "Not available." }, { status: 404 });
+    return NextResponse.json(
+      { error: TEST_ROUTE_ERROR_MESSAGES.notAvailable },
+      { status: 404 },
+    );
   }
 
   const userKey = request.nextUrl.searchParams.get("user") ?? "";
-  const returnTo = request.nextUrl.searchParams.get("returnTo") ?? "/clubs";
+  const returnTo =
+    request.nextUrl.searchParams.get("returnTo") ?? E2E_DEFAULT_RETURN_TO;
 
   if (!isTestUserKey(userKey)) {
-    return NextResponse.json({ error: "Unknown test user." }, { status: 400 });
+    return NextResponse.json(
+      { error: TEST_ROUTE_ERROR_MESSAGES.unknownTestUser },
+      { status: 400 },
+    );
   }
 
   await seedTestUsers();

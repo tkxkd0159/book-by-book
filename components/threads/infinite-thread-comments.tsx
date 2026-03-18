@@ -21,6 +21,7 @@ type InfiniteThreadCommentsProps = {
   threadId: string;
   basePath: string;
   currentUserId: string;
+  queryCacheKey?: string | null;
   initialRestoreAfter?: string | null;
   initialFocusPostId?: string | null;
 };
@@ -73,6 +74,7 @@ export function InfiniteThreadComments({
   threadId,
   basePath,
   currentUserId,
+  queryCacheKey = null,
   initialRestoreAfter = null,
   initialFocusPostId = null,
 }: InfiniteThreadCommentsProps) {
@@ -85,7 +87,8 @@ export function InfiniteThreadComments({
     loadMore,
     currentRestoreAfter,
   } = useInfiniteCursorFeed({
-    queryKey: threadCommentsQueryKey({ clubId, threadId }),
+    queryKey: threadCommentsQueryKey({ clubId, threadId, cacheKey: queryCacheKey }),
+    restoreStateKey: queryCacheKey,
     initialRestoreAfter,
     initialFocusId: initialFocusPostId,
     fetchPage: (after, signal) =>

@@ -1,15 +1,16 @@
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./fixtures/test";
 
+import { E2E_ROUTE_PATHS } from "./helpers/constants";
 import { signInAs } from "./helpers/auth";
 
 test.beforeEach(async ({ page }) => {
-  await signInAs(page, "owner", "/books/search");
+  await signInAs(page, "owner", E2E_ROUTE_PATHS.booksSearch);
 });
 
 test("search button is correctly positioned relative to the search input", async ({
   page,
 }) => {
-  await page.goto("/books/search");
+  await page.goto(E2E_ROUTE_PATHS.booksSearch);
 
   const searchInput = page.getByRole("textbox", { name: "Search term" });
   const searchButton = page.getByRole("button", {
@@ -41,7 +42,7 @@ test("search button is correctly positioned relative to the search input", async
 test("default quick search uses title matching and the renamed toggle", async ({
   page,
 }) => {
-  await page.goto("/books/search");
+  await page.goto(E2E_ROUTE_PATHS.booksSearch);
 
   const searchInput = page.getByRole("textbox", { name: "Search term" });
   await expect(page.getByText("Use raw search term")).toBeVisible();
@@ -63,7 +64,7 @@ test("default quick search uses title matching and the renamed toggle", async ({
 test("search term mode keeps boolean-style operators in the URL query", async ({
   page,
 }) => {
-  await page.goto("/books/search");
+  await page.goto(E2E_ROUTE_PATHS.booksSearch);
 
   const searchInput = page.getByRole("textbox", { name: "Search term" });
   await page.getByText("Use raw search term").click();

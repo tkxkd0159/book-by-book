@@ -3,8 +3,12 @@ import { z } from "zod";
 
 import { E2E_USER_PROVIDER, isE2EBypassEnabled } from "@/lib/auth/e2e";
 import { findUserByProviderIdentity } from "@/lib/auth/users";
+import {
+  TEST_ROUTE_ERROR_MESSAGES,
+  TEST_USER_KEYS,
+} from "@/lib/test/constants";
 import { createThread, createThreadPost } from "@/lib/threads/repository";
-import { seedTestUsers, type TestUserKey } from "@/lib/test/fixtures";
+import { seedTestUsers } from "@/lib/test/fixtures";
 
 export const runtime = "nodejs";
 
@@ -14,7 +18,7 @@ const seedThreadsSchema = z.object({
   clubBookId: z.string().min(1),
   count: z.number().int().min(1).max(100),
   prefix: z.string().min(1),
-  user: z.enum(["owner", "member", "stranger"] satisfies [TestUserKey, ...TestUserKey[]]),
+  user: z.enum(TEST_USER_KEYS),
 });
 
 const seedPostsSchema = z.object({
@@ -23,7 +27,7 @@ const seedPostsSchema = z.object({
   threadId: z.string().min(1),
   count: z.number().int().min(1).max(100),
   prefix: z.string().min(1),
-  user: z.enum(["owner", "member", "stranger"] satisfies [TestUserKey, ...TestUserKey[]]),
+  user: z.enum(TEST_USER_KEYS),
 });
 
 const seedPayloadSchema = z.union([seedThreadsSchema, seedPostsSchema]);
@@ -34,12 +38,18 @@ function formatLabel(index: number) {
 
 export async function POST(request: NextRequest) {
   if (!isE2EBypassEnabled()) {
-    return NextResponse.json({ error: "Not available." }, { status: 404 });
+    return NextResponse.json(
+      { error: TEST_ROUTE_ERROR_MESSAGES.notAvailable },
+      { status: 404 },
+    );
   }
 
   const parsedBody = seedPayloadSchema.safeParse(await request.json().catch(() => null));
   if (!parsedBody.success) {
-    return NextResponse.json({ error: "Invalid seed payload." }, { status: 400 });
+    return NextResponse.json(
+      { error: TEST_ROUTE_ERROR_MESSAGES.invalidSeedPayload },
+      { status: 400 },
+    );
   }
 
   await seedTestUsers();
@@ -48,7 +58,10 @@ export async function POST(request: NextRequest) {
     parsedBody.data.user,
   );
   if (!user) {
-    return NextResponse.json({ error: "Unknown test user." }, { status: 400 });
+    return NextResponse.json(
+      { error: TEST_ROUTE_ERROR_MESSAGES.unknownTestUser },
+      { status: 400 },
+    );
   }
 
   if (parsedBody.data.kind === "threads") {

@@ -1,8 +1,7 @@
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./fixtures/test";
 
+import { E2E_AUTH_COOKIE_NAME, E2E_ROUTE_PATHS } from "./helpers/constants";
 import { resetApp, signInAs } from "./helpers/auth";
-
-const E2E_AUTH_COOKIE_NAME = "bbb_e2e_user";
 
 test.beforeEach(async ({ request }) => {
   await resetApp(request);
@@ -11,7 +10,7 @@ test.beforeEach(async ({ request }) => {
 test("signed-out users are redirected from protected pages before the shell renders", async ({
   page,
 }) => {
-  await page.goto("/clubs");
+  await page.goto(E2E_ROUTE_PATHS.clubs);
 
   await expect(page).toHaveURL(/\/signin\?callbackUrl=%2Fclubs$/);
   await expect(
@@ -32,7 +31,7 @@ test("stale optimistic auth cookies do not block access to the sign-in page", as
     },
   ]);
 
-  await page.goto("/signin");
+  await page.goto(E2E_ROUTE_PATHS.signIn);
 
   await expect(page).toHaveURL(/\/signin$/);
   await expect(
@@ -43,7 +42,7 @@ test("stale optimistic auth cookies do not block access to the sign-in page", as
 test("valid signed-in users can still reach protected pages through the proxy gate", async ({
   page,
 }) => {
-  await signInAs(page, "owner", "/clubs");
+  await signInAs(page, "owner", E2E_ROUTE_PATHS.clubs);
 
   await expect(page).toHaveURL(/\/clubs$/);
   await expect(page.getByRole("heading", { name: "Book Clubs" })).toBeVisible();

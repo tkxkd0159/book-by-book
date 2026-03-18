@@ -121,9 +121,49 @@ describe("club repository integration", () => {
 
     const memberClubDetail = await findClubDetail(privateClub.id, member.id);
     expect(memberClubDetail?.currentUserRole).toBe("MEMBER");
+    expect(memberClubDetail?.memberCount).toBe(2);
 
     const updatedLookup = await findInvitationByToken(invitationResult.rawToken);
     expect(updatedLookup?.effectiveStatus).toBe("ACCEPTED");
+  });
+
+  it("updates member counts when members leave or are removed", async () => {
+    const owner = await getRequiredUser("owner");
+    const member = await getRequiredUser("member");
+    const stranger = await getRequiredUser("stranger");
+
+    const club = await createClub({
+      createdById: owner.id,
+      name: "Member Count Club",
+      description: null,
+      visibility: "PUBLIC",
+    });
+
+    await joinPublicClub({
+      clubId: club.id,
+      userId: member.id,
+    });
+    await joinPublicClub({
+      clubId: club.id,
+      userId: stranger.id,
+    });
+
+    expect((await findClubDetail(club.id, owner.id))?.memberCount).toBe(3);
+
+    await leaveClub({
+      clubId: club.id,
+      userId: member.id,
+    });
+
+    expect((await findClubDetail(club.id, owner.id))?.memberCount).toBe(2);
+
+    await removeClubMember({
+      clubId: club.id,
+      targetUserId: stranger.id,
+      removedById: owner.id,
+    });
+
+    expect((await findClubDetail(club.id, owner.id))?.memberCount).toBe(1);
   });
 
   it("rejects accepting a private invitation with the wrong account", async () => {

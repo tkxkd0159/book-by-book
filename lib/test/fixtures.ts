@@ -1,28 +1,13 @@
 import sql from "@/lib/db";
 import { E2E_USER_PROVIDER } from "@/lib/auth/e2e";
+import {
+  TEST_BOOK_FIXTURE,
+  TEST_FIXTURE_LOCK_ID,
+  TEST_USERS,
+  type TestUserKey,
+} from "@/lib/test/constants";
 
-const TEST_USERS = {
-  owner: {
-    key: "owner",
-    email: "owner@book-by-book.test",
-    name: "Owner Reader",
-  },
-  member: {
-    key: "member",
-    email: "member@book-by-book.test",
-    name: "Member Reader",
-  },
-  stranger: {
-    key: "stranger",
-    email: "stranger@book-by-book.test",
-    name: "Stranger Reader",
-  },
-} as const;
-
-export type TestUserKey = keyof typeof TEST_USERS;
-
-export const TEST_BOOK_VOLUME_ID = "club-test-book";
-const TEST_FIXTURE_LOCK_ID = 20_260_316;
+export { TEST_BOOK_VOLUME_ID, type TestUserKey } from "@/lib/test/constants";
 
 async function insertTestUsers(query: typeof sql) {
   for (const user of Object.values(TEST_USERS)) {
@@ -94,21 +79,21 @@ export async function resetTestDatabase() {
         raw_google_json
       )
       values (
-        ${TEST_BOOK_VOLUME_ID},
-        'The Test-Driven Book Club',
-        'Milestone Fixture',
-        ARRAY['Fixture Author'],
-        'Book by Book Press',
-        '2025',
-        'Fixture description for milestone 2 end-to-end coverage.',
-        '9780000000002',
-        320,
-        ARRAY['Fiction'],
-        'en',
-        'https://books.google.com/books/content?id=fixture&printsec=frontcover&img=1&zoom=1',
-        'https://books.google.com/books?id=fixture',
-        'https://books.google.com/books?id=fixture',
-        '{}'::jsonb
+        ${TEST_BOOK_FIXTURE.googleVolumeId},
+        ${TEST_BOOK_FIXTURE.title},
+        ${TEST_BOOK_FIXTURE.subtitle},
+        ${sql.array([...TEST_BOOK_FIXTURE.authors])},
+        ${TEST_BOOK_FIXTURE.publisher},
+        ${TEST_BOOK_FIXTURE.publishedDate},
+        ${TEST_BOOK_FIXTURE.description},
+        ${TEST_BOOK_FIXTURE.isbn13},
+        ${TEST_BOOK_FIXTURE.pageCount},
+        ${sql.array([...TEST_BOOK_FIXTURE.categories])},
+        ${TEST_BOOK_FIXTURE.language},
+        ${TEST_BOOK_FIXTURE.thumbnailUrl},
+        ${TEST_BOOK_FIXTURE.infoLink},
+        ${TEST_BOOK_FIXTURE.canonicalLink},
+        ${TEST_BOOK_FIXTURE.rawGoogleJson}::jsonb
       )
     `;
   });

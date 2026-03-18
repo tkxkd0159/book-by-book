@@ -755,6 +755,7 @@ export async function toggleThreadPinAction(formData: FormData) {
     redirect(
       appendMessage(
         createDiscussionRestoreHref(returnTo, {
+          after: null,
           focusThreadId: threadId,
           hash: `thread-${threadId}`,
         }),

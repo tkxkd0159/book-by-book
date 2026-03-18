@@ -22,7 +22,7 @@ import {
   parseThreadCommentCursor,
   parseThreadListCursor,
 } from "@/lib/threads/validation";
-import { ThreadError } from "@/lib/threads/errors";
+import { ThreadError, THREAD_ERROR_MESSAGES } from "@/lib/threads/errors";
 
 type QueryExecutor = typeof sql;
 
@@ -107,6 +107,11 @@ type ThreadPostRow = {
 
 type ThreadPostForMutationRow = ThreadPostRow & {
   clubId: string;
+};
+
+type DiscussionAccessContext = {
+  currentUserRole: ClubMemberRole;
+  clubBook: DiscussionClubBook;
 };
 
 export type ThreadAuthor = Pick<AuthUser, "id" | "name" | "imageUrl">;
@@ -318,6 +323,62 @@ async function getDiscussionClubBook(
   return clubBook ? mapDiscussionClubBook(clubBook) : null;
 }
 
+async function getDiscussionAccessContext(
+  query: QueryExecutor,
+  input: {
+    clubId: string;
+    clubBookId: string;
+    userId: string;
+  },
+): Promise<DiscussionAccessContext> {
+  const membership = await getMembership(query, input.clubId, input.userId);
+  if (!membership || !canViewThreads(membership.role)) {
+    throw new ThreadError(
+      "NOT_FOUND",
+      THREAD_ERROR_MESSAGES.discussionNotFound,
+    );
+  }
+
+  return getDiscussionAccessContextForMember(query, {
+    clubId: input.clubId,
+    clubBookId: input.clubBookId,
+    currentUserRole: membership.role,
+  });
+}
+
+async function getDiscussionAccessContextForMember(
+  query: QueryExecutor,
+  input: {
+    clubId: string;
+    clubBookId: string;
+    currentUserRole: ClubMemberRole;
+  },
+): Promise<DiscussionAccessContext> {
+  if (!canViewThreads(input.currentUserRole)) {
+    throw new ThreadError(
+      "NOT_FOUND",
+      THREAD_ERROR_MESSAGES.discussionNotFound,
+    );
+  }
+
+  const clubBook = await getDiscussionClubBook(
+    query,
+    input.clubId,
+    input.clubBookId,
+  );
+  if (!clubBook) {
+    throw new ThreadError(
+      "NOT_FOUND",
+      THREAD_ERROR_MESSAGES.discussionNotFound,
+    );
+  }
+
+  return {
+    currentUserRole: input.currentUserRole,
+    clubBook,
+  };
+}
+
 async function getThreadForPinUpdate(
   query: QueryExecutor,
   clubId: string,
@@ -409,37 +470,32 @@ export async function findDiscussionClubBook(input: {
   clubBookId: string;
   userId: string;
 }) {
-  const membership = await getMembership(sql, input.clubId, input.userId);
-  if (!membership || !canViewThreads(membership.role)) {
-    throw new ThreadError("NOT_FOUND", "Club book discussion not found.");
-  }
-
-  const clubBook = await getDiscussionClubBook(sql, input.clubId, input.clubBookId);
-  if (!clubBook) {
-    throw new ThreadError("NOT_FOUND", "Club book discussion not found.");
-  }
-
-  return {
-    currentUserRole: membership.role,
-    clubBook,
-  };
+  return getDiscussionAccessContext(sql, input);
 }
 
-export async function listThreadsForClubBook(input: {
+export async function findDiscussionClubBookForMember(input: {
   clubId: string;
   clubBookId: string;
-  userId: string;
-  afterCursor?: string | null;
-  limit?: number | null;
+  currentUserRole: ClubMemberRole;
 }) {
-  await findDiscussionClubBook(input);
+  return getDiscussionAccessContextForMember(sql, input);
+}
 
+async function listThreadsForClubBookQuery(
+  query: QueryExecutor,
+  input: {
+    clubId: string;
+    clubBookId: string;
+    afterCursor?: string | null;
+    limit?: number | null;
+  },
+) {
   const limit = parseDiscussionLimit(input.limit);
   const afterCursor = parseThreadListCursor(input.afterCursor);
   const queryLimit = limit + 1;
 
   const rows = afterCursor
-    ? await sql<ThreadSummaryRow[]>`
+    ? await query<ThreadSummaryRow[]>`
       select
         threads.id::text as id,
         threads.club_id::text as "clubId",
@@ -456,11 +512,7 @@ export async function listThreadsForClubBook(input: {
         threads.deleted_at as "deletedAt",
         users.name as "authorName",
         users.image_url as "authorImageUrl",
-        (
-          select count(*)::int
-          from bookapp.thread_posts
-          where thread_posts.thread_id = threads.id
-        ) as "postCount"
+        threads.post_count as "postCount"
       from bookapp.threads
       join bookapp.users on users.id = threads.author_id
       where threads.club_id = ${input.clubId}::uuid
@@ -483,7 +535,7 @@ export async function listThreadsForClubBook(input: {
       order by threads.is_pinned desc, threads.created_at desc, threads.id desc
       limit ${queryLimit}
     `
-    : await sql<ThreadSummaryRow[]>`
+    : await query<ThreadSummaryRow[]>`
       select
         threads.id::text as id,
         threads.club_id::text as "clubId",
@@ -500,11 +552,7 @@ export async function listThreadsForClubBook(input: {
         threads.deleted_at as "deletedAt",
         users.name as "authorName",
         users.image_url as "authorImageUrl",
-        (
-          select count(*)::int
-          from bookapp.thread_posts
-          where thread_posts.thread_id = threads.id
-        ) as "postCount"
+        threads.post_count as "postCount"
       from bookapp.threads
       join bookapp.users on users.id = threads.author_id
       where threads.club_id = ${input.clubId}::uuid
@@ -527,6 +575,43 @@ export async function listThreadsForClubBook(input: {
   });
 }
 
+export async function loadDiscussionDataForMember(input: {
+  clubId: string;
+  clubBookId: string;
+  currentUserRole: ClubMemberRole;
+  afterCursor?: string | null;
+  limit?: number | null;
+}) {
+  const discussion = await getDiscussionAccessContextForMember(sql, input);
+  const threads = await listThreadsForClubBookQuery(sql, input);
+
+  return { discussion, threads };
+}
+
+export async function listThreadsForClubBook(input: {
+  clubId: string;
+  clubBookId: string;
+  userId: string;
+  afterCursor?: string | null;
+  limit?: number | null;
+}) {
+  await getDiscussionAccessContext(sql, input);
+
+  return listThreadsForClubBookQuery(sql, input);
+}
+
+export async function listThreadsForClubBookForMember(input: {
+  clubId: string;
+  clubBookId: string;
+  currentUserRole: ClubMemberRole;
+  afterCursor?: string | null;
+  limit?: number | null;
+}) {
+  await getDiscussionAccessContextForMember(sql, input);
+
+  return listThreadsForClubBookQuery(sql, input);
+}
+
 export async function createThread(input: {
   clubId: string;
   clubBookId: string;
@@ -538,7 +623,10 @@ export async function createThread(input: {
     const query = asQueryExecutor(tx);
     const membership = await getMembership(query, input.clubId, input.authorId);
     if (!membership || !canViewThreads(membership.role)) {
-      throw new ThreadError("NOT_FOUND", "Club book discussion not found.");
+      throw new ThreadError(
+        "NOT_FOUND",
+        THREAD_ERROR_MESSAGES.discussionNotFound,
+      );
     }
 
     const clubBook = await getDiscussionClubBook(
@@ -547,7 +635,10 @@ export async function createThread(input: {
       input.clubBookId,
     );
     if (!clubBook) {
-      throw new ThreadError("NOT_FOUND", "Club book discussion not found.");
+      throw new ThreadError(
+        "NOT_FOUND",
+        THREAD_ERROR_MESSAGES.discussionNotFound,
+      );
     }
 
     if (clubBook.removedAt) {
@@ -602,7 +693,27 @@ export async function findThreadDetail(input: {
 }) {
   const membership = await getMembership(sql, input.clubId, input.userId);
   if (!membership || !canViewThreads(membership.role)) {
-    throw new ThreadError("NOT_FOUND", "Thread not found.");
+    throw new ThreadError("NOT_FOUND", THREAD_ERROR_MESSAGES.threadNotFound);
+  }
+
+  return findThreadDetailForMember({
+    clubId: input.clubId,
+    threadId: input.threadId,
+    currentUserRole: membership.role,
+    afterCursor: input.afterCursor,
+    limit: input.limit,
+  });
+}
+
+export async function findThreadDetailForMember(input: {
+  clubId: string;
+  threadId: string;
+  currentUserRole: ClubMemberRole;
+  afterCursor?: string | null;
+  limit?: number | null;
+}) {
+  if (!canViewThreads(input.currentUserRole)) {
+    throw new ThreadError("NOT_FOUND", THREAD_ERROR_MESSAGES.threadNotFound);
   }
 
   const limit = parseDiscussionLimit(input.limit);
@@ -625,11 +736,7 @@ export async function findThreadDetail(input: {
       threads.deleted_at as "deletedAt",
       thread_author.name as "authorName",
       thread_author.image_url as "authorImageUrl",
-      (
-        select count(*)::int
-        from bookapp.thread_posts
-        where thread_posts.thread_id = threads.id
-      ) as "postCount",
+      threads.post_count as "postCount",
       club_books.status as "clubBookStatus",
       club_books.added_by_id::text as "clubBookAddedById",
       club_books.sort_order as "clubBookSortOrder",
@@ -658,7 +765,7 @@ export async function findThreadDetail(input: {
   `;
 
   if (!threadRow) {
-    throw new ThreadError("NOT_FOUND", "Thread not found.");
+    throw new ThreadError("NOT_FOUND", THREAD_ERROR_MESSAGES.threadNotFound);
   }
 
   const topLevelRows = afterCursor
@@ -753,30 +860,26 @@ export async function findThreadDetail(input: {
     repliesByParentId.set(parentPostId, entries);
   }
 
+  const lastVisibleRow = visibleTopLevelRows.at(-1) ?? null;
+  const endCursor = lastVisibleRow
+    ? createThreadCommentCursor({
+      createdAtMicros:
+          lastVisibleRow.cursorCreatedAtMicros
+          ?? lastVisibleRow.createdAt.getTime() * 1000,
+      id: lastVisibleRow.id,
+    })
+    : null;
+
   return {
-    currentUserRole: membership.role,
+    currentUserRole: input.currentUserRole,
     thread: mapThreadDetail(threadRow),
     posts: {
       items: visibleTopLevelRows.map((post) => ({
         ...mapThreadPost(post),
         replies: repliesByParentId.get(post.id) ?? [],
       })),
-      nextCursor: hasMore && visibleTopLevelRows.length > 0
-        ? createThreadCommentCursor({
-          createdAtMicros:
-              visibleTopLevelRows[visibleTopLevelRows.length - 1]!.cursorCreatedAtMicros
-              ?? visibleTopLevelRows[visibleTopLevelRows.length - 1]!.createdAt.getTime() * 1000,
-          id: visibleTopLevelRows[visibleTopLevelRows.length - 1]!.id,
-        })
-        : null,
-      endCursor: visibleTopLevelRows.length > 0
-        ? createThreadCommentCursor({
-          createdAtMicros:
-              visibleTopLevelRows[visibleTopLevelRows.length - 1]!.cursorCreatedAtMicros
-              ?? visibleTopLevelRows[visibleTopLevelRows.length - 1]!.createdAt.getTime() * 1000,
-          id: visibleTopLevelRows[visibleTopLevelRows.length - 1]!.id,
-        })
-        : null,
+      nextCursor: hasMore ? endCursor : null,
+      endCursor,
       hasMore,
     },
   };
@@ -793,12 +896,12 @@ export async function createThreadPost(input: {
     const query = asQueryExecutor(tx);
     const membership = await getMembership(query, input.clubId, input.authorId);
     if (!membership || !canViewThreads(membership.role)) {
-      throw new ThreadError("NOT_FOUND", "Thread not found.");
+      throw new ThreadError("NOT_FOUND", THREAD_ERROR_MESSAGES.threadNotFound);
     }
 
     const thread = await getThreadForPinUpdate(query, input.clubId, input.threadId);
     if (!thread) {
-      throw new ThreadError("NOT_FOUND", "Thread not found.");
+      throw new ThreadError("NOT_FOUND", THREAD_ERROR_MESSAGES.threadNotFound);
     }
 
     let parentPostId: string | null = null;
@@ -810,20 +913,23 @@ export async function createThreadPost(input: {
       );
 
       if (!parentPost) {
-        throw new ThreadError("NOT_FOUND", "Reply target not found.");
+        throw new ThreadError(
+          "NOT_FOUND",
+          THREAD_ERROR_MESSAGES.replyTargetNotFound,
+        );
       }
 
       if (parentPost.parentPostId) {
         throw new ThreadError(
           "CONFLICT",
-          "Replies can only target top-level posts.",
+          THREAD_ERROR_MESSAGES.replyTargetTopLevelOnly,
         );
       }
 
       if (parentPost.deletedAt) {
         throw new ThreadError(
           "CONFLICT",
-          "Deleted posts cannot accept replies.",
+          THREAD_ERROR_MESSAGES.deletedReplyTarget,
         );
       }
 
@@ -878,20 +984,20 @@ export async function editThreadPost(input: {
     const query = asQueryExecutor(tx);
     const membership = await getMembership(query, input.clubId, input.editorId);
     if (!membership || !canViewThreads(membership.role)) {
-      throw new ThreadError("NOT_FOUND", "Post not found.");
+      throw new ThreadError("NOT_FOUND", THREAD_ERROR_MESSAGES.postNotFound);
     }
 
     const existing = await getThreadPostForMutation(query, input.clubId, input.postId);
     if (!existing) {
-      throw new ThreadError("NOT_FOUND", "Post not found.");
+      throw new ThreadError("NOT_FOUND", THREAD_ERROR_MESSAGES.postNotFound);
     }
 
     if (!isThreadPostAuthor(existing.authorId, input.editorId)) {
-      throw new ThreadError("FORBIDDEN", "Only the post author can modify this post.");
+      throw new ThreadError("FORBIDDEN", THREAD_ERROR_MESSAGES.postAuthorOnly);
     }
 
     if (existing.deletedAt) {
-      throw new ThreadError("CONFLICT", "Deleted posts cannot be edited.");
+      throw new ThreadError("CONFLICT", THREAD_ERROR_MESSAGES.deletedPostEdit);
     }
 
     const [updated] = await query<ThreadPostRow[]>`
@@ -934,16 +1040,16 @@ export async function deleteThreadPost(input: {
     const query = asQueryExecutor(tx);
     const membership = await getMembership(query, input.clubId, input.deletedById);
     if (!membership || !canViewThreads(membership.role)) {
-      throw new ThreadError("NOT_FOUND", "Post not found.");
+      throw new ThreadError("NOT_FOUND", THREAD_ERROR_MESSAGES.postNotFound);
     }
 
     const existing = await getThreadPostForMutation(query, input.clubId, input.postId);
     if (!existing) {
-      throw new ThreadError("NOT_FOUND", "Post not found.");
+      throw new ThreadError("NOT_FOUND", THREAD_ERROR_MESSAGES.postNotFound);
     }
 
     if (!isThreadPostAuthor(existing.authorId, input.deletedById)) {
-      throw new ThreadError("FORBIDDEN", "Only the post author can modify this post.");
+      throw new ThreadError("FORBIDDEN", THREAD_ERROR_MESSAGES.postAuthorOnly);
     }
 
     if (existing.deletedAt) {
@@ -998,7 +1104,7 @@ export async function deleteThread(input: {
 
     const thread = await getThreadForPinUpdate(query, input.clubId, input.threadId);
     if (!thread) {
-      throw new ThreadError("NOT_FOUND", "Thread not found.");
+      throw new ThreadError("NOT_FOUND", THREAD_ERROR_MESSAGES.threadNotFound);
     }
 
     const [deleted] = await query<ThreadRow[]>`
@@ -1042,7 +1148,7 @@ async function setThreadPinnedState(input: {
 
     const thread = await getThreadForPinUpdate(query, input.clubId, input.threadId);
     if (!thread) {
-      throw new ThreadError("NOT_FOUND", "Thread not found.");
+      throw new ThreadError("NOT_FOUND", THREAD_ERROR_MESSAGES.threadNotFound);
     }
 
     const [updated] = await query<ThreadRow[]>`

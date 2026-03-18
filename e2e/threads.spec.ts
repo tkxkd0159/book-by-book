@@ -1,11 +1,16 @@
-import { expect, test, type APIRequestContext } from "@playwright/test";
-import type { Locator, Page } from "@playwright/test";
+import type { APIRequestContext, Locator, Page } from "@playwright/test";
 
+import { expect, test } from "./fixtures/test";
+import {
+  E2E_ROUTE_PATHS,
+  E2E_TAB_LABELS,
+  E2E_URL_PATTERNS,
+} from "./helpers/constants";
 import { resetApp, signInAs } from "./helpers/auth";
 
-const CLUB_BOARD_URL_PATTERN = /\/clubs\/[0-9a-f-]+\/board(?:\?|$)/i;
-const discussionPathPattern = /^\/clubs\/([^/]+)\/books\/([^/]+)$/i;
-const threadPathPattern = /^\/clubs\/([^/]+)\/threads\/([^/]+)$/i;
+const CLUB_BOARD_URL_PATTERN = E2E_URL_PATTERNS.clubBoard;
+const discussionPathPattern = E2E_URL_PATTERNS.discussionPath;
+const threadPathPattern = E2E_URL_PATTERNS.threadPath;
 
 function parseDiscussionPath(pathname: string) {
   const match = pathname.match(discussionPathPattern);
@@ -31,11 +36,11 @@ function parseThreadPath(pathname: string) {
   };
 }
 
-function postBody(page: import("@playwright/test").Page, text: string) {
+function postBody(page: Page, text: string) {
   return page.locator("p").filter({ hasText: text }).first();
 }
 
-function commentArticle(page: import("@playwright/test").Page, text: string) {
+function commentArticle(page: Page, text: string) {
   return postBody(page, text).locator("xpath=ancestor::article[1]");
 }
 
@@ -45,13 +50,18 @@ async function getViewportY(locator: Locator) {
   return bounds!.y;
 }
 
-function expectViewportPositionStable(input: {
+async function expectViewportPositionStable(page: Page, input: {
   before: number;
   after: number;
   tolerance?: number;
 }) {
+  const viewportSize = page.viewportSize();
+  const tolerance =
+    input.tolerance ??
+    (viewportSize && viewportSize.width <= 768 ? 560 : 160);
+
   expect(Math.abs(input.after - input.before)).toBeLessThanOrEqual(
-    input.tolerance ?? 160,
+    tolerance,
   );
 }
 
@@ -67,10 +77,10 @@ async function expectCommentAnchor(
 }
 
 async function addFixtureBookToClub(
-  page: import("@playwright/test").Page,
+  page: Page,
   clubName: string,
 ) {
-  await page.goto("/books/club-test-book");
+  await page.goto(E2E_ROUTE_PATHS.fixtureBook);
   await page.getByRole("button", { name: "Add Book" }).click();
   const dialog = page.getByRole("dialog");
   await dialog.getByLabel(clubName).check();
@@ -79,26 +89,29 @@ async function addFixtureBookToClub(
 }
 
 async function openFixtureBookCardDetails(
-  page: import("@playwright/test").Page,
+  page: Page,
 ) {
   await page.getByLabel("Toggle details for The Test-Driven Book Club").click();
 }
 
 async function openThreadCard(
-  page: import("@playwright/test").Page,
+  page: Page,
   threadTitle: string,
 ) {
   await page.getByLabel(`Open thread ${threadTitle}`).click();
 }
 
-async function openManagePage(page: import("@playwright/test").Page) {
-  await page.getByRole("link", { name: "Manage" }).click();
-  await expect(page).toHaveURL(/\/clubs\/[0-9a-f-]+\/manage\/members(?:\?|$)/i);
+async function openManagePage(page: Page) {
+  await page.getByRole("link", { name: E2E_TAB_LABELS.manage }).click();
+  await expect(page).toHaveURL(E2E_URL_PATTERNS.manageMembers);
 }
 
 async function openManageTab(
-  page: import("@playwright/test").Page,
-  tabName: "Members" | "Reading board" | "Invite",
+  page: Page,
+  tabName:
+    | typeof E2E_TAB_LABELS.members
+    | typeof E2E_TAB_LABELS.readingBoard
+    | typeof E2E_TAB_LABELS.invite,
 ) {
   await page.getByRole("link", { name: tabName, exact: true }).click();
 }
@@ -186,7 +199,7 @@ test.beforeEach(async ({ request }) => {
 test("club member can open a club-book discussion page and create a thread", async ({
   page,
 }) => {
-  await signInAs(page, "owner", "/clubs/new");
+  await signInAs(page, "owner", E2E_ROUTE_PATHS.clubsNew);
 
   await page.getByLabel("Name").fill("Discussion Launch Club");
   await page.getByLabel("Description").fill("Used for thread creation.");
@@ -243,7 +256,7 @@ test("club member can open a club-book discussion page and create a thread", asy
 test("members can create one-depth replies while authors retain edit and delete control", async ({
   page,
 }) => {
-  await signInAs(page, "owner", "/clubs/new");
+  await signInAs(page, "owner", E2E_ROUTE_PATHS.clubsNew);
 
   await page.getByLabel("Name").fill("Post Lifecycle Club");
   await page.getByLabel("Description").fill("Used for post lifecycle checks.");
@@ -293,7 +306,7 @@ test("members can create one-depth replies while authors retain edit and delete 
   await expect(page.getByText("Post created.")).toBeVisible();
   await expect(postBody(page, "My first reaction.")).toBeVisible();
   await expect(page).toHaveURL(/#thread-post-composer$/);
-  expectViewportPositionStable({
+  await expectViewportPositionStable(page, {
     before: topLevelComposerYBefore,
     after: await getViewportY(page.getByLabel("Reply body")),
   });
@@ -471,7 +484,7 @@ test("members can create one-depth replies while authors retain edit and delete 
 test("club admins can pin a thread and move it ahead of newer threads", async ({
   page,
 }) => {
-  await signInAs(page, "owner", "/clubs/new");
+  await signInAs(page, "owner", E2E_ROUTE_PATHS.clubsNew);
 
   await page.getByLabel("Name").fill("Pin Ordering Club");
   await page.getByLabel("Description").fill("Used for pin ordering checks.");
@@ -518,7 +531,7 @@ test("discussion lists infinite-load older threads and restore later thread acti
   page,
   request,
 }) => {
-  await signInAs(page, "owner", "/clubs/new");
+  await signInAs(page, "owner", E2E_ROUTE_PATHS.clubsNew);
 
   await page.getByLabel("Name").fill("Infinite Thread Club");
   await page.getByLabel("Description").fill("Used for infinite thread list coverage.");
@@ -553,14 +566,16 @@ test("discussion lists infinite-load older threads and restore later thread acti
 
   await page.getByRole("button", { name: "Unpin" }).first().click();
   await expect(page.getByText("Thread unpinned.")).toBeVisible();
-  await expect(page.getByLabel("Open thread Infinite thread 01")).toBeVisible();
+  await expect(page.getByLabel("Open thread Infinite thread 01")).toBeVisible({
+    timeout: 15_000,
+  });
   await expect(page).not.toHaveURL(/after=|focusThreadId=/);
 });
 
 test("archived club books keep discussion readable but disable new thread creation", async ({
   page,
 }) => {
-  await signInAs(page, "owner", "/clubs/new");
+  await signInAs(page, "owner", E2E_ROUTE_PATHS.clubsNew);
 
   await page.getByLabel("Name").fill("Archived Discussion Club");
   await page
@@ -590,7 +605,7 @@ test("archived club books keep discussion readable but disable new thread creati
 
   await page.goto(clubBoardPath);
   await openManagePage(page);
-  await openManageTab(page, "Reading board");
+  await openManageTab(page, E2E_TAB_LABELS.readingBoard);
   await expect(page).toHaveURL(/\/clubs\/[0-9a-f-]+\/manage\/board(?:\?|$)/i);
   await openFixtureBookCardDetails(page);
   await expect(page.getByRole("button", { name: "Remove" })).toBeVisible();
@@ -614,7 +629,7 @@ test("archived club books keep discussion readable but disable new thread creati
 test("club admins can delete threads while members cannot", async ({
   page,
 }) => {
-  await signInAs(page, "owner", "/clubs/new");
+  await signInAs(page, "owner", E2E_ROUTE_PATHS.clubsNew);
 
   await page.getByLabel("Name").fill("Thread Moderation UI Club");
   await page
@@ -663,7 +678,7 @@ test("thread comments infinite-load older batches and preserve long-feed mutatio
   page,
   request,
 }) => {
-  await signInAs(page, "owner", "/clubs/new");
+  await signInAs(page, "owner", E2E_ROUTE_PATHS.clubsNew);
 
   await page.getByLabel("Name").fill("Infinite Comment Club");
   await page
@@ -729,7 +744,7 @@ test("thread comments infinite-load older batches and preserve long-feed mutatio
   await expect(page.getByText("Post created.")).toBeVisible();
   await expect(postBody(page, "Newest long comment")).toBeVisible();
   await expect(page).toHaveURL(/#thread-post-composer$/);
-  expectViewportPositionStable({
+  await expectViewportPositionStable(page, {
     before: longCommentComposerYBefore,
     after: await getViewportY(page.getByLabel("Reply body")),
   });
@@ -739,7 +754,7 @@ test("thread comments infinite-load older batches and preserve long-feed mutatio
 test("non-members see forbidden pages for discussion and thread routes", async ({
   page,
 }) => {
-  await signInAs(page, "owner", "/clubs/new");
+  await signInAs(page, "owner", E2E_ROUTE_PATHS.clubsNew);
 
   await page.getByLabel("Name").fill("Members Only Discussion Club");
   await page

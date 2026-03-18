@@ -1,7 +1,20 @@
-import type { ClubMemberRole } from "@/types/db";
+export const MANAGE_SECTION = {
+  members: "members",
+  board: "board",
+  invite: "invite",
+} as const;
 
-export type ManageSection = "members" | "board" | "invite";
-export type ManageMemberRoleFilter = "ALL" | ClubMemberRole;
+export type ManageSection = (typeof MANAGE_SECTION)[keyof typeof MANAGE_SECTION];
+
+export const MANAGE_MEMBER_ROLE_FILTER = {
+  all: "ALL",
+  owner: "OWNER",
+  admin: "ADMIN",
+  member: "MEMBER",
+} as const;
+
+export type ManageMemberRoleFilter =
+  (typeof MANAGE_MEMBER_ROLE_FILTER)[keyof typeof MANAGE_MEMBER_ROLE_FILTER];
 
 export function readManageMemberRoleFilter(
   value: string | string[] | undefined,
@@ -9,14 +22,14 @@ export function readManageMemberRoleFilter(
   const selectedRole = Array.isArray(value) ? value[0] : value;
 
   if (
-    selectedRole === "OWNER" ||
-    selectedRole === "ADMIN" ||
-    selectedRole === "MEMBER"
+    selectedRole === MANAGE_MEMBER_ROLE_FILTER.owner ||
+    selectedRole === MANAGE_MEMBER_ROLE_FILTER.admin ||
+    selectedRole === MANAGE_MEMBER_ROLE_FILTER.member
   ) {
     return selectedRole;
   }
 
-  return "ALL";
+  return MANAGE_MEMBER_ROLE_FILTER.all;
 }
 
 export function createManageSectionHref(input: {
@@ -26,13 +39,13 @@ export function createManageSectionHref(input: {
 }) {
   const pathname = `/clubs/${input.clubId}/manage/${input.section}`;
 
-  if (input.section !== "members") {
+  if (input.section !== MANAGE_SECTION.members) {
     return pathname;
   }
 
   const params = new URLSearchParams();
 
-  if (input.role && input.role !== "ALL") {
+  if (input.role && input.role !== MANAGE_MEMBER_ROLE_FILTER.all) {
     params.set("role", input.role);
   }
 
@@ -43,6 +56,6 @@ export function createManageSectionHref(input: {
 export function createManageEntryHref(clubId: string) {
   return createManageSectionHref({
     clubId,
-    section: "members",
+    section: MANAGE_SECTION.members,
   });
 }
