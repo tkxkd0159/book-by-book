@@ -1,6 +1,10 @@
 "use client";
 
 import {
+  useInfiniteQuery,
+  type QueryKey,
+} from "@tanstack/react-query";
+import {
   useCallback,
   useEffect,
   useRef,
@@ -11,10 +15,13 @@ import type { RefObject } from "react";
 import type { CursorPaginationResult } from "@/lib/threads/repository";
 
 type UseInfiniteCursorFeedOptions<T> = {
-  initialPage: CursorPaginationResult<T>;
+  queryKey: QueryKey;
   initialRestoreAfter?: string | null;
   initialFocusId?: string | null;
-  fetchPage: (after: string) => Promise<CursorPaginationResult<T>>;
+  fetchPage: (
+    after: string | null,
+    signal: AbortSignal,
+  ) => Promise<CursorPaginationResult<T>>;
   hasFocusedItem: (items: T[], focusId: string) => boolean;
   getFocusElementId: (focusId: string) => string;
 };
@@ -42,26 +49,34 @@ function stripRestoreSearchParams() {
 }
 
 export function useInfiniteCursorFeed<T>({
-  initialPage,
+  queryKey,
   initialRestoreAfter = null,
   initialFocusId = null,
   fetchPage,
   hasFocusedItem,
   getFocusElementId,
 }: UseInfiniteCursorFeedOptions<T>): UseInfiniteCursorFeedResult<T> {
-  const [items, setItems] = useState(initialPage.items);
-  const [nextCursor, setNextCursor] = useState(initialPage.nextCursor);
-  const [endCursor, setEndCursor] = useState(initialPage.endCursor);
-  const [hasMore, setHasMore] = useState(initialPage.hasMore);
-  const [isLoadingMore, setIsLoadingMore] = useState(false);
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [restorePending, setRestorePending] = useState(
     Boolean(initialRestoreAfter || initialFocusId),
   );
   const sentinelRef = useRef<HTMLDivElement | null>(null);
-  const loadingRef = useRef(false);
-
-  const currentRestoreAfter = endCursor;
+  const {
+    data,
+    error,
+    fetchNextPage,
+    hasNextPage = false,
+    isFetchingNextPage,
+  } = useInfiniteQuery({
+    queryKey,
+    initialPageParam: null as string | null,
+    queryFn: ({ pageParam, signal }) => fetchPage(pageParam, signal),
+    getNextPageParam: (lastPage) => lastPage.nextCursor ?? undefined,
+  });
+  const pages = data?.pages ?? [];
+  const items = pages.flatMap((page) => page.items);
+  const currentRestoreAfter = pages.at(-1)?.endCursor ?? null;
+  const errorMessage =
+    error instanceof Error ? error.message : null;
 
   const finishRestore = useCallback((focusId: string | null) => {
     const focusElementId = focusId ? getFocusElementId(focusId) : null;
@@ -84,31 +99,22 @@ export function useInfiniteCursorFeed<T>({
   }, [getFocusElementId]);
 
   const loadMore = useCallback(async () => {
-    if (loadingRef.current || !hasMore || !nextCursor) {
+    if (!hasNextPage || isFetchingNextPage) {
       return;
     }
 
-    loadingRef.current = true;
-    setIsLoadingMore(true);
-    setErrorMessage(null);
-
     try {
-      const nextPage = await fetchPage(nextCursor);
-      setItems((current) => [...current, ...nextPage.items]);
-      setNextCursor(nextPage.nextCursor);
-      setEndCursor(nextPage.endCursor);
-      setHasMore(nextPage.hasMore);
-    } catch (error) {
-      setErrorMessage(
-        error instanceof Error
-          ? error.message
-          : "Could not load more items. Please try again.",
-      );
-    } finally {
-      loadingRef.current = false;
-      setIsLoadingMore(false);
+      await fetchNextPage();
+    } catch {
+      // TanStack Query owns the error state surfaced through `error`.
     }
-  }, [fetchPage, hasMore, nextCursor]);
+  }, [fetchNextPage, hasNextPage, isFetchingNextPage]);
+
+  const deferFinishRestore = useCallback((focusId: string | null) => {
+    window.requestAnimationFrame(() => {
+      finishRestore(focusId);
+    });
+  }, [finishRestore]);
 
   useEffect(() => {
     if (!restorePending) {
@@ -118,19 +124,22 @@ export function useInfiniteCursorFeed<T>({
     const hasFocus = initialFocusId
       ? hasFocusedItem(items, initialFocusId)
       : false;
+    const hasRestoredAfter = initialRestoreAfter
+      ? currentRestoreAfter === initialRestoreAfter
+      : true;
 
-    if (hasFocus) {
-      finishRestore(initialFocusId);
+    if (hasFocus && hasRestoredAfter) {
+      deferFinishRestore(initialFocusId);
       return;
     }
 
-    if (initialRestoreAfter && currentRestoreAfter === initialRestoreAfter) {
-      finishRestore(null);
+    if (!initialFocusId && hasRestoredAfter) {
+      deferFinishRestore(null);
       return;
     }
 
-    if (!hasMore) {
-      finishRestore(hasFocus ? initialFocusId : null);
+    if (!hasNextPage) {
+      deferFinishRestore(hasFocus ? initialFocusId : null);
       return;
     }
 
@@ -138,24 +147,28 @@ export function useInfiniteCursorFeed<T>({
       return;
     }
 
-    void loadMore();
+    if (!isFetchingNextPage) {
+      void fetchNextPage();
+    }
   }, [
     currentRestoreAfter,
+    deferFinishRestore,
     errorMessage,
+    fetchNextPage,
     finishRestore,
-    hasMore,
     hasFocusedItem,
+    hasNextPage,
     initialFocusId,
     initialRestoreAfter,
+    isFetchingNextPage,
     items,
-    loadMore,
     restorePending,
   ]);
 
   useEffect(() => {
     if (
       restorePending
-      || !hasMore
+      || !hasNextPage
       || errorMessage
       || typeof IntersectionObserver === "undefined"
       || !sentinelRef.current
@@ -179,12 +192,12 @@ export function useInfiniteCursorFeed<T>({
     return () => {
       observer.disconnect();
     };
-  }, [errorMessage, hasMore, loadMore, restorePending]);
+  }, [errorMessage, hasNextPage, loadMore, restorePending]);
 
   return {
     items,
-    hasMore,
-    isLoadingMore,
+    hasMore: hasNextPage,
+    isLoadingMore: isFetchingNextPage,
     errorMessage,
     sentinelRef,
     loadMore,

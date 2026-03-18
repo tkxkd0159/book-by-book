@@ -1,3 +1,4 @@
+import { HydrationBoundary, dehydrate } from "@tanstack/react-query";
 import { ArrowLeft, BookOpen, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { forbidden, notFound } from "next/navigation";
@@ -10,6 +11,8 @@ import { Button, buttonStyles } from "@/components/ui/button";
 import { getCurrentUser } from "@/lib/auth/server";
 import { isClubMember } from "@/lib/clubs/permissions";
 import { findClubDetail } from "@/lib/clubs/repository";
+import { makeQueryClient } from "@/lib/query/make-query-client";
+import { seedInfiniteQueryPage } from "@/lib/query/seed-infinite-query";
 import { canDeleteThreads } from "@/lib/threads/permissions";
 import {
   CLUB_BOOK_STATUS_BADGE_VARIANTS,
@@ -17,6 +20,7 @@ import {
 } from "@/lib/clubs/presentation";
 import { ThreadError } from "@/lib/threads/errors";
 import { createDiscussionRestoreHref } from "@/lib/threads/presentation";
+import { threadCommentsQueryKey } from "@/lib/threads/query-keys";
 import { findThreadDetail } from "@/lib/threads/repository";
 
 type ThreadDetailPageProps = {
@@ -88,7 +92,13 @@ export default async function ThreadDetailPage({
     threadId,
     userId: currentUser.id,
   });
-  const { thread, posts } = detail;
+  const queryClient = makeQueryClient();
+  seedInfiniteQueryPage(
+    queryClient,
+    threadCommentsQueryKey({ clubId, threadId }),
+    detail.posts,
+  );
+  const { thread } = detail;
   const basePath = `/clubs/${clubId}/threads/${threadId}`;
   const composerAnchorId = "thread-post-composer";
   const canDeleteThread = canDeleteThreads(detail.currentUserRole);
@@ -197,15 +207,16 @@ export default async function ThreadDetailPage({
           />
         </div>
 
-        <InfiniteThreadComments
-          clubId={clubId}
-          threadId={threadId}
-          basePath={basePath}
-          currentUserId={currentUser.id}
-          posts={posts}
-          initialRestoreAfter={restoreAfter}
-          initialFocusPostId={focusPostId}
-        />
+        <HydrationBoundary state={dehydrate(queryClient)}>
+          <InfiniteThreadComments
+            clubId={clubId}
+            threadId={threadId}
+            basePath={basePath}
+            currentUserId={currentUser.id}
+            initialRestoreAfter={restoreAfter}
+            initialFocusPostId={focusPostId}
+          />
+        </HydrationBoundary>
       </section>
     </div>
   );

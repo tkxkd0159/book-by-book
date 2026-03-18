@@ -6,6 +6,7 @@ import { ThreadPostCard } from "@/components/threads/thread-post-card";
 import { useInfiniteCursorFeed } from "@/components/threads/use-infinite-cursor-feed";
 import { Button } from "@/components/ui/button";
 import { createDiscussionRestoreHref } from "@/lib/threads/presentation";
+import { threadCommentsQueryKey } from "@/lib/threads/query-keys";
 import type {
   CursorPaginationResult,
   ThreadComment,
@@ -20,7 +21,6 @@ type InfiniteThreadCommentsProps = {
   threadId: string;
   basePath: string;
   currentUserId: string;
-  posts: CursorPaginationResult<ThreadComment>;
   initialRestoreAfter?: string | null;
   initialFocusPostId?: string | null;
 };
@@ -28,13 +28,20 @@ type InfiniteThreadCommentsProps = {
 async function fetchThreadPostsPage(input: {
   clubId: string;
   threadId: string;
-  after: string;
+  after: string | null;
+  signal: AbortSignal;
 }) {
+  const searchParams = new URLSearchParams();
+  if (input.after) {
+    searchParams.set("after", input.after);
+  }
+
   const response = await fetch(
-    `/api/clubs/${encodeURIComponent(input.clubId)}/threads/${encodeURIComponent(input.threadId)}/posts?after=${encodeURIComponent(input.after)}`,
+    `/api/clubs/${encodeURIComponent(input.clubId)}/threads/${encodeURIComponent(input.threadId)}/posts${searchParams.size > 0 ? `?${searchParams.toString()}` : ""}`,
     {
       cache: "no-store",
       credentials: "same-origin",
+      signal: input.signal,
     },
   );
 
@@ -66,7 +73,6 @@ export function InfiniteThreadComments({
   threadId,
   basePath,
   currentUserId,
-  posts,
   initialRestoreAfter = null,
   initialFocusPostId = null,
 }: InfiniteThreadCommentsProps) {
@@ -79,10 +85,11 @@ export function InfiniteThreadComments({
     loadMore,
     currentRestoreAfter,
   } = useInfiniteCursorFeed({
-    initialPage: posts,
+    queryKey: threadCommentsQueryKey({ clubId, threadId }),
     initialRestoreAfter,
     initialFocusId: initialFocusPostId,
-    fetchPage: (after) => fetchThreadPostsPage({ clubId, threadId, after }),
+    fetchPage: (after, signal) =>
+      fetchThreadPostsPage({ clubId, threadId, after, signal }),
     hasFocusedItem: (threadComments, focusId) =>
       threadComments.some(
         (comment) =>

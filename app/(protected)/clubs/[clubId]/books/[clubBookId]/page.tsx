@@ -1,4 +1,5 @@
 import Image from "next/image";
+import { HydrationBoundary, dehydrate } from "@tanstack/react-query";
 import { ArrowLeft, BookOpen } from "lucide-react";
 import Link from "next/link";
 import { forbidden, notFound } from "next/navigation";
@@ -10,6 +11,8 @@ import { buttonStyles } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { getCurrentUser } from "@/lib/auth/server";
 import { isClubAdmin, isClubMember } from "@/lib/clubs/permissions";
+import { makeQueryClient } from "@/lib/query/make-query-client";
+import { seedInfiniteQueryPage } from "@/lib/query/seed-infinite-query";
 import { createClubEntryHref } from "@/lib/clubs/view-paths";
 import {
   CLUB_BOOK_STATUS_BADGE_VARIANTS,
@@ -22,6 +25,7 @@ import {
   findDiscussionClubBook,
   listThreadsForClubBook,
 } from "@/lib/threads/repository";
+import { threadListQueryKey } from "@/lib/threads/query-keys";
 
 type ClubBookDiscussionPageProps = {
   params: Promise<{ clubId: string; clubBookId: string }>;
@@ -108,6 +112,12 @@ export default async function ClubBookDiscussionPage({
     clubBookId,
     userId: currentUser.id,
   });
+  const queryClient = makeQueryClient();
+  seedInfiniteQueryPage(
+    queryClient,
+    threadListQueryKey({ clubId, clubBookId }),
+    threads,
+  );
   const { clubBook } = discussion;
   const archived = Boolean(clubBook.removedAt);
   const canManagePins = isClubAdmin(discussion.currentUserRole);
@@ -227,16 +237,17 @@ export default async function ClubBookDiscussionPage({
           </Card>
         ) : null}
 
-        <ClubBookThreadList
-          clubId={clubId}
-          clubBookId={clubBookId}
-          basePath={`/clubs/${clubId}/books/${clubBookId}`}
-          canManagePins={canManagePins}
-          threads={threads}
-          archived={archived}
-          initialRestoreAfter={restoreAfter}
-          initialFocusThreadId={focusThreadId}
-        />
+        <HydrationBoundary state={dehydrate(queryClient)}>
+          <ClubBookThreadList
+            clubId={clubId}
+            clubBookId={clubBookId}
+            basePath={`/clubs/${clubId}/books/${clubBookId}`}
+            canManagePins={canManagePins}
+            archived={archived}
+            initialRestoreAfter={restoreAfter}
+            initialFocusThreadId={focusThreadId}
+          />
+        </HydrationBoundary>
       </section>
     </div>
   );

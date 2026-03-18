@@ -6,6 +6,7 @@ import { ThreadCard } from "@/components/threads/thread-card";
 import { useInfiniteCursorFeed } from "@/components/threads/use-infinite-cursor-feed";
 import { Button } from "@/components/ui/button";
 import { createDiscussionRestoreHref } from "@/lib/threads/presentation";
+import { threadListQueryKey } from "@/lib/threads/query-keys";
 import type {
   CursorPaginationResult,
   ThreadSummary,
@@ -20,7 +21,6 @@ type ClubBookThreadListProps = {
   clubBookId: string;
   basePath: string;
   canManagePins: boolean;
-  threads: CursorPaginationResult<ThreadSummary>;
   archived: boolean;
   initialRestoreAfter?: string | null;
   initialFocusThreadId?: string | null;
@@ -29,13 +29,20 @@ type ClubBookThreadListProps = {
 async function fetchThreadsPage(input: {
   clubId: string;
   clubBookId: string;
-  after: string;
+  after: string | null;
+  signal: AbortSignal;
 }) {
+  const searchParams = new URLSearchParams();
+  if (input.after) {
+    searchParams.set("after", input.after);
+  }
+
   const response = await fetch(
-    `/api/clubs/${encodeURIComponent(input.clubId)}/books/${encodeURIComponent(input.clubBookId)}/threads?after=${encodeURIComponent(input.after)}`,
+    `/api/clubs/${encodeURIComponent(input.clubId)}/books/${encodeURIComponent(input.clubBookId)}/threads${searchParams.size > 0 ? `?${searchParams.toString()}` : ""}`,
     {
       cache: "no-store",
       credentials: "same-origin",
+      signal: input.signal,
     },
   );
 
@@ -67,7 +74,6 @@ export function ClubBookThreadList({
   clubBookId,
   basePath,
   canManagePins,
-  threads,
   archived,
   initialRestoreAfter = null,
   initialFocusThreadId = null,
@@ -81,10 +87,11 @@ export function ClubBookThreadList({
     loadMore,
     currentRestoreAfter,
   } = useInfiniteCursorFeed({
-    initialPage: threads,
+    queryKey: threadListQueryKey({ clubId, clubBookId }),
     initialRestoreAfter,
     initialFocusId: initialFocusThreadId,
-    fetchPage: (after) => fetchThreadsPage({ clubId, clubBookId, after }),
+    fetchPage: (after, signal) =>
+      fetchThreadsPage({ clubId, clubBookId, after, signal }),
     hasFocusedItem: (threadItems, focusId) =>
       threadItems.some((thread) => thread.id === focusId),
     getFocusElementId: (focusId) => `thread-${focusId}`,
