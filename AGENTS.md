@@ -89,3 +89,6 @@ Always treat these as quality gates for substantial changes:
   - `./scripts/setup-local-postgres.sh`
   - `./scripts/cleanup-local-postgres.sh`
 - `scripts/ensure-local-postgres.mjs` is used by `predev` and `prestart` to fail fast when the configured local PostgreSQL instance is not reachable.
+
+## Pull Request
+After completing your changes, create a pull request with a clear description of the "why" and "what". Use the [provided PR template](.github/pull_request_template.md) to ensure all relevant information is included for reviewers. And, use `gh` to create the PR.
