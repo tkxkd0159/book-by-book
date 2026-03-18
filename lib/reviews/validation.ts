@@ -54,3 +54,29 @@ export function parseReviewBody(
 
   return normalized;
 }
+
+export function parseReviewContainsSpoilers(
+  value: FormDataEntryValue | string | null | undefined,
+) {
+  const normalized = readString(value).trim().toLowerCase();
+  if (
+    normalized === "true" ||
+    normalized === "on" ||
+    normalized === "1" ||
+    normalized === "yes"
+  ) {
+    return true;
+  }
+
+  if (
+    normalized === "false" ||
+    normalized === "off" ||
+    normalized === "0" ||
+    normalized === "no" ||
+    normalized === ""
+  ) {
+    return false;
+  }
+
+  throw new ReviewError("VALIDATION", "Choose a valid spoiler flag.");
+}
