@@ -83,6 +83,40 @@ type ClubBookRecord = {
   updatedAt: Date;
 };
 
+type ShelfRecord = {
+  id: string;
+  userId: string;
+  name: string;
+  description: string | null;
+  isPublic: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+};
+
+type ShelfItemRecord = {
+  id: string;
+  shelfId: string;
+  bookId: string;
+  note: string | null;
+  sortOrder: number;
+  addedAt: Date;
+};
+
+type ReviewRating = 1 | 2 | 3 | 4 | 5;
+
+type ReviewRecord = {
+  id: string;
+  userId: string;
+  bookId: string;
+  rating: ReviewRating | null;
+  title: string | null;
+  body: string | null;
+  containsSpoilers: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+  deletedAt: Date | null;
+};
+
 type ThreadRecord = {
   id: string;
   clubId: string;
@@ -120,6 +154,10 @@ export type {
   ClubMemberRole,
   ClubRecord,
   ClubVisibility,
+  ReviewRating,
+  ReviewRecord,
+  ShelfItemRecord,
+  ShelfRecord,
   ThreadPostRecord,
   ThreadRecord,
 };
