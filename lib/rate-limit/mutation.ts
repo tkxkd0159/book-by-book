@@ -65,7 +65,10 @@ export class MutationRateLimitError extends Error {
   readonly action: MutationRateLimitAction;
   readonly decision: MutationRateLimitDecision;
 
-  constructor(action: MutationRateLimitAction, decision: MutationRateLimitDecision) {
+  constructor(
+    action: MutationRateLimitAction,
+    decision: MutationRateLimitDecision,
+  ) {
     super(
       `${ACTION_MESSAGES[action]} Please wait ${formatRetryAfter(
         decision.retryAfterSeconds,
@@ -147,10 +150,7 @@ export async function checkMutationRateLimit(input: {
     windowSeconds: policy.windowSeconds,
   });
   const resetAtMs = (bucketNumber + 1) * policy.windowSeconds * 1000;
-  const retryAfterSeconds = Math.max(
-    1,
-    Math.ceil((resetAtMs - nowMs) / 1000),
-  );
+  const retryAfterSeconds = Math.max(1, Math.ceil((resetAtMs - nowMs) / 1000));
 
   return {
     allowed: count <= policy.limit,
@@ -198,7 +198,9 @@ function formatRetryAfter(retryAfterSeconds: number) {
 }
 
 function isProductionLikeRuntime() {
-  return process.env.NODE_ENV === "production" && process.env.E2E_BYPASS_AUTH !== "1";
+  return (
+    process.env.NODE_ENV === "production" && process.env.E2E_BYPASS_AUTH !== "1"
+  );
 }
 
 function readPositiveIntegerEnv(name: string) {
@@ -302,8 +304,11 @@ async function createNodeRedisMutationRateLimitStore(): Promise<MutationRateLimi
     provider: "redis",
     async incrementWindowCounter({ key, windowSeconds }) {
       const setResult = await client.set(key, "1", {
-        NX: true,
-        EX: windowSeconds,
+        condition: "NX",
+        expiration: {
+          type: "EX",
+          value: windowSeconds,
+        },
       });
 
       if (setResult === "OK") {
@@ -324,7 +329,9 @@ async function createNodeRedisMutationRateLimitStore(): Promise<MutationRateLimi
 function readRequiredEnv(name: string) {
   const value = process.env[name]?.trim();
   if (!value) {
-    throw new Error(`${name} is required for the configured rate-limit provider.`);
+    throw new Error(
+      `${name} is required for the configured rate-limit provider.`,
+    );
   }
 
   return value;
