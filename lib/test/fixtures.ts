@@ -47,6 +47,9 @@ export async function resetTestDatabase() {
 
     await query`
       truncate table
+        bookapp.reviews,
+        bookapp.shelf_items,
+        bookapp.shelves,
         bookapp.thread_posts,
         bookapp.threads,
         bookapp.club_invitations,
