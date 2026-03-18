@@ -18,7 +18,7 @@ type WorkerApp = {
   baseUrl: string;
 };
 
-export const test = base.extend<Record<string, never>, { workerApp: WorkerApp }>({
+export const test = base.extend<Record<never, never>, { workerApp: WorkerApp }>({
   workerApp: [
     async ({}, useWorkerApp, workerInfo) => {
       const runtimeState = await readRuntimeState();
