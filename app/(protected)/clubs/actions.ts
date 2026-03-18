@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { isRedirectError } from "next/dist/client/components/redirect-error";
 
 import { ensureBookInDatabase } from "@/lib/books/repository";
+import { readSignedBookImportToken } from "@/lib/books/import-token";
 import { ClubError, isClubError } from "@/lib/clubs/errors";
 import {
   createManageEntryHref,
@@ -92,6 +93,12 @@ function pluralize(label: string, count: number) {
   return `${count} ${label}${count === 1 ? "" : "s"}`;
 }
 
+function readOptionalString(value: FormDataEntryValue | null) {
+  return typeof value === "string" && value.trim().length > 0
+    ? value.trim()
+    : null;
+}
+
 function revalidateReturnTo(returnTo: string) {
   const url = new URL(returnTo, "http://localhost");
   revalidatePath(url.pathname);
@@ -118,6 +125,16 @@ function revalidateClubPages(clubId: string) {
     createManageSectionHref({
       clubId,
       section: "invite",
+    }),
+  );
+}
+
+function revalidateClubBookPages(clubId: string) {
+  revalidatePath(createClubEntryHref(clubId));
+  revalidatePath(
+    createManageSectionHref({
+      clubId,
+      section: "board",
     }),
   );
 }
@@ -406,7 +423,7 @@ export async function addBookToClubAction(formData: FormData) {
       addedById: currentUser.id,
       status,
     });
-    revalidateClubPages(clubId);
+    revalidateClubBookPages(clubId);
     revalidateReturnTo(returnTo);
     redirect(appendMessage(returnTo, "message", "Book added to the club."));
   } catch (error) {
@@ -434,7 +451,7 @@ export async function moveClubBookAction(formData: FormData) {
       movedById: currentUser.id,
       status: parseClubBookStatus(formData.get("status")),
     });
-    revalidateClubPages(clubId);
+    revalidateClubBookPages(clubId);
     revalidateReturnTo(returnTo);
     redirect(appendMessage(returnTo, "message", "Book moved."));
   } catch (error) {
@@ -461,7 +478,7 @@ export async function removeClubBookAction(formData: FormData) {
       clubBookId,
       removedById: currentUser.id,
     });
-    revalidateClubPages(clubId);
+    revalidateClubBookPages(clubId);
     revalidateReturnTo(returnTo);
     redirect(appendMessage(returnTo, "message", "Book removed."));
   } catch (error) {
@@ -476,6 +493,7 @@ export async function addBookToClubsFromVolumeAction(formData: FormData) {
     formData.get("googleVolumeId"),
     "Google volume",
   );
+  const bookImportToken = readOptionalString(formData.get("bookImportToken"));
   const returnTo = parseSafeReturnTo(
     formData.get("returnTo"),
     `/books/${encodeURIComponent(googleVolumeId)}`,
@@ -501,7 +519,12 @@ export async function addBookToClubsFromVolumeAction(formData: FormData) {
       userId: currentUser.id,
     });
 
-    const book = await ensureBookInDatabase(googleVolumeId);
+    const book = await ensureBookInDatabase(googleVolumeId, {
+      prefetchedBook: readSignedBookImportToken(
+        bookImportToken,
+        googleVolumeId,
+      ),
+    });
     if (!book) {
       throw new ClubError("NOT_FOUND", "Book not found.");
     }
@@ -537,7 +560,7 @@ export async function addBookToClubsFromVolumeAction(formData: FormData) {
           addedById: currentUser.id,
           status: "WANT_TO_READ",
         });
-        revalidateClubPages(clubId);
+        revalidateClubBookPages(clubId);
       }),
     );
 

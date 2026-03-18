@@ -25,10 +25,15 @@ import {
   pinThread,
   unpinThread,
 } from "@/lib/threads/repository";
+import type { AuthUser } from "@/types/db";
 
-async function getRequiredUser(key: string) {
+async function getRequiredUser(key: string): Promise<AuthUser> {
   const user = await findUserByProviderIdentity(E2E_USER_PROVIDER, key);
-  expect(user, `Expected seeded user for key ${key}`).toBeTruthy();
+
+  if (!user) {
+    throw new Error(`Expected seeded user for key ${key}`);
+  }
+
   return user;
 }
 
@@ -103,7 +108,9 @@ describe("thread repository integration", () => {
       clubBookId: clubBook.id,
       userId: member.id,
     });
-    expect(discussionContext.clubBook.book.googleVolumeId).toBe(TEST_BOOK_VOLUME_ID);
+    expect(discussionContext.clubBook.book.googleVolumeId).toBe(
+      TEST_BOOK_VOLUME_ID,
+    );
 
     await unpinThread({
       clubId: club.id,
@@ -416,9 +423,9 @@ describe("thread repository integration", () => {
     });
     expect(detailBeforeDelete.thread.postCount).toBe(2);
     expect(detailBeforeDelete.posts.items[0]?.body).toBe("Top-level thought.");
-    expect(detailBeforeDelete.posts.items[0]?.replies.map((reply) => reply.body)).toEqual([
-      "Child reply.",
-    ]);
+    expect(
+      detailBeforeDelete.posts.items[0]?.replies.map((reply) => reply.body),
+    ).toEqual(["Child reply."]);
 
     await deleteThreadPost({
       clubId: club.id,
@@ -446,7 +453,9 @@ describe("thread repository integration", () => {
     });
     expect(detailAfterDelete.thread.postCount).toBe(2);
     expect(detailAfterDelete.posts.items[0]?.deletedAt).toBeTruthy();
-    expect(detailAfterDelete.posts.items[0]?.replies[0]?.id).toBe(childReply.id);
+    expect(detailAfterDelete.posts.items[0]?.replies[0]?.id).toBe(
+      childReply.id,
+    );
   });
 
   it("restricts pinning to club admins and paginates thread and post queries deterministically", async () => {
@@ -566,9 +575,9 @@ describe("thread repository integration", () => {
       "Post One",
       "Post Two",
     ]);
-    expect(detailPageOne.posts.items[0]?.replies.map((reply) => reply.body)).toEqual([
-      "Reply to Post One",
-    ]);
+    expect(
+      detailPageOne.posts.items[0]?.replies.map((reply) => reply.body),
+    ).toEqual(["Reply to Post One"]);
     expect(detailPageOne.posts.items[1]?.replies).toEqual([]);
     expect(detailPageTwo.posts.items.map((post) => post.body)).toEqual([
       "Post Three",

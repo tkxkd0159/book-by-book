@@ -8,6 +8,7 @@ import { formatBookDescription } from "@/lib/books/description";
 
 const GOOGLE_BOOKS_BASE_URL = "https://www.googleapis.com/books/v1/volumes";
 const GOOGLE_BOOKS_DATA_REVALIDATE_SECONDS = 300;
+const GOOGLE_BOOKS_REQUEST_TIMEOUT_MS = 4_000;
 const DEFAULT_SEARCH_PAGE_SIZE = 18;
 const GOOGLE_BOOKS_MAX_RESULTS = 40;
 const GOOGLE_TOTAL_ITEMS_UNRELIABLE_THRESHOLD = 1_000_000;
@@ -55,6 +56,13 @@ class GoogleBooksQueryValidationError extends Error {
   }
 }
 
+class GoogleBooksRequestError extends Error {
+  constructor(message: string, options?: ErrorOptions) {
+    super(message, options);
+    this.name = "GoogleBooksRequestError";
+  }
+}
+
 function buildGoogleBooksUrl(path: string, params: URLSearchParams) {
   const apiKey = process.env.GOOGLE_BOOKS_API_KEY;
   if (!apiKey) {
@@ -78,17 +86,37 @@ async function fetchGoogleBooksJson<TPayload>({
   cache: RequestCache;
   revalidate?: number;
 }): Promise<TPayload | null> {
-  const response = await fetch(buildGoogleBooksUrl(path, params), {
-    cache,
-    next: revalidate ? { revalidate } : undefined,
-  });
+  let response: Response;
+
+  try {
+    response = await fetch(buildGoogleBooksUrl(path, params), {
+      cache,
+      next: revalidate ? { revalidate } : undefined,
+      signal: AbortSignal.timeout(GOOGLE_BOOKS_REQUEST_TIMEOUT_MS),
+    });
+  } catch (error) {
+    if (
+      error instanceof Error &&
+      (error.name === "AbortError" || error.name === "TimeoutError")
+    ) {
+      throw new GoogleBooksRequestError(
+        "Google Books is taking too long to respond. Please try again.",
+        { cause: error },
+      );
+    }
+
+    throw new GoogleBooksRequestError(
+      "Google Books is temporarily unavailable. Please try again.",
+      { cause: error instanceof Error ? error : undefined },
+    );
+  }
 
   if (response.status === 404) {
     return null;
   }
 
   if (!response.ok) {
-    throw new Error(
+    throw new GoogleBooksRequestError(
       `Google Books request failed with status ${response.status}`,
     );
   }
@@ -346,6 +374,7 @@ export async function searchGoogleBooks(
 }
 
 export { GoogleBooksQueryValidationError };
+export { GoogleBooksRequestError };
 
 export async function fetchGoogleVolume(
   googleVolumeId: string,

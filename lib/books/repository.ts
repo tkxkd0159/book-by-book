@@ -190,10 +190,20 @@ export async function findBooksByGoogleVolumeIds(
 
 export async function ensureBookInDatabase(
   googleVolumeId: string,
+  options?: {
+    prefetchedBook?: NormalizedBook | null;
+  },
 ): Promise<BookRecord | null> {
   const existingBook = await findBookByGoogleVolumeId(googleVolumeId);
   if (existingBook) {
     return existingBook;
+  }
+
+  if (
+    options?.prefetchedBook &&
+    options.prefetchedBook.googleVolumeId === googleVolumeId
+  ) {
+    return upsertBook(options.prefetchedBook);
   }
 
   const googleBook = await fetchGoogleVolume(googleVolumeId);

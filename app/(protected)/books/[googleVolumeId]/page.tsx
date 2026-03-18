@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { buttonStyles } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { requireCurrentUser } from "@/lib/auth/server";
+import { createSignedBookImportToken } from "@/lib/books/import-token";
 import { listManageableClubBookTargetsForGoogleVolumeId } from "@/lib/clubs/repository";
 import { resolveBookDetail } from "@/lib/books/volume-details";
 
@@ -172,6 +173,7 @@ export default async function BookDetailPage({
                 bookTitle={book.title}
                 clubTargets={clubTargets}
                 returnTo={`/books/${encodeURIComponent(book.googleVolumeId)}`}
+                bookImportToken={createSignedBookImportToken(book)}
                 triggerSize="md"
               />
               {book.infoLink ? (

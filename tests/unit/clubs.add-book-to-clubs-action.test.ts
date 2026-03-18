@@ -1,5 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+import { createSignedBookImportToken } from "@/lib/books/import-token";
+
 const redirectMock = vi.fn((location: string) => {
   throw new Error(`NEXT_REDIRECT:${location}`);
 });
@@ -205,6 +207,67 @@ describe("addBookToClubsFromVolumeAction", () => {
       bookId: "book-123",
       addedById: "user-123",
       status: "WANT_TO_READ",
+    });
+  });
+
+  it("uses a signed detail snapshot to avoid a second Google fetch when available", async () => {
+    requireCurrentUserMock.mockResolvedValue({
+      id: "user-123",
+    });
+    ensureBookInDatabaseMock.mockResolvedValue({
+      id: "book-123",
+      googleVolumeId: "club-test-book",
+    });
+    listManageableClubBookTargetsForGoogleVolumeIdMock.mockResolvedValue([
+      {
+        clubId: "club-1",
+        clubName: "Weekend Readers",
+        currentUserRole: "OWNER",
+        alreadyAdded: false,
+        existingStatus: null,
+      },
+    ]);
+
+    const { addBookToClubsFromVolumeAction } = await import(
+      "@/app/(protected)/clubs/actions"
+    );
+
+    const formData = new FormData();
+    formData.set("googleVolumeId", "club-test-book");
+    formData.set("returnTo", "/books/club-test-book");
+    formData.set(
+      "bookImportToken",
+      createSignedBookImportToken({
+        googleVolumeId: "club-test-book",
+        title: "Snapshot Book",
+        subtitle: null,
+        authors: ["Example Author"],
+        publisher: "Example Publisher",
+        publishedDate: "2025",
+        description: "<p>Snapshot</p>",
+        isbn10: null,
+        isbn13: "9780000000000",
+        pageCount: 320,
+        categories: ["Fiction"],
+        language: "en",
+        thumbnailUrl: "https://books.google.com/thumbnail",
+        previewLink: "https://books.google.com/preview",
+        infoLink: "https://books.google.com/info",
+        canonicalLink: "https://books.google.com/canonical",
+        persisted: false,
+      }),
+    );
+    formData.append("clubId", "club-1");
+
+    await expect(addBookToClubsFromVolumeAction(formData)).rejects.toThrow(
+      "NEXT_REDIRECT:/books/club-test-book?message=Book+added+to+1+club.",
+    );
+
+    expect(ensureBookInDatabaseMock).toHaveBeenCalledWith("club-test-book", {
+      prefetchedBook: expect.objectContaining({
+        googleVolumeId: "club-test-book",
+        title: "Snapshot Book",
+      }),
     });
   });
 

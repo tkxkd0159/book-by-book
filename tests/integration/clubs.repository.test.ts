@@ -25,10 +25,15 @@ import {
 import { resetTestDatabase, TEST_BOOK_VOLUME_ID } from "@/lib/test/fixtures";
 import { E2E_USER_PROVIDER } from "@/lib/auth/e2e";
 import { findBookByGoogleVolumeId } from "@/lib/books/repository";
+import type { AuthUser } from "@/types/db";
 
-async function getRequiredUser(key: string) {
+async function getRequiredUser(key: string): Promise<AuthUser> {
   const user = await findUserByProviderIdentity(E2E_USER_PROVIDER, key);
-  expect(user, `Expected seeded user for key ${key}`).toBeTruthy();
+
+  if (!user) {
+    throw new Error(`Expected seeded user for key ${key}`);
+  }
+
   return user;
 }
 

@@ -22,6 +22,7 @@ type AddBookToClubsModalProps = {
   bookTitle: string;
   clubTargets: ManageableClubBookTarget[];
   returnTo: string;
+  bookImportToken?: string;
   triggerClassName?: string;
   triggerSize?: ButtonProps["size"];
   triggerVariant?: ButtonProps["variant"];
@@ -55,6 +56,7 @@ export function AddBookToClubsModal({
   bookTitle,
   clubTargets,
   returnTo,
+  bookImportToken,
   triggerClassName,
   triggerSize = "sm",
   triggerVariant = "default",
@@ -109,6 +111,13 @@ export function AddBookToClubsModal({
         >
           <input type="hidden" name="googleVolumeId" value={googleVolumeId} />
           <input type="hidden" name="returnTo" value={returnTo} />
+          {bookImportToken ? (
+            <input
+              type="hidden"
+              name="bookImportToken"
+              value={bookImportToken}
+            />
+          ) : null}
 
           <div className="flex items-start justify-between gap-4">
             <div className="space-y-2">
