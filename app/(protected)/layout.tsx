@@ -1,3 +1,4 @@
+import { LibraryBig, Search } from "lucide-react";
 import Link from "next/link";
 
 import ProfileMenu from "@/components/auth/profile-menu";
@@ -24,12 +25,14 @@ export default async function ProtectedLayout({ children }: Props.Layout) {
               href="/books/search"
               className={buttonStyles({ variant: "ghost", size: "sm" })}
             >
+              <Search aria-hidden className="h-4 w-4 shrink-0" />
               Search
             </Link>
             <Link
               href="/clubs"
               className={buttonStyles({ variant: "ghost", size: "sm" })}
             >
+              <LibraryBig aria-hidden className="h-4 w-4 shrink-0" />
               Clubs
             </Link>
             <ProfileMenu
