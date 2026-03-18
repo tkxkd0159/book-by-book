@@ -1,5 +1,8 @@
+import Link from "next/link";
+
 import { UserAvatar } from "@/components/auth/user-avatar";
 import { Badge } from "@/components/ui/badge";
+import { buttonStyles } from "@/components/ui/button";
 import { requireCurrentUser } from "@/lib/auth/server";
 import {
   Card,
@@ -8,6 +11,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { createMyShelvesHref } from "@/lib/shelves/view-paths";
 
 function fallbackText(value: string | null | undefined, fallback: string) {
   const normalized = value?.trim();
@@ -58,6 +62,24 @@ export default async function MePage() {
             <code className="break-all rounded-md bg-(--surface) px-2 py-1 text-xs">
               {fallbackText(user.id, "Unavailable")}
             </code>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-lg">Shelves</CardTitle>
+            <CardDescription>Personal reading lists</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <p className="text-sm leading-6 text-(--muted)">
+              Create public or private shelves to organize books outside your clubs.
+            </p>
+            <Link
+              href={createMyShelvesHref()}
+              className={buttonStyles({ variant: "secondary" })}
+            >
+              Open my shelves
+            </Link>
           </CardContent>
         </Card>
       </div>
