@@ -8,6 +8,7 @@ const requireCurrentUserMock = vi.fn();
 const enforceMutationRateLimitMock = vi.fn();
 const createClubMock = vi.fn();
 const addBookToClubMock = vi.fn();
+const addBooksToClubMock = vi.fn();
 const ensureBookInDatabaseMock = vi.fn();
 const listManageableClubBookTargetsForGoogleVolumeIdMock = vi.fn();
 const listShelfImportSourcesForClubMock = vi.fn();
@@ -56,11 +57,29 @@ vi.mock("@/lib/clubs/repository", async () => {
     ...actual,
     createClub: createClubMock,
     addBookToClub: addBookToClubMock,
+    addBooksToClub: addBooksToClubMock,
     listShelfImportSourcesForClub: listShelfImportSourcesForClubMock,
     listManageableClubBookTargetsForGoogleVolumeId:
       listManageableClubBookTargetsForGoogleVolumeIdMock,
   };
 });
+
+async function captureRedirectLocation(action: Promise<unknown>) {
+  try {
+    await action;
+  } catch (error) {
+    expect(error).toBeInstanceOf(Error);
+
+    if (error instanceof Error) {
+      const prefix = "NEXT_REDIRECT:";
+
+      expect(error.message.startsWith(prefix)).toBe(true);
+      return error.message.slice(prefix.length);
+    }
+  }
+
+  throw new Error("Expected action to redirect.");
+}
 
 vi.mock("@/lib/threads/repository", async () => {
   const actual =
@@ -101,8 +120,12 @@ describe("server action mutation rate limits", () => {
     formData.set("description", "blocked");
     formData.set("visibility", "PUBLIC");
 
-    await expect(createClubAction(formData)).rejects.toThrow(
-      "NEXT_REDIRECT:/clubs/new?error=You%27re+creating+clubs+too+quickly.+Please+wait+about+10+minutes+and+try+again.",
+    const location = await captureRedirectLocation(createClubAction(formData));
+    const url = new URL(location, "http://localhost");
+
+    expect(url.pathname).toBe("/clubs/new");
+    expect(url.searchParams.get("error")).toBe(
+      "You're creating clubs too quickly. Please wait about 10 minutes and try again.",
     );
     expect(createClubMock).not.toHaveBeenCalled();
   });
@@ -128,8 +151,12 @@ describe("server action mutation rate limits", () => {
     formData.set("status", "WANT_TO_READ");
     formData.set("returnTo", "/clubs/club-123");
 
-    await expect(addBookToClubAction(formData)).rejects.toThrow(
-      "NEXT_REDIRECT:/clubs/club-123?error=You%27re+adding+books+too+quickly.+Please+wait+about+1+minute+and+try+again.",
+    const location = await captureRedirectLocation(addBookToClubAction(formData));
+    const url = new URL(location, "http://localhost");
+
+    expect(url.pathname).toBe("/clubs/club-123");
+    expect(url.searchParams.get("error")).toBe(
+      "You're adding books too quickly. Please wait about 1 minute and try again.",
     );
     expect(addBookToClubMock).not.toHaveBeenCalled();
   });
@@ -156,8 +183,14 @@ describe("server action mutation rate limits", () => {
     formData.set("returnTo", "/books/club-test-book");
     formData.append("clubId", "club-1");
 
-    await expect(addBookToClubsFromVolumeAction(formData)).rejects.toThrow(
-      "NEXT_REDIRECT:/books/club-test-book?error=You%27re+adding+books+too+quickly.+Please+wait+about+1+minute+and+try+again.",
+    const location = await captureRedirectLocation(
+      addBookToClubsFromVolumeAction(formData),
+    );
+    const url = new URL(location, "http://localhost");
+
+    expect(url.pathname).toBe("/books/club-test-book");
+    expect(url.searchParams.get("error")).toBe(
+      "You're adding books too quickly. Please wait about 1 minute and try again.",
     );
     expect(ensureBookInDatabaseMock).not.toHaveBeenCalled();
     expect(addBookToClubMock).not.toHaveBeenCalled();
@@ -186,8 +219,12 @@ describe("server action mutation rate limits", () => {
     formData.set("body", "Thread body");
     formData.set("returnTo", "/clubs/club-123/books/club-book-123");
 
-    await expect(createThreadAction(formData)).rejects.toThrow(
-      "NEXT_REDIRECT:/clubs/club-123/books/club-book-123?error=You%27re+starting+threads+too+quickly.+Please+wait+about+10+minutes+and+try+again.",
+    const location = await captureRedirectLocation(createThreadAction(formData));
+    const url = new URL(location, "http://localhost");
+
+    expect(url.pathname).toBe("/clubs/club-123/books/club-book-123");
+    expect(url.searchParams.get("error")).toBe(
+      "You're starting threads too quickly. Please wait about 10 minutes and try again.",
     );
     expect(createThreadMock).not.toHaveBeenCalled();
   });
@@ -215,10 +252,17 @@ describe("server action mutation rate limits", () => {
     formData.set("returnTo", "/clubs/club-123/manage/board");
     formData.append("bookId", "book-123");
 
-    await expect(addBooksFromShelfToClubAction(formData)).rejects.toThrow(
-      "NEXT_REDIRECT:/clubs/club-123/manage/board?error=You%27re+adding+books+too+quickly.+Please+wait+about+1+minute+and+try+again.",
+    const location = await captureRedirectLocation(
+      addBooksFromShelfToClubAction(formData),
+    );
+    const url = new URL(location, "http://localhost");
+
+    expect(url.pathname).toBe("/clubs/club-123/manage/board");
+    expect(url.searchParams.get("error")).toBe(
+      "You're adding books too quickly. Please wait about 1 minute and try again.",
     );
     expect(listShelfImportSourcesForClubMock).not.toHaveBeenCalled();
+    expect(addBooksToClubMock).not.toHaveBeenCalled();
     expect(addBookToClubMock).not.toHaveBeenCalled();
   });
 });

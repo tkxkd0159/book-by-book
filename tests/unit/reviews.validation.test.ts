@@ -25,10 +25,12 @@ describe("review validation", () => {
     expect(parseReviewBody("  Thoughtful\r\nreview  ")).toBe("Thoughtful\nreview");
   });
 
-  it("requires a google volume id and falls back unsafe return paths", () => {
+  it("requires a google volume id", () => {
     expect(parseReviewGoogleVolumeId("club-test-book")).toBe("club-test-book");
     expect(() => parseReviewGoogleVolumeId("")).toThrow(ReviewError);
+  });
 
+  it("falls back unsafe return paths", () => {
     expect(parseSafeReturnTo("/me/reviewed", "/fallback")).toBe("/me/reviewed");
     expect(parseSafeReturnTo("//evil.test", "/fallback")).toBe("/fallback");
     expect(parseSafeReturnTo("", "/fallback")).toBe("/fallback");

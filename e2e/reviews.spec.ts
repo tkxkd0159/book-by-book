@@ -6,18 +6,21 @@ test.beforeEach(async ({ request }) => {
   await resetApp(request);
 });
 
-test("profile exposes shelves and reviewed entry points", async ({ page }) => {
+test("profile links to shelves", async ({ page }) => {
   await signInAs(page, "owner", E2E_ROUTE_PATHS.me);
 
   await expect(page.getByRole("link", { name: "Open my shelves" })).toBeVisible();
-  await expect(
-    page.getByRole("link", { name: "Open reviewed books" }),
-  ).toBeVisible();
 
   await page.getByRole("link", { name: "Open my shelves" }).click();
   await expect(page).toHaveURL(E2E_ROUTE_PATHS.meShelves);
+});
 
-  await page.goto(E2E_ROUTE_PATHS.me);
+test("profile links to reviewed books", async ({ page }) => {
+  await signInAs(page, "owner", E2E_ROUTE_PATHS.me);
+
+  await expect(
+    page.getByRole("link", { name: "Open reviewed books" }),
+  ).toBeVisible();
   await page.getByRole("link", { name: "Open reviewed books" }).click();
   await expect(page).toHaveURL(E2E_ROUTE_PATHS.meReviewed);
 });
@@ -94,8 +97,8 @@ test("book detail shows aggregate ratings, recent public reviews, and keeps the 
 
   await page.goto(E2E_ROUTE_PATHS.fixtureBook);
   await expect(page.getByRole("heading", { name: "Reader reviews" })).toBeVisible();
-  await expect(page.getByText("4.5 (2)")).toBeVisible();
-  await expect(page.getByText("2 reviews")).toBeVisible();
+  await expect(page.getByLabel("Rating 4.5")).toBeVisible();
+  await expect(page.getByText(/^2 reviews$/)).toBeVisible();
   await expect(page.getByText("Member review body.")).toBeVisible();
   await expect(page.getByText("Owner review body.")).toBeVisible();
   await expect(page.getByRole("link", { name: "Edit your review" })).toBeVisible();

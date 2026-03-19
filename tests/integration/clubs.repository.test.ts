@@ -1,9 +1,12 @@
+import { randomUUID } from "node:crypto";
+
 import { beforeEach, describe, expect, it } from "vitest";
 
 import { findUserByProviderIdentity } from "@/lib/auth/users";
 import {
   acceptClubInvitation,
   addBookToClub,
+  addBooksToClub,
   changeClubMemberRole,
   createClub,
   createClubInvitation,
@@ -729,5 +732,114 @@ describe("club repository integration", () => {
     expect(await findClubDetail(club.id, member.id)).toBeNull();
     expect(await listUserClubs(owner.id)).toEqual([]);
     expect(await listUserClubs(member.id)).toEqual([]);
+  });
+
+  it("adds multiple club books in one transaction with stable ordering", async () => {
+    const owner = await getRequiredUser("owner");
+    const fixtureBook = await findBookByGoogleVolumeId(TEST_BOOK_VOLUME_ID);
+
+    expect(fixtureBook, "Expected seeded fixture book.").toBeTruthy();
+
+    const extraBookA = await upsertBook({
+      googleVolumeId: "bulk-import-a",
+      title: "Bulk Import A",
+      subtitle: null,
+      description: null,
+      authors: ["Author A"],
+      publisher: null,
+      publishedDate: null,
+      pageCount: null,
+      categories: [],
+      language: null,
+      thumbnailUrl: null,
+      previewLink: null,
+      infoLink: null,
+      canonicalLink: null,
+      isbn10: null,
+      isbn13: null,
+      rawGoogleJson: null,
+    });
+    const extraBookB = await upsertBook({
+      googleVolumeId: "bulk-import-b",
+      title: "Bulk Import B",
+      subtitle: null,
+      description: null,
+      authors: ["Author B"],
+      publisher: null,
+      publishedDate: null,
+      pageCount: null,
+      categories: [],
+      language: null,
+      thumbnailUrl: null,
+      previewLink: null,
+      infoLink: null,
+      canonicalLink: null,
+      isbn10: null,
+      isbn13: null,
+      rawGoogleJson: null,
+    });
+
+    const club = await createClub({
+      createdById: owner.id,
+      name: "Bulk Import Club",
+      description: null,
+      visibility: "PUBLIC",
+    });
+
+    await addBookToClub({
+      clubId: club.id,
+      bookId: fixtureBook!.id,
+      addedById: owner.id,
+      status: "WANT_TO_READ",
+    });
+
+    const addedClubBooks = await addBooksToClub({
+      clubId: club.id,
+      bookIds: [extraBookA.id, extraBookB.id],
+      addedById: owner.id,
+      status: "WANT_TO_READ",
+    });
+
+    expect(addedClubBooks.map((clubBook) => clubBook.sortOrder)).toEqual([1, 2]);
+
+    const clubBooks = await listClubBooks(club.id);
+    const wantToReadBooks = clubBooks
+      .filter((clubBook) => clubBook.status === "WANT_TO_READ")
+      .map((clubBook) => ({
+        bookId: clubBook.book.id,
+        sortOrder: clubBook.sortOrder,
+      }));
+
+    expect(wantToReadBooks).toEqual([
+      { bookId: fixtureBook!.id, sortOrder: 0 },
+      { bookId: extraBookA.id, sortOrder: 1 },
+      { bookId: extraBookB.id, sortOrder: 2 },
+    ]);
+  });
+
+  it("rolls back bulk club imports when one selected book is invalid", async () => {
+    const owner = await getRequiredUser("owner");
+    const fixtureBook = await findBookByGoogleVolumeId(TEST_BOOK_VOLUME_ID);
+
+    expect(fixtureBook, "Expected seeded fixture book.").toBeTruthy();
+
+    const club = await createClub({
+      createdById: owner.id,
+      name: "Bulk Import Rollback Club",
+      description: null,
+      visibility: "PUBLIC",
+    });
+
+    await expect(
+      addBooksToClub({
+        clubId: club.id,
+        bookIds: [fixtureBook!.id, randomUUID()],
+        addedById: owner.id,
+        status: "WANT_TO_READ",
+      }),
+    ).rejects.toThrow();
+
+    const clubBooks = await listClubBooks(club.id);
+    expect(clubBooks).toHaveLength(0);
   });
 });
