@@ -10,6 +10,7 @@ const createClubMock = vi.fn();
 const addBookToClubMock = vi.fn();
 const ensureBookInDatabaseMock = vi.fn();
 const listManageableClubBookTargetsForGoogleVolumeIdMock = vi.fn();
+const listShelfImportSourcesForClubMock = vi.fn();
 const createThreadMock = vi.fn();
 
 vi.mock("next/navigation", () => ({
@@ -55,6 +56,7 @@ vi.mock("@/lib/clubs/repository", async () => {
     ...actual,
     createClub: createClubMock,
     addBookToClub: addBookToClubMock,
+    listShelfImportSourcesForClub: listShelfImportSourcesForClubMock,
     listManageableClubBookTargetsForGoogleVolumeId:
       listManageableClubBookTargetsForGoogleVolumeIdMock,
   };
@@ -188,5 +190,35 @@ describe("server action mutation rate limits", () => {
       "NEXT_REDIRECT:/clubs/club-123/books/club-book-123?error=You%27re+starting+threads+too+quickly.+Please+wait+about+10+minutes+and+try+again.",
     );
     expect(createThreadMock).not.toHaveBeenCalled();
+  });
+
+  it("blocks addBooksFromShelfToClubAction before importing shelf books", async () => {
+    const { MutationRateLimitError } = await import("@/lib/rate-limit/mutation");
+    enforceMutationRateLimitMock.mockRejectedValue(
+      new MutationRateLimitError("add-book", {
+        action: "add-book",
+        allowed: false,
+        limit: 20,
+        remaining: 0,
+        retryAfterSeconds: 60,
+        resetAt: "2026-03-17T00:01:00.000Z",
+      }),
+    );
+
+    const { addBooksFromShelfToClubAction } = await import(
+      "@/app/(protected)/clubs/actions"
+    );
+
+    const formData = new FormData();
+    formData.set("clubId", "club-123");
+    formData.set("shelfId", "shelf-123");
+    formData.set("returnTo", "/clubs/club-123/manage/board");
+    formData.append("bookId", "book-123");
+
+    await expect(addBooksFromShelfToClubAction(formData)).rejects.toThrow(
+      "NEXT_REDIRECT:/clubs/club-123/manage/board?error=You%27re+adding+books+too+quickly.+Please+wait+about+1+minute+and+try+again.",
+    );
+    expect(listShelfImportSourcesForClubMock).not.toHaveBeenCalled();
+    expect(addBookToClubMock).not.toHaveBeenCalled();
   });
 });

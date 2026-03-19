@@ -6,6 +6,22 @@ test.beforeEach(async ({ request }) => {
   await resetApp(request);
 });
 
+test("profile exposes shelves and reviewed entry points", async ({ page }) => {
+  await signInAs(page, "owner", E2E_ROUTE_PATHS.me);
+
+  await expect(page.getByRole("link", { name: "Open my shelves" })).toBeVisible();
+  await expect(
+    page.getByRole("link", { name: "Open reviewed books" }),
+  ).toBeVisible();
+
+  await page.getByRole("link", { name: "Open my shelves" }).click();
+  await expect(page).toHaveURL(E2E_ROUTE_PATHS.meShelves);
+
+  await page.goto(E2E_ROUTE_PATHS.me);
+  await page.getByRole("link", { name: "Open reviewed books" }).click();
+  await expect(page).toHaveURL(E2E_ROUTE_PATHS.meReviewed);
+});
+
 test("members can create, update, and delete reviews from the dedicated review route", async ({
   page,
 }) => {
@@ -49,6 +65,10 @@ test("members can create, update, and delete reviews from the dedicated review r
 
   await page.goto(E2E_ROUTE_PATHS.meReviewed);
   await expect(page.getByText("No reviews yet")).toBeVisible();
+
+  await page.goto(E2E_ROUTE_PATHS.fixtureBook);
+  await expect(page.getByText("No ratings yet")).toBeVisible();
+  await expect(page.getByText("Be the first to review this book.")).toBeVisible();
 });
 
 test("book detail shows aggregate ratings, recent public reviews, and keeps the add-book modal available", async ({

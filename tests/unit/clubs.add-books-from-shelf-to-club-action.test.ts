@@ -181,4 +181,34 @@ describe("addBooksFromShelfToClubAction", () => {
       status: "WANT_TO_READ",
     });
   });
+
+  it("rejects a shelf that is no longer available to import", async () => {
+    requireCurrentUserMock.mockResolvedValue({
+      id: "user-123",
+    });
+    listShelfImportSourcesForClubMock.mockResolvedValue([
+      {
+        shelfId: "shelf-2",
+        shelfName: "Other Shelf",
+        isPublic: false,
+        books: [],
+      },
+    ]);
+
+    const { addBooksFromShelfToClubAction } = await import(
+      "@/app/(protected)/clubs/actions"
+    );
+
+    const formData = new FormData();
+    formData.set("clubId", "club-1");
+    formData.set("shelfId", "shelf-1");
+    formData.set("returnTo", "/clubs/club-1/manage/board");
+    formData.append("bookId", "book-1");
+
+    await expect(addBooksFromShelfToClubAction(formData)).rejects.toThrow(
+      "NEXT_REDIRECT:/clubs/club-1/manage/board?error=Choose+a+valid+shelf.",
+    );
+
+    expect(addBookToClubMock).not.toHaveBeenCalled();
+  });
 });

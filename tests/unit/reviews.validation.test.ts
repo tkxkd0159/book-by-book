@@ -1,7 +1,12 @@
 import { describe, expect, it } from "vitest";
 
 import { ReviewError } from "@/lib/reviews/errors";
-import { parseReviewBody, parseReviewRating } from "@/lib/reviews/validation";
+import {
+  parseReviewBody,
+  parseReviewGoogleVolumeId,
+  parseReviewRating,
+  parseSafeReturnTo,
+} from "@/lib/reviews/validation";
 
 describe("review validation", () => {
   it("accepts supported rating values", () => {
@@ -18,5 +23,14 @@ describe("review validation", () => {
   it("treats blank review bodies as null and preserves line breaks", () => {
     expect(parseReviewBody("   ")).toBeNull();
     expect(parseReviewBody("  Thoughtful\r\nreview  ")).toBe("Thoughtful\nreview");
+  });
+
+  it("requires a google volume id and falls back unsafe return paths", () => {
+    expect(parseReviewGoogleVolumeId("club-test-book")).toBe("club-test-book");
+    expect(() => parseReviewGoogleVolumeId("")).toThrow(ReviewError);
+
+    expect(parseSafeReturnTo("/me/reviewed", "/fallback")).toBe("/me/reviewed");
+    expect(parseSafeReturnTo("//evil.test", "/fallback")).toBe("/fallback");
+    expect(parseSafeReturnTo("", "/fallback")).toBe("/fallback");
   });
 });
