@@ -174,7 +174,9 @@ export default async function BookSearchPage({ searchParams }: Props.Page) {
   const isAdvancedOpen = advancedRequested || hasAdvancedFilters;
   const searchMode: BookSearchMode = isAdvancedOpen ? "advanced" : "basic";
   const searchQuery =
-    searchMode === "advanced" ? buildAdvancedSearchQuery(advancedFilters) : basicQuery;
+    searchMode === "advanced"
+      ? buildAdvancedSearchQuery(advancedFilters)
+      : basicQuery;
   const shouldSearch =
     searchMode === "advanced" ? hasAdvancedFilters : basicQuery.length >= 2;
 
@@ -236,10 +238,11 @@ export default async function BookSearchPage({ searchParams }: Props.Page) {
     advancedFilters,
   );
 
-  const clubTargetsByVolumeId = await listManageableClubBookTargetsByGoogleVolumeIds(
-    currentUser.id,
-    results.map((result) => result.googleVolumeId),
-  );
+  const clubTargetsByVolumeId =
+    await listManageableClubBookTargetsByGoogleVolumeIds(
+      currentUser.id,
+      results.map((result) => result.googleVolumeId),
+    );
   const shelfTargetsByVolumeId =
     await listManageableShelfBookTargetsByGoogleVolumeIds(
       currentUser.id,
@@ -263,8 +266,6 @@ export default async function BookSearchPage({ searchParams }: Props.Page) {
             queries.
           </p>
           <div className="flex flex-wrap gap-2 text-sm">
-            <Badge className="bg-(--surface)/85">Google Books Source</Badge>
-            <Badge className="bg-(--surface)/85">Postgres Cache Ready</Badge>
             {shouldSearch ? (
               <Badge className="bg-(--surface)/85">
                 {resultCount === null
@@ -377,7 +378,8 @@ export default async function BookSearchPage({ searchParams }: Props.Page) {
       {results.length > 0 ? (
         <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
           {results.map((book) => {
-            const clubTargets = clubTargetsByVolumeId[book.googleVolumeId] ?? [];
+            const clubTargets =
+              clubTargetsByVolumeId[book.googleVolumeId] ?? [];
             const authorsText =
               book.authors.length > 0
                 ? book.authors.join(", ")

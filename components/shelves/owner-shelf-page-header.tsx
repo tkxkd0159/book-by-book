@@ -93,7 +93,7 @@ export function OwnerShelfPageHeader({
 
             <ShelfForm
               action={updateShelfAction}
-              submitLabel="Save shelf"
+              submitLabel="Save"
               shelfId={shelf.id}
               returnTo={returnTo}
               defaults={{

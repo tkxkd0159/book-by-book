@@ -37,12 +37,6 @@ export function ShelfDetail({ shelf, mode, returnTo }: ShelfDetailProps) {
               <Badge>{`${shelf.itemCount} book${shelf.itemCount === 1 ? "" : "s"}`}</Badge>
             </div>
 
-            <p className="text-(--muted)">
-              {mode === "public"
-                ? `Shared by ${shelf.owner.name ?? "Book by Book Member"}.`
-                : "Your personal reading shelf."}
-            </p>
-
             <p className="text-[15px] leading-7 text-(--muted)">
               {shelf.description ?? "No shelf description yet."}
             </p>
@@ -57,7 +51,9 @@ export function ShelfDetail({ shelf, mode, returnTo }: ShelfDetailProps) {
                 {shelf.itemCount}
               </p>
               <p className="mt-1 text-sm text-(--muted)">
-                {shelf.itemCount === 1 ? "One title saved here." : "Titles saved here."}
+                {shelf.itemCount === 1
+                  ? "One title saved here."
+                  : "Titles saved here."}
               </p>
             </div>
 
@@ -100,7 +96,10 @@ export function ShelfDetail({ shelf, mode, returnTo }: ShelfDetailProps) {
               {mode === "owner" ? (
                 <>
                   No books on this shelf yet. Find one from{" "}
-                  <Link href="/books/search" className="underline underline-offset-4">
+                  <Link
+                    href="/books/search"
+                    className="underline underline-offset-4"
+                  >
                     book search
                   </Link>
                   .
@@ -113,7 +112,10 @@ export function ShelfDetail({ shelf, mode, returnTo }: ShelfDetailProps) {
         ) : (
           <div className="space-y-4">
             {shelf.items.map((item) => (
-              <Card key={item.id} className="overflow-hidden border-(--border)/90">
+              <Card
+                key={item.id}
+                className="overflow-hidden border-(--border)/90"
+              >
                 <CardContent className="p-0">
                   <div className="flex flex-col gap-4 p-4 sm:flex-row sm:items-start sm:p-5">
                     <div className="mx-auto w-full max-w-20 sm:mx-0 sm:w-16 sm:max-w-none">
@@ -154,7 +156,7 @@ export function ShelfDetail({ shelf, mode, returnTo }: ShelfDetailProps) {
                             ? item.book.authors.join(", ")
                             : "Unknown author"}
                         </p>
-                        {(item.book.publisher || item.book.publishedDate) ? (
+                        {item.book.publisher || item.book.publishedDate ? (
                           <p className="text-xs uppercase tracking-wide text-(--muted)">
                             {[item.book.publisher, item.book.publishedDate]
                               .filter(Boolean)
@@ -210,8 +212,16 @@ export function ShelfDetail({ shelf, mode, returnTo }: ShelfDetailProps) {
                           action={updateShelfItemNoteAction}
                           className="space-y-3"
                         >
-                          <input type="hidden" name="shelfId" value={shelf.id} />
-                          <input type="hidden" name="bookId" value={item.book.id} />
+                          <input
+                            type="hidden"
+                            name="shelfId"
+                            value={shelf.id}
+                          />
+                          <input
+                            type="hidden"
+                            name="bookId"
+                            value={item.book.id}
+                          />
                           <input
                             type="hidden"
                             name="returnTo"
@@ -232,8 +242,16 @@ export function ShelfDetail({ shelf, mode, returnTo }: ShelfDetailProps) {
                         </form>
 
                         <form action={removeShelfItemAction}>
-                          <input type="hidden" name="shelfId" value={shelf.id} />
-                          <input type="hidden" name="bookId" value={item.book.id} />
+                          <input
+                            type="hidden"
+                            name="shelfId"
+                            value={shelf.id}
+                          />
+                          <input
+                            type="hidden"
+                            name="bookId"
+                            value={item.book.id}
+                          />
                           <input
                             type="hidden"
                             name="returnTo"
