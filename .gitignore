@@ -219,3 +219,6 @@ Temporary Items
 /blob-report/
 /playwright/.cache/
 /playwright/.auth/
+
+.sha
+
