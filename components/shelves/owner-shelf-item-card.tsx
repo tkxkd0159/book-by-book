@@ -131,9 +131,6 @@ export function OwnerShelfItemCard({
               </div>
             ) : item.note ? (
               <div className="rounded-xl border border-(--border)/70 bg-(--surface) p-4">
-                <p className="text-xs font-medium uppercase tracking-wide text-(--muted)">
-                  Shelf note
-                </p>
                 <p className="mt-2 whitespace-pre-line text-sm leading-6 text-(--muted)">
                   {item.note}
                 </p>

@@ -43,12 +43,15 @@ function buildToastItems(message: string | null, error: string | null) {
 export function FlashToast({
   message = null,
   error = null,
-  durationMs = 4200,
+  durationMs = 2000,
 }: FlashToastProps) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
-  const items = useMemo(() => buildToastItems(message, error), [message, error]);
+  const items = useMemo(
+    () => buildToastItems(message, error),
+    [message, error],
+  );
   const [visibleIds, setVisibleIds] = useState(() =>
     items.map((item) => item.id),
   );

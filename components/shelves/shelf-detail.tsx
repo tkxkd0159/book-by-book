@@ -105,7 +105,7 @@ export function ShelfDetail({ shelf, mode, returnTo }: ShelfDetailProps) {
           </Card>
         ) : (
           <div className="space-y-4">
-            {shelf.items.map((item) => (
+            {shelf.items.map((item) =>
               mode === "owner" ? (
                 <OwnerShelfItemCard
                   key={`${item.id}:${item.note ?? ""}`}
@@ -169,9 +169,6 @@ export function ShelfDetail({ shelf, mode, returnTo }: ShelfDetailProps) {
 
                         {item.note ? (
                           <div className="rounded-xl border border-(--border)/70 bg-(--surface) p-4">
-                            <p className="text-xs font-medium uppercase tracking-wide text-(--muted)">
-                              Shelf note
-                            </p>
                             <p className="mt-2 whitespace-pre-line text-sm leading-6 text-(--muted)">
                               {item.note}
                             </p>
@@ -181,8 +178,8 @@ export function ShelfDetail({ shelf, mode, returnTo }: ShelfDetailProps) {
                     </div>
                   </CardContent>
                 </Card>
-              )
-            ))}
+              ),
+            )}
           </div>
         )}
       </section>
