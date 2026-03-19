@@ -18,6 +18,9 @@ export const E2E_ROUTE_PATHS = {
   clubs: "/clubs",
   clubsNew: "/clubs/new",
   fixtureBook: `/books/${TEST_BOOK_VOLUME_ID}`,
+  me: "/me",
+  meShelves: "/me/shelves",
+  meShelvesNew: "/me/shelves/new",
   searchResults: "/books/search?advanced=1&isbn=9780140328721",
   signIn: "/signin",
 } as const;
@@ -27,6 +30,8 @@ export const E2E_URL_PATTERNS = {
   clubBoard: /\/clubs\/[0-9a-f-]+\/board(?:\?|$)/i,
   clubMembers: /\/clubs\/[0-9a-f-]+\/members(?:\?|$)/i,
   manageMembers: /\/clubs\/[0-9a-f-]+\/manage\/members(?:\?|$)/i,
+  myShelfDetail: /\/me\/shelves\/[0-9a-f-]+(?:\?|$)/i,
+  publicShelf: /\/users\/[0-9a-f-]+\/shelves\/[0-9a-f-]+(?:\?|$)/i,
   discussionPath: /^\/clubs\/([^/]+)\/books\/([^/]+)$/i,
   threadPath: /^\/clubs\/([^/]+)\/threads\/([^/]+)$/i,
 } as const;

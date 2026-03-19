@@ -105,3 +105,27 @@ export function parseShelfItemNote(
 
   return normalized;
 }
+
+export function parseShelfId(
+  value: FormDataEntryValue | string | null | undefined,
+  label = "Shelf",
+) {
+  const normalized = readString(value).trim();
+  if (!normalized) {
+    throw new ShelfError("VALIDATION", `${label} is required.`);
+  }
+
+  return normalized;
+}
+
+export function parseSafeReturnTo(
+  value: FormDataEntryValue | string | null | undefined,
+  fallback: string,
+) {
+  const normalized = readString(value).trim();
+  if (!normalized || !normalized.startsWith("/") || normalized.startsWith("//")) {
+    return fallback;
+  }
+
+  return normalized;
+}
