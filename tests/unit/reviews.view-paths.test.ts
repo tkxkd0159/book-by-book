@@ -12,8 +12,10 @@ describe("review view paths", () => {
 
   it("builds the per-book review path", () => {
     expect(createMyReviewHref("club-test-book")).toBe(
-      "/me/reviews/club-test-book",
+      "/books/club-test-book#review-editor",
     );
-    expect(createMyReviewHref("abc/123")).toBe("/me/reviews/abc%2F123");
+    expect(createMyReviewHref("abc/123")).toBe(
+      "/books/abc%2F123#review-editor",
+    );
   });
 });

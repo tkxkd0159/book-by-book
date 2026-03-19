@@ -5,6 +5,7 @@ import { notFound } from "next/navigation";
 
 import { AddBookModal } from "@/components/books/add-book-modal";
 import { PublicReviewList } from "@/components/reviews/public-review-list";
+import { ReviewForm } from "@/components/reviews/review-form";
 import { ReviewRating } from "@/components/reviews/review-rating";
 import { Badge } from "@/components/ui/badge";
 import { buttonStyles } from "@/components/ui/button";
@@ -13,7 +14,6 @@ import { requireCurrentUser } from "@/lib/auth/server";
 import { createSignedBookImportToken } from "@/lib/books/import-token";
 import { listManageableClubBookTargetsForGoogleVolumeId } from "@/lib/clubs/repository";
 import {
-  getReviewBodyPreview,
   formatReviewCount,
 } from "@/lib/reviews/presentation";
 import {
@@ -93,7 +93,6 @@ export default async function BookDetailPage({
   const error = readMessage(query.error);
 
   const description = book.description;
-  const reviewHref = createMyReviewHref(book.googleVolumeId);
   const otherPublicReviews = recentReviews.filter(
     (entry) => entry.author.id !== currentUser.id,
   );
@@ -139,10 +138,7 @@ export default async function BookDetailPage({
           <div className="space-y-5">
             <header className="space-y-3">
               <div className="flex flex-wrap items-center gap-2">
-                <Badge>{book.persisted ? "Cached locally" : "Live from Google"}</Badge>
-                <code className="rounded-md bg-(--surface) px-2 py-1 text-xs">
-                  {book.googleVolumeId}
-                </code>
+                <Badge>{book.googleVolumeId}</Badge>
               </div>
               <h1 className="text-3xl font-semibold leading-tight sm:text-4xl">
                 {book.title}
@@ -245,22 +241,18 @@ export default async function BookDetailPage({
 
       <Card className="border-(--border)/90">
         <CardContent className="space-y-6 p-7 sm:p-8">
-          <div className="flex flex-wrap items-start justify-between gap-3">
-            <div className="space-y-2">
-              <h2 className="text-xl font-semibold">Reader reviews</h2>
-              <p className="text-sm text-(--muted)">
-                Ratings and public thoughts from signed-in Book by Book members.
-              </p>
-            </div>
-
-            <Link href={reviewHref} className={buttonStyles({ variant: "secondary" })}>
-              {currentUserReview ? "Edit your review" : "Write a review"}
-            </Link>
+          <div className="space-y-2">
+            <h2 className="text-xl font-semibold">Reader reviews</h2>
+            <p className="text-sm text-(--muted)">
+              Ratings and public thoughts from signed-in Book by Book members.
+            </p>
           </div>
 
-          <div className="grid gap-4 lg:grid-cols-[240px_1fr]">
+          <div className="grid gap-4 lg:grid-cols-[240px_minmax(0,1fr)]">
             <div className="space-y-3 rounded-xl border border-(--border) bg-(--surface) p-5">
-              <p className="text-sm font-medium text-(--muted)">Average rating</p>
+              <p className="text-sm font-medium text-(--muted)">
+                Average rating
+              </p>
               <ReviewRating
                 value={reviewAggregate.averageRating}
                 reviewCount={reviewAggregate.reviewCount}
@@ -272,20 +264,27 @@ export default async function BookDetailPage({
               </p>
             </div>
 
-            <div className="space-y-3 rounded-xl border border-(--border) bg-(--surface) p-5">
-              <p className="text-sm font-medium text-(--muted)">Your review</p>
-              {currentUserReview ? (
-                <>
-                  <ReviewRating value={currentUserReview.rating} size="sm" />
-                  <p className="text-sm leading-6 text-(--muted)">
-                    {getReviewBodyPreview(currentUserReview.body)}
-                  </p>
-                </>
-              ) : (
-                <p className="text-sm leading-6 text-(--muted)">
-                  You have not reviewed this book yet.
+            <div
+              id="review-editor"
+              className="scroll-mt-24 rounded-xl border border-(--border) bg-(--surface) p-5"
+            >
+              <div className="space-y-1">
+                <p className="text-sm font-medium text-(--muted)">
+                  {currentUserReview ? "Update your review" : "Write your review"}
                 </p>
-              )}
+                <p className="text-sm text-(--muted)">
+                  Pick a rating and add optional thoughts without leaving this page.
+                </p>
+              </div>
+
+              <div className="mt-4">
+                <ReviewForm
+                  googleVolumeId={book.googleVolumeId}
+                  review={currentUserReview}
+                  returnTo={createMyReviewHref(book.googleVolumeId)}
+                  bookImportToken={createSignedBookImportToken(book)}
+                />
+              </div>
             </div>
           </div>
 

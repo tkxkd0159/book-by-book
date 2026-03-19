@@ -1,4 +1,7 @@
-import Link from "next/link";
+"use client";
+
+import { Star } from "lucide-react";
+import { useId, useState } from "react";
 
 import {
   deleteReviewAction,
@@ -6,6 +9,7 @@ import {
 } from "@/app/(protected)/me/reviews/actions";
 import { Button, buttonStyles } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
+import { cn } from "@/lib/utils";
 import type { ReviewRecord, ReviewRating } from "@/types/db";
 
 type ReviewFormProps = {
@@ -13,7 +17,6 @@ type ReviewFormProps = {
   review: ReviewRecord | null;
   returnTo: string;
   bookImportToken?: string;
-  cancelHref?: string;
 };
 
 const REVIEW_RATING_OPTIONS = [1, 2, 3, 4, 5] as const satisfies ReviewRating[];
@@ -23,8 +26,12 @@ export function ReviewForm({
   review,
   returnTo,
   bookImportToken,
-  cancelHref,
 }: ReviewFormProps) {
+  const [selectedRating, setSelectedRating] = useState<ReviewRating | null>(
+    review?.rating ?? null,
+  );
+  const idPrefix = useId();
+
   return (
     <div className="space-y-4">
       <form action={upsertReviewAction} className="space-y-5">
@@ -36,23 +43,48 @@ export function ReviewForm({
 
         <fieldset className="space-y-3">
           <legend className="text-sm font-medium">Rating</legend>
-          <div className="flex flex-wrap gap-2">
+          <div className="space-y-3">
+            <div
+              role="radiogroup"
+              aria-label="Rating"
+              className="flex flex-wrap items-center gap-1"
+            >
             {REVIEW_RATING_OPTIONS.map((rating) => (
               <label
                 key={rating}
-                className="inline-flex cursor-pointer items-center gap-2 rounded-full border border-(--border) bg-(--surface) px-4 py-2 text-sm font-medium"
+                htmlFor={`${idPrefix}-${rating}`}
+                className="group relative cursor-pointer rounded-full p-1 focus-within:outline-none focus-within:ring-2 focus-within:ring-(--accent-soft)"
               >
                 <input
+                  id={`${idPrefix}-${rating}`}
                   type="radio"
                   name="rating"
                   value={rating}
-                  defaultChecked={review?.rating === rating}
+                  checked={selectedRating === rating}
+                  onChange={() => setSelectedRating(rating)}
                   required={rating === 1}
-                  className="h-4 w-4 accent-[var(--accent)]"
+                  className="absolute inset-0 cursor-pointer opacity-0"
                 />
-                <span>{rating} star{rating === 1 ? "" : "s"}</span>
+                <Star
+                  aria-hidden
+                  className={cn(
+                    "pointer-events-none h-8 w-8 transition-transform duration-150 group-hover:scale-105",
+                    selectedRating !== null && rating <= selectedRating
+                      ? "fill-[#c78d42] text-[#c78d42]"
+                      : "text-(--border)",
+                  )}
+                />
+                <span className="sr-only">
+                  {rating} star{rating === 1 ? "" : "s"}
+                </span>
               </label>
             ))}
+            </div>
+            <p className="text-sm text-(--muted)">
+              {selectedRating
+                ? `${selectedRating} of 5 stars selected`
+                : "Choose a rating from 1 to 5."}
+            </p>
           </div>
         </fieldset>
 
@@ -70,26 +102,17 @@ export function ReviewForm({
           <Button type="submit">
             {review ? "Save review" : "Publish review"}
           </Button>
-          {cancelHref ? (
-            <Link
-              href={cancelHref}
-              className={buttonStyles({ variant: "secondary" })}
+          {review ? (
+            <button
+              type="submit"
+              formAction={deleteReviewAction}
+              className={buttonStyles({ variant: "destructive" })}
             >
-              Cancel
-            </Link>
+              Delete review
+            </button>
           ) : null}
         </div>
       </form>
-
-      {review ? (
-        <form action={deleteReviewAction}>
-          <input type="hidden" name="googleVolumeId" value={googleVolumeId} />
-          <input type="hidden" name="returnTo" value={returnTo} />
-          <Button type="submit" variant="destructive">
-            Delete review
-          </Button>
-        </form>
-      ) : null}
     </div>
   );
 }

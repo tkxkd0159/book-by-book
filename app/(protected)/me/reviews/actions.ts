@@ -55,10 +55,16 @@ function getErrorMessage(error: unknown) {
 }
 
 function revalidateReviewPaths(googleVolumeId: string) {
-  revalidatePath("/me");
-  revalidatePath(createMyReviewedHref());
-  revalidatePath(createMyReviewHref(googleVolumeId));
-  revalidatePath(`/books/${encodeURIComponent(googleVolumeId)}`);
+  const detailPath = `/books/${encodeURIComponent(googleVolumeId)}`;
+
+  for (const path of new Set([
+    "/me",
+    createMyReviewedHref(),
+    createMyReviewHref(googleVolumeId).split("#", 1)[0] ?? detailPath,
+    detailPath,
+  ])) {
+    revalidatePath(path);
+  }
 }
 
 export async function upsertReviewAction(formData: FormData) {
