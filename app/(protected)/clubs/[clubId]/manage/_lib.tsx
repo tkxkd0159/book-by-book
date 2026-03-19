@@ -2,6 +2,7 @@ import { headers } from "next/headers";
 import { forbidden, notFound } from "next/navigation";
 import { cache } from "react";
 
+import { FlashToast } from "@/components/ui/flash-toast";
 import { getCurrentUser } from "@/lib/auth/server";
 import { isClubAdmin } from "@/lib/clubs/permissions";
 import { findClubDetail } from "@/lib/clubs/repository";
@@ -62,17 +63,10 @@ export function ManagePageFeedback({
   error: string | null;
 }) {
   return (
-    <>
-      {message ? (
-        <p className="rounded-xl border border-[#b9d6cf] bg-[#eef9f5] px-4 py-3 text-sm text-[#125547]">
-          {message}
-        </p>
-      ) : null}
-      {error ? (
-        <p className="rounded-xl border border-[#d39e95] bg-[#fff2ef] px-4 py-3 text-sm text-[#7e1f14]">
-          {error}
-        </p>
-      ) : null}
-    </>
+    <FlashToast
+      key={`${message ?? ""}:${error ?? ""}`}
+      message={message}
+      error={error}
+    />
   );
 }

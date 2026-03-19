@@ -6,6 +6,7 @@ import { BookSearchForm } from "@/components/books/book-search-form";
 import { Badge } from "@/components/ui/badge";
 import { buttonStyles } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { FlashToast } from "@/components/ui/flash-toast";
 import { requireCurrentUser } from "@/lib/auth/server";
 import {
   GoogleBooksQueryValidationError,
@@ -298,23 +299,11 @@ export default async function BookSearchPage({ searchParams }: Props.Page) {
         isAdvancedOpen={isAdvancedOpen}
       />
 
-      {message ? (
-        <p className="rounded-md border border-[#b9d6cf] bg-[#eef9f5] p-3 text-sm text-[#125547]">
-          {message}
-        </p>
-      ) : null}
-
-      {actionError ? (
-        <p className="rounded-md border border-[#d39e95] bg-[#fff2ef] p-3 text-sm text-[#7e1f14]">
-          {actionError}
-        </p>
-      ) : null}
-
-      {searchError ? (
-        <p className="rounded-md border border-[#d39e95] bg-[#fff2ef] p-3 text-sm text-[#7e1f14]">
-          {searchError}
-        </p>
-      ) : null}
+      <FlashToast
+        key={`${message ?? ""}:${actionError ?? searchError ?? ""}`}
+        message={message}
+        error={actionError ?? searchError}
+      />
 
       {!shouldSearch ? (
         <p className="text-sm text-(--muted)">

@@ -3,6 +3,7 @@ import Link from "next/link";
 import { ShelfCard } from "@/components/shelves/shelf-card";
 import { buttonStyles } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { FlashToast } from "@/components/ui/flash-toast";
 import { requireCurrentUser } from "@/lib/auth/server";
 import { listUserShelves } from "@/lib/shelves/repository";
 import {
@@ -29,6 +30,12 @@ export default async function MyShelvesPage({ searchParams }: Props.Page) {
 
   return (
     <div className="space-y-6">
+      <FlashToast
+        key={`${message ?? ""}:${error ?? ""}`}
+        message={message}
+        error={error}
+      />
+
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="space-y-2">
           <h1 className="text-3xl font-semibold sm:text-4xl">My shelves</h1>
@@ -41,17 +48,6 @@ export default async function MyShelvesPage({ searchParams }: Props.Page) {
           Create shelf
         </Link>
       </div>
-
-      {message ? (
-        <p className="rounded-xl border border-[#b9d6cf] bg-[#eef9f5] px-4 py-3 text-sm text-[#125547]">
-          {message}
-        </p>
-      ) : null}
-      {error ? (
-        <p className="rounded-xl border border-[#d39e95] bg-[#fff2ef] px-4 py-3 text-sm text-[#7e1f14]">
-          {error}
-        </p>
-      ) : null}
 
       {shelves.length === 0 ? (
         <Card className="border-2">

@@ -13,6 +13,7 @@ import {
   parseReviewBody,
   parseReviewGoogleVolumeId,
   parseReviewRating,
+  parseReviewTitle,
   parseSafeReturnTo,
 } from "@/lib/reviews/validation";
 import {
@@ -80,6 +81,7 @@ export async function upsertReviewAction(formData: FormData) {
       createMyReviewHref(googleVolumeId),
     );
     const rating = parseReviewRating(formData.get("rating"));
+    const title = parseReviewTitle(formData.get("title"));
     const body = parseReviewBody(formData.get("body"));
     const bookImportToken = readOptionalString(formData.get("bookImportToken"));
 
@@ -100,6 +102,7 @@ export async function upsertReviewAction(formData: FormData) {
       userId: currentUser.id,
       bookId: book.id,
       rating,
+      title,
       body,
     });
 

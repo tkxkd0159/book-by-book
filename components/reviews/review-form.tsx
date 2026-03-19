@@ -5,6 +5,7 @@ import { useId, useState } from "react";
 
 import { upsertReviewAction } from "@/app/(protected)/me/reviews/actions";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 import type { ReviewRecord, ReviewRating } from "@/types/db";
@@ -86,6 +87,16 @@ export function ReviewForm({
             </p>
           </div>
         </fieldset>
+
+        <label className="block space-y-2 text-sm font-medium">
+          <span>Title</span>
+          <Input
+            name="title"
+            defaultValue={review?.title ?? ""}
+            maxLength={120}
+            placeholder="Sum up your take in one line."
+          />
+        </label>
 
         <label className="block space-y-2 text-sm font-medium">
           <span>Review</span>

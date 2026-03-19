@@ -11,10 +11,7 @@ import {
   listUserReviewedBooks,
   upsertReview,
 } from "@/lib/reviews/repository";
-import {
-  resetTestDatabase,
-  TEST_BOOK_VOLUME_ID,
-} from "@/lib/test/fixtures";
+import { resetTestDatabase, TEST_BOOK_VOLUME_ID } from "@/lib/test/fixtures";
 import type { AuthUser } from "@/types/db";
 
 async function getRequiredUser(key: string): Promise<AuthUser> {
@@ -32,7 +29,7 @@ beforeEach(async () => {
 });
 
 describe("reviews repository integration", () => {
-  it("upserts reviews and exposes reviewed books plus recent public reviews", async () => {
+  it("upserts reviews and exposes reviewed books plus reader reviews", async () => {
     const owner = await getRequiredUser("owner");
     const member = await getRequiredUser("member");
     const book = await findBookByGoogleVolumeId(TEST_BOOK_VOLUME_ID);
@@ -43,6 +40,7 @@ describe("reviews repository integration", () => {
       userId: owner.id,
       bookId: book!.id,
       rating: 4,
+      title: "Strong start",
       body: "Strong start.",
     });
     const memberReview = await upsertReview({
@@ -53,6 +51,7 @@ describe("reviews repository integration", () => {
     });
 
     expect(ownerReview.rating).toBe(4);
+    expect(ownerReview.title).toBe("Strong start");
     expect(memberReview.rating).toBe(5);
 
     const storedOwnerReview = await findReviewByUserAndBook({
@@ -60,6 +59,7 @@ describe("reviews repository integration", () => {
       bookId: book!.id,
     });
     expect(storedOwnerReview?.body).toBe("Strong start.");
+    expect(storedOwnerReview?.title).toBe("Strong start");
 
     const reviewedBooks = await listUserReviewedBooks(member.id);
     expect(reviewedBooks).toHaveLength(1);
@@ -110,9 +110,9 @@ describe("reviews repository integration", () => {
     expect(afterDelete.averageRating).toBe(2);
 
     expect(await listUserReviewedBooks(owner.id)).toHaveLength(0);
-    expect(await listRecentBookReviews({ bookId: book!.id, limit: 10 })).toHaveLength(
-      1,
-    );
+    expect(
+      await listRecentBookReviews({ bookId: book!.id, limit: 10 }),
+    ).toHaveLength(1);
   });
 
   it("revives a deleted review on upsert and rejects deleting missing active reviews", async () => {

@@ -7,6 +7,11 @@ import { deleteReviewAction } from "@/app/(protected)/me/reviews/actions";
 import { ReviewForm } from "@/components/reviews/review-form";
 import { ReviewRating } from "@/components/reviews/review-rating";
 import { Button } from "@/components/ui/button";
+import {
+  formatReviewDate,
+  getReviewBodyPreview,
+  getReviewTitle,
+} from "@/lib/reviews/presentation";
 import type { ReviewRecord } from "@/types/db";
 
 type BookReviewPanelProps = {
@@ -37,8 +42,8 @@ export function BookReviewPanel({
           </p>
           <p className="text-sm text-(--muted)">
             {review
-              ? "Refine your rating or notes, then save to return to the compact view."
-              : "Pick a rating and add optional thoughts without leaving this page."}
+              ? "Refine the headline, rating, or notes, then save to return to the compact view."
+              : "Pick a rating, add a short headline, and write optional thoughts without leaving this page."}
           </p>
         </div>
 
@@ -54,12 +59,14 @@ export function BookReviewPanel({
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-5">
       <div className="flex items-start justify-between gap-3">
         <div className="space-y-1">
-          <p className="text-sm font-medium text-(--muted)">Your review</p>
+          <p className="text-sm font-medium uppercase tracking-[0.18em] text-(--muted)">
+            Your review
+          </p>
           <p className="text-sm text-(--muted)">
-            Saved on this book detail page.
+            Posted on {formatReviewDate(review.createdAt)}
           </p>
         </div>
 
@@ -91,17 +98,16 @@ export function BookReviewPanel({
         </div>
       </div>
 
-      <div className="space-y-3 rounded-xl border border-(--border)/70 bg-(--surface) p-4">
-        <ReviewRating value={review.rating} size="sm" />
-        {review.body ? (
-          <p className="whitespace-pre-line text-sm leading-6 text-(--muted)">
-            {review.body}
-          </p>
-        ) : (
-          <p className="text-sm leading-6 text-(--muted)">
-            No written review yet.
-          </p>
-        )}
+      <div className="space-y-3 border-t border-(--border)/70 pt-4">
+        <div className="flex flex-wrap items-center gap-3">
+          <ReviewRating value={review.rating} size="sm" />
+          <span className="text-sm font-medium text-foreground">
+            {getReviewTitle(review.title, review.rating)}
+          </span>
+        </div>
+        <p className="whitespace-pre-line text-sm leading-6 text-(--muted)">
+          {getReviewBodyPreview(review.body)}
+        </p>
       </div>
     </div>
   );

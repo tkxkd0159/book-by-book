@@ -10,6 +10,7 @@ import { ReviewRating } from "@/components/reviews/review-rating";
 import { Badge } from "@/components/ui/badge";
 import { buttonStyles } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { FlashToast } from "@/components/ui/flash-toast";
 import { requireCurrentUser } from "@/lib/auth/server";
 import { createSignedBookImportToken } from "@/lib/books/import-token";
 import { listManageableClubBookTargetsForGoogleVolumeId } from "@/lib/clubs/repository";
@@ -99,16 +100,11 @@ export default async function BookDetailPage({
 
   return (
     <article className="space-y-6">
-      {message ? (
-        <p className="rounded-xl border border-[#b9d6cf] bg-[#eef9f5] px-4 py-3 text-sm text-[#125547]">
-          {message}
-        </p>
-      ) : null}
-      {error ? (
-        <p className="rounded-xl border border-[#d39e95] bg-[#fff2ef] px-4 py-3 text-sm text-[#7e1f14]">
-          {error}
-        </p>
-      ) : null}
+      <FlashToast
+        key={`${message ?? ""}:${error ?? ""}`}
+        message={message}
+        error={error}
+      />
 
       <Card className="relative overflow-hidden border-2 border-(--border) bg-(--surface-strong)">
         <div className="pointer-events-none absolute -right-24 -top-24 h-72 w-72 rounded-full bg-(--accent)/10 blur-3xl" />
@@ -253,60 +249,64 @@ export default async function BookDetailPage({
         </CardContent>
       </Card>
 
-      <Card className="border-(--border)/90">
-        <CardContent className="space-y-6 p-7 sm:p-8">
-          <div className="space-y-2">
-            <h2 className="text-xl font-semibold">Reader reviews</h2>
-            <p className="text-sm text-(--muted)">
-              Ratings and public thoughts from signed-in Book by Book members.
+      <section className="space-y-6">
+        <div className="space-y-2">
+          <h2 className="text-2xl font-semibold">Reader reviews</h2>
+          <p className="text-sm text-(--muted)">
+            Ratings and public thoughts from signed-in Book by Book members.
+          </p>
+        </div>
+
+        <div className="grid gap-8 border-y border-(--border) py-7 lg:grid-cols-[220px_minmax(0,1fr)]">
+          <div className="space-y-3">
+            <p className="text-sm font-medium uppercase tracking-[0.18em] text-(--muted)">
+              Average rating
+            </p>
+            <ReviewRating
+              value={reviewAggregate.averageRating}
+              reviewCount={reviewAggregate.reviewCount}
+            />
+            <p className="text-sm leading-6 text-(--muted)">
+              {reviewAggregate.reviewCount > 0
+                ? formatReviewCount(reviewAggregate.reviewCount)
+                : "Be the first to review this book."}
             </p>
           </div>
 
-          <div className="grid gap-4 lg:grid-cols-[240px_minmax(0,1fr)]">
-            <div className="space-y-3 rounded-xl border border-(--border) bg-(--surface) p-5">
-              <p className="text-sm font-medium text-(--muted)">
-                Average rating
-              </p>
-              <ReviewRating
-                value={reviewAggregate.averageRating}
-                reviewCount={reviewAggregate.reviewCount}
-              />
-              <p className="text-sm text-(--muted)">
-                {reviewAggregate.reviewCount > 0
-                  ? formatReviewCount(reviewAggregate.reviewCount)
-                  : "Be the first to review this book."}
-              </p>
-            </div>
-
-            <div
-              id="review-editor"
-              className="scroll-mt-24 rounded-xl border border-(--border) bg-(--surface) p-5"
-            >
-              <BookReviewPanel
-                key={[
-                  book.googleVolumeId,
-                  currentUserReview?.id ?? "new",
-                  currentUserReview?.updatedAt.toISOString() ?? "fresh",
-                  error ? "error" : "clean",
-                ].join(":")}
-                googleVolumeId={book.googleVolumeId}
-                review={currentUserReview}
-                returnTo={createMyReviewHref(book.googleVolumeId)}
-                bookImportToken={createSignedBookImportToken(book)}
-                initialMode={currentUserReview && !error ? "view" : "edit"}
-              />
-            </div>
-          </div>
-
-          <div className="space-y-3">
-            <h3 className="text-lg font-semibold">Recent public reviews</h3>
-            <PublicReviewList
-              reviews={visibleRecentReviews}
-              emptyMessage="No public reviews yet."
+          <div
+            id="review-editor"
+            className="scroll-mt-24 border-t border-(--border)/70 pt-5 lg:border-l lg:border-t-0 lg:pl-8 lg:pt-0"
+          >
+            <BookReviewPanel
+              key={[
+                book.googleVolumeId,
+                currentUserReview?.id ?? "new",
+                currentUserReview?.updatedAt.toISOString() ?? "fresh",
+                error ? "error" : "clean",
+              ].join(":")}
+              googleVolumeId={book.googleVolumeId}
+              review={currentUserReview}
+              returnTo={createMyReviewHref(book.googleVolumeId)}
+              bookImportToken={createSignedBookImportToken(book)}
+              initialMode={currentUserReview && !error ? "view" : "edit"}
             />
           </div>
-        </CardContent>
-      </Card>
+        </div>
+
+        <div className="space-y-4">
+          <div className="space-y-1">
+            <h3 className="text-lg font-semibold">Recent reader reviews</h3>
+            <p className="text-sm text-(--muted)">
+              Headline, stars, profile, member ID, and written impressions from recent readers.
+            </p>
+          </div>
+
+          <PublicReviewList
+            reviews={visibleRecentReviews}
+            emptyMessage="No public reviews yet."
+          />
+        </div>
+      </section>
     </article>
   );
 }

@@ -9,6 +9,7 @@ import { DeleteShelfButton } from "@/components/shelves/delete-shelf-button";
 import { ShelfForm } from "@/components/shelves/shelf-form";
 import { Button, buttonStyles } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { FlashToast } from "@/components/ui/flash-toast";
 import type { ShelfDetail } from "@/lib/shelves/repository";
 import {
   createMyShelvesHref,
@@ -34,6 +35,12 @@ export function OwnerShelfPageHeader({
 
   return (
     <div className="space-y-6">
+      <FlashToast
+        key={`${message ?? ""}:${error ?? ""}`}
+        message={message}
+        error={error}
+      />
+
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="space-y-2">
           <h1 className="text-3xl font-semibold sm:text-4xl">{shelf.name}</h1>
@@ -61,17 +68,6 @@ export function OwnerShelfPageHeader({
           </Button>
         </div>
       </div>
-
-      {message ? (
-        <p className="rounded-xl border border-[#b9d6cf] bg-[#eef9f5] px-4 py-3 text-sm text-[#125547]">
-          {message}
-        </p>
-      ) : null}
-      {error ? (
-        <p className="rounded-xl border border-[#d39e95] bg-[#fff2ef] px-4 py-3 text-sm text-[#7e1f14]">
-          {error}
-        </p>
-      ) : null}
 
       {isEditOpen ? (
         <Card id="edit-shelf-panel" className="border-(--border)/90">

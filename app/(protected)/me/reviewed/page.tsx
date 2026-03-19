@@ -3,6 +3,7 @@ import Link from "next/link";
 import { ReviewedBookCard } from "@/components/reviews/reviewed-book-card";
 import { buttonStyles } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { FlashToast } from "@/components/ui/flash-toast";
 import { requireCurrentUser } from "@/lib/auth/server";
 import { listUserReviewedBooks } from "@/lib/reviews/repository";
 
@@ -22,26 +23,22 @@ export default async function MyReviewedPage({ searchParams }: Props.Page) {
   const reviewedBooks = await listUserReviewedBooks(currentUser.id);
   const message = readMessage(params.message);
   const error = readMessage(params.error);
+  const focusReview = readMessage(params.focusReview);
 
   return (
     <div className="space-y-6">
+      <FlashToast
+        key={`${message ?? ""}:${error ?? ""}`}
+        message={message}
+        error={error}
+      />
+
       <div className="space-y-2">
         <h1 className="text-3xl font-semibold sm:text-4xl">Reviewed books</h1>
         <p className="text-(--muted)">
           Track every book you have rated or written about.
         </p>
       </div>
-
-      {message ? (
-        <p className="rounded-xl border border-[#b9d6cf] bg-[#eef9f5] px-4 py-3 text-sm text-[#125547]">
-          {message}
-        </p>
-      ) : null}
-      {error ? (
-        <p className="rounded-xl border border-[#d39e95] bg-[#fff2ef] px-4 py-3 text-sm text-[#7e1f14]">
-          {error}
-        </p>
-      ) : null}
 
       {reviewedBooks.length === 0 ? (
         <Card className="border-2">
@@ -61,7 +58,21 @@ export default async function MyReviewedPage({ searchParams }: Props.Page) {
       ) : (
         <div className="space-y-4">
           {reviewedBooks.map((entry) => (
-            <ReviewedBookCard key={entry.review.id} entry={entry} />
+            <ReviewedBookCard
+              key={[
+                entry.review.id,
+                entry.review.updatedAt.toISOString(),
+                error && focusReview === entry.book.googleVolumeId
+                  ? "error"
+                  : "clean",
+              ].join(":")}
+              entry={entry}
+              initialMode={
+                error && focusReview === entry.book.googleVolumeId
+                  ? "edit"
+                  : "view"
+              }
+            />
           ))}
         </div>
       )}

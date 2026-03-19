@@ -9,6 +9,7 @@ import { StartThreadModal } from "@/components/threads/start-thread-modal";
 import { Badge } from "@/components/ui/badge";
 import { buttonStyles } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { FlashToast } from "@/components/ui/flash-toast";
 import { isClubAdmin } from "@/lib/clubs/permissions";
 import { makeQueryClient } from "@/lib/query/make-query-client";
 import { seedInfiniteQueryPage } from "@/lib/query/seed-infinite-query";
@@ -135,16 +136,11 @@ export default async function ClubBookDiscussionPage({
 
   return (
     <div className="space-y-6">
-      {message ? (
-        <p className="rounded-xl border border-[#b9d6cf] bg-[#eef9f5] px-4 py-3 text-sm text-[#125547]">
-          {message}
-        </p>
-      ) : null}
-      {error ? (
-        <p className="rounded-xl border border-[#d39e95] bg-[#fff2ef] px-4 py-3 text-sm text-[#7e1f14]">
-          {error}
-        </p>
-      ) : null}
+      <FlashToast
+        key={`${message ?? ""}:${error ?? ""}`}
+        message={message}
+        error={error}
+      />
 
       <section className="rounded-2xl border border-(--border) bg-(--surface-strong) p-6 shadow-[0_12px_30px_rgba(42,32,18,0.06)]">
         <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">

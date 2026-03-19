@@ -5,6 +5,7 @@ import {
   parseReviewBody,
   parseReviewGoogleVolumeId,
   parseReviewRating,
+  parseReviewTitle,
   parseSafeReturnTo,
 } from "@/lib/reviews/validation";
 
@@ -23,6 +24,11 @@ describe("review validation", () => {
   it("treats blank review bodies as null and preserves line breaks", () => {
     expect(parseReviewBody("   ")).toBeNull();
     expect(parseReviewBody("  Thoughtful\r\nreview  ")).toBe("Thoughtful\nreview");
+  });
+
+  it("treats blank review titles as null and trims valid titles", () => {
+    expect(parseReviewTitle("   ")).toBeNull();
+    expect(parseReviewTitle("  Quick take  ")).toBe("Quick take");
   });
 
   it("requires a google volume id", () => {

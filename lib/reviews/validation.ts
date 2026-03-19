@@ -3,6 +3,7 @@ import type { ReviewRating } from "@/types/db";
 import { ReviewError } from "@/lib/reviews/errors";
 
 const REVIEW_BODY_MAX_LENGTH = 5_000;
+const REVIEW_TITLE_MAX_LENGTH = 120;
 
 function readString(value: FormDataEntryValue | string | null | undefined) {
   return typeof value === "string" ? value : "";
@@ -49,6 +50,24 @@ export function parseReviewBody(
     throw new ReviewError(
       "VALIDATION",
       `Review body must be ${REVIEW_BODY_MAX_LENGTH} characters or fewer.`,
+    );
+  }
+
+  return normalized;
+}
+
+export function parseReviewTitle(
+  value: FormDataEntryValue | string | null | undefined,
+) {
+  const normalized = normalizeLineBreaks(readString(value)).trim();
+  if (normalized.length === 0) {
+    return null;
+  }
+
+  if (normalized.length > REVIEW_TITLE_MAX_LENGTH) {
+    throw new ReviewError(
+      "VALIDATION",
+      `Review title must be ${REVIEW_TITLE_MAX_LENGTH} characters or fewer.`,
     );
   }
 

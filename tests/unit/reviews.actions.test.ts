@@ -68,6 +68,7 @@ describe("review actions", () => {
     formData.set("googleVolumeId", "club-test-book");
     formData.set("returnTo", "/books/club-test-book#review-editor");
     formData.set("rating", "5");
+    formData.set("title", "  Great finish  ");
     formData.set("body", "  Loved the ending.  ");
     formData.set(
       "bookImportToken",
@@ -106,6 +107,7 @@ describe("review actions", () => {
       userId: "user-123",
       bookId: "book-123",
       rating: 5,
+      title: "Great finish",
       body: "Loved the ending.",
     });
     expect(revalidatePathMock).toHaveBeenCalledWith("/me");
