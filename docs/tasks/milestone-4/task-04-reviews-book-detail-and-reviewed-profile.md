@@ -15,7 +15,7 @@ Add the first review workflow so users can rate books, maintain one review per b
   - review count
   - recent public reviews from signed-in users
   - a clear entry point to create or edit the current user's review
-- Update `/me` with summary or navigation entry points into reviewed content.
+- Update `/me` with a reviewed-content entry point only. Shelf entry points already exist from Task 02.
 
 ## Implementation Notes
 - Review UI requires a rating from 1 to 5. Review body is optional.
@@ -24,6 +24,8 @@ Add the first review workflow so users can rate books, maintain one review per b
 - Review aggregates must exclude soft-deleted rows.
 - Recent review lists on book detail pages should be ordered consistently, preferably by most recent update or creation timestamp.
 - Public review reading remains inside the authenticated app; no unauthenticated review pages are part of this milestone.
+- `/books/[googleVolumeId]` already contains the shared `Add Book` modal from Task 03. Task 04 should add review summary and review-entry controls without removing or redesigning that add-book surface.
+- Task 04 should not revisit the combined add modal or the new Reading board shelf-import flow except where book-detail layout or regression coverage requires it.
 
 ## Acceptance Criteria
 - A signed-in user can create one review per book and later update or delete it.
@@ -31,6 +33,7 @@ Add the first review workflow so users can rate books, maintain one review per b
 - Book detail displays aggregate rating information derived from persisted reviews.
 - Book detail shows a recent review list visible to signed-in readers.
 - Deleting a review removes it from aggregate calculations and the reviewed list.
+- Book detail still preserves the Task 03 `Add Book` flow for clubs and shelves after review UI is added.
 
 ## Expected Touchpoints
 - `app/(protected)/me/reviewed/page.tsx`

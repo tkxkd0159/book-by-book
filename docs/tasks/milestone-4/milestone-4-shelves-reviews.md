@@ -21,10 +21,11 @@ Deliver the first personal reading workflow on top of the existing auth, books, 
 ## Planning Assumptions
 - Public shelves are in scope, but public visibility remains inside the authenticated app. Unauthenticated public pages stay out of scope.
 - Public shelf routes use `shelfId`, not `slug`. The existing `slug` column remains intentionally unused in Milestone 4.
-- Add-book reuse means shared import and persistence logic with separate shelf and club dialogs. Milestone 4 does not require a single unified picker UI.
+- Book add flows now use one shared `Add Book` modal with `Clubs` and `Shelves` tabs on search and detail pages, while shelf and club writes remain separate backend actions.
+- Club admins and owners can now import eligible books from one of their shelves into `Want to Read` from Reading board management.
 - Shelf items support add/remove and per-item notes. Manual shelf reordering is explicitly out of scope.
 - Review UI requires a rating from 1 to 5 and allows an optional body. Review title and spoiler controls remain out of the Milestone 4 UI.
-- Book detail should show average rating, review count, and a recent public review list based only on non-deleted reviews.
+- Book detail should show average rating, review count, and a recent public review list based only on non-deleted reviews without regressing the shared Add Book modal.
 
 ## Delivery Order
 1. [Task 01: Shelf and Review Domain Foundation](./task-01-shelf-and-review-domain-foundation.md)
