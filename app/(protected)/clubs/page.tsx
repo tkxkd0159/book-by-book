@@ -3,6 +3,7 @@ import Link from "next/link";
 import { ClubCard } from "@/components/clubs/club-card";
 import { Badge } from "@/components/ui/badge";
 import { buttonStyles } from "@/components/ui/button";
+import { FlashToast } from "@/components/ui/flash-toast";
 import { getCurrentUser } from "@/lib/auth/server";
 import {
   listDiscoverablePublicClubs,
@@ -37,6 +38,12 @@ export default async function ClubsPage({ searchParams }: Props.Page) {
 
   return (
     <div className="space-y-8">
+      <FlashToast
+        key={`${message ?? ""}:${error ?? ""}`}
+        message={message}
+        error={error}
+      />
+
       <section className="flex flex-col gap-4 rounded-2xl border border-(--border) bg-(--surface-strong) p-6 shadow-[0_12px_30px_rgba(42,32,18,0.06)] sm:flex-row sm:items-end sm:justify-between">
         <div className="space-y-3">
           <Badge className="bg-(--surface)/85">Milestone 2</Badge>
@@ -51,17 +58,6 @@ export default async function ClubsPage({ searchParams }: Props.Page) {
           Create club
         </Link>
       </section>
-
-      {message ? (
-        <p className="rounded-xl border border-[#b9d6cf] bg-[#eef9f5] px-4 py-3 text-sm text-[#125547]">
-          {message}
-        </p>
-      ) : null}
-      {error ? (
-        <p className="rounded-xl border border-[#d39e95] bg-[#fff2ef] px-4 py-3 text-sm text-[#7e1f14]">
-          {error}
-        </p>
-      ) : null}
 
       <section className="space-y-4">
         <div className="space-y-1">

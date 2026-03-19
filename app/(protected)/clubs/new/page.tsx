@@ -3,6 +3,7 @@ import Link from "next/link";
 import { createClubAction } from "@/app/(protected)/clubs/actions";
 import { Button, buttonStyles } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { FlashToast } from "@/components/ui/flash-toast";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 
@@ -20,18 +21,14 @@ export default async function NewClubPage({ searchParams }: Props.Page) {
 
   return (
     <div className="mx-auto max-w-3xl space-y-6">
+      <FlashToast key={`${error ?? ""}`} error={error} />
+
       <div className="space-y-2">
         <h1 className="text-3xl font-semibold sm:text-4xl">Create a club</h1>
         <p className="text-(--muted)">
           Start a public or private reading space with shared book sections.
         </p>
       </div>
-
-      {error ? (
-        <p className="rounded-xl border border-[#d39e95] bg-[#fff2ef] px-4 py-3 text-sm text-[#7e1f14]">
-          {error}
-        </p>
-      ) : null}
 
       <Card className="border-2">
         <CardHeader>

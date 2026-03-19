@@ -448,9 +448,3 @@ When a user creates a club:
 Use `sortOrder`:
 - On add: set `sortOrder = max+1` in that section.
 - On reorder: update affected rows.
-
-
-## 15) Future Enhancements
-- Notifications (invites, replies)
-- Review aggregation (average rating) on book page
-- Advanced search and filters

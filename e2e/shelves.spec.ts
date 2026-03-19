@@ -13,7 +13,10 @@ function clubManageBoardPathFromUrl(url: string) {
 }
 
 function shelfVisibilityBadge(page: Page, label: "Public" | "Private") {
-  return page.locator("span").filter({ hasText: new RegExp(`^${label}$`) }).first();
+  return page
+    .locator("span")
+    .filter({ hasText: new RegExp(`^${label}$`) })
+    .first();
 }
 
 async function createShelf(
@@ -47,9 +50,13 @@ test.beforeEach(async ({ request }) => {
 test("owner can create, update, list, and delete a shelf", async ({ page }) => {
   await signInAs(page, "owner", E2E_ROUTE_PATHS.meShelvesNew);
 
-  await expect(page.getByRole("heading", { name: "Create a shelf" })).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "Create a shelf" }),
+  ).toBeVisible();
   await page.getByLabel("Name").fill("Weekend Favorites");
-  await page.getByLabel("Description").fill("Books to revisit on quiet weekends.");
+  await page
+    .getByLabel("Description")
+    .fill("Books to revisit on quiet weekends.");
   await page.getByLabel("Visibility").selectOption("false");
   await page.getByRole("button", { name: "Create shelf" }).click();
 
@@ -59,28 +66,49 @@ test("owner can create, update, list, and delete a shelf", async ({ page }) => {
     page.getByRole("heading", { name: "Weekend Favorites" }),
   ).toBeVisible();
   await expect(shelfVisibilityBadge(page, "Private")).toBeVisible();
+  await expect(page.getByRole("button", { name: "Save" })).toHaveCount(0);
 
   const shelfPath = shelfPathFromUrl(page.url());
 
   await page.goto(E2E_ROUTE_PATHS.meShelves);
   await expect(page.getByRole("heading", { name: "My shelves" })).toBeVisible();
-  await expect(page.getByRole("heading", { name: "Weekend Favorites" })).toBeVisible();
-  await expect(page.getByRole("link", { name: "Open Weekend Favorites" })).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "Weekend Favorites" }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("link", { name: "Open Weekend Favorites" }),
+  ).toBeVisible();
 
   await page.goto(shelfPath);
+  await page.getByRole("button", { name: "Edit shelf" }).click();
   await page.getByLabel("Name").fill("Weekend Classics");
-  await page.getByLabel("Description").fill("Public rereads worth returning to.");
+  await page
+    .getByLabel("Description")
+    .fill("Public rereads worth returning to.");
   await page.getByLabel("Visibility").selectOption("true");
-  await page.getByRole("button", { name: "Save shelf" }).click();
+  await page.getByRole("button", { name: "Save" }).click();
 
   await expect(page).toHaveURL(E2E_URL_PATTERNS.myShelfDetail);
-  await expect(page.getByText("Shelf updated.")).toBeVisible();
-  await expect(page.getByRole("heading", { name: "Weekend Classics" })).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "Weekend Classics" }),
+  ).toBeVisible();
   await expect(shelfVisibilityBadge(page, "Public")).toBeVisible();
-  await expect(page.getByRole("link", { name: "Open public view" })).toBeVisible();
+  await page.getByRole("button", { name: "Edit shelf" }).click();
+  await expect(
+    page.getByRole("link", { name: "Open public view" }),
+  ).toBeVisible();
 
   await page.getByRole("button", { name: "Delete shelf" }).click();
-  await page.getByRole("button", { name: "Yes, delete shelf" }).click();
+  const deleteDialog = page.getByRole("dialog");
+  await expect(
+    deleteDialog.getByRole("button", { name: "Delete this shelf" }),
+  ).toBeDisabled();
+  await deleteDialog.getByLabel("Confirm shelf name").fill("Weekend Favorites");
+  await expect(
+    deleteDialog.getByRole("button", { name: "Delete this shelf" }),
+  ).toBeDisabled();
+  await deleteDialog.getByLabel("Confirm shelf name").fill("Weekend Classics");
+  await deleteDialog.getByRole("button", { name: "Delete this shelf" }).click();
 
   await expect(page).toHaveURL(/\/me\/shelves\?message=/i);
   await expect(page.getByText("Shelf deleted.")).toBeVisible();
@@ -95,6 +123,7 @@ test("signed-in readers can open public shelves, private shelves stay forbidden,
   const ownerShelfPath = shelfPathFromUrl(
     await createShelf(page, "Shared Shelf", "true"),
   );
+  await page.getByRole("button", { name: "Edit shelf" }).click();
   const publicShelfHref = await page
     .getByRole("link", { name: "Open public view" })
     .getAttribute("href");
@@ -105,10 +134,16 @@ test("signed-in readers can open public shelves, private shelves stay forbidden,
   await page.goto(publicShelfHref!);
 
   await expect(page).toHaveURL(E2E_URL_PATTERNS.publicShelf);
-  await expect(page.getByRole("heading", { name: "Shared Shelf" })).toBeVisible();
-  await expect(page.getByText("Shared by Owner Reader.")).toBeVisible();
-  await expect(page.getByRole("button", { name: "Delete shelf" })).toHaveCount(0);
-  await expect(page.getByRole("button", { name: "Save shelf" })).toHaveCount(0);
+  await expect(
+    page.getByRole("heading", { name: "Shared Shelf" }),
+  ).toBeVisible();
+  await expect(
+    page.getByText("Owner Reader's notes and titles, in read-only mode."),
+  ).toBeVisible();
+  await expect(page.getByRole("button", { name: "Delete shelf" })).toHaveCount(
+    0,
+  );
+  await expect(page.getByRole("button", { name: "Save" })).toHaveCount(0);
   await expect(page.getByText("Edit shelf")).toHaveCount(0);
 
   const wrongOwnerHref = publicShelfHref!.replace(
@@ -120,9 +155,9 @@ test("signed-in readers can open public shelves, private shelves stay forbidden,
   await expect(page.locator("body")).toContainText("404");
 
   await signInAs(page, "owner", ownerShelfPath);
+  await page.getByRole("button", { name: "Edit shelf" }).click();
   await page.getByLabel("Visibility").selectOption("false");
-  await page.getByRole("button", { name: "Save shelf" }).click();
-  await expect(page.getByText("Shelf updated.")).toBeVisible();
+  await page.getByRole("button", { name: "Save" }).click();
   await expect(shelfVisibilityBadge(page, "Private")).toBeVisible();
 
   await signInAs(page, "member", E2E_ROUTE_PATHS.me);
@@ -146,10 +181,37 @@ test("owner can save notes, public readers can read them, and owner can remove s
   await expect(page.getByText("Book added to 1 shelf.")).toBeVisible();
 
   await page.goto(ownerShelfUrl);
-  await page.getByLabel("Note").fill("Discuss this chapter order at the next meetup.");
+  await expect(page.getByRole("button", { name: "Open book" })).toHaveCount(0);
+  await expect(
+    page.getByRole("link", { name: "The Test-Driven Book Club" }),
+  ).toBeVisible();
+  await expect(page.getByRole("button", { name: "Remove book" })).toHaveCount(
+    0,
+  );
+  await page
+    .getByRole("button", {
+      name: "Edit shelf item for The Test-Driven Book Club",
+    })
+    .click();
+  await expect(page.getByLabel("Note")).toBeVisible();
+  await page
+    .getByRole("button", {
+      name: "Cancel shelf item edit for The Test-Driven Book Club",
+    })
+    .click();
+  await expect(page.getByLabel("Note")).toHaveCount(0);
+  await page
+    .getByRole("button", {
+      name: "Edit shelf item for The Test-Driven Book Club",
+    })
+    .click();
+  await page
+    .getByLabel("Note")
+    .fill("Discuss this chapter order at the next meetup.");
   await page.getByRole("button", { name: "Save note" }).click();
   await expect(page.getByText("Shelf note saved.")).toBeVisible();
 
+  await page.getByRole("button", { name: "Edit shelf", exact: true }).click();
   const publicShelfHref = await page
     .getByRole("link", { name: "Open public view" })
     .getAttribute("href");
@@ -161,10 +223,16 @@ test("owner can save notes, public readers can read them, and owner can remove s
     page.getByText("Discuss this chapter order at the next meetup."),
   ).toBeVisible();
   await expect(page.getByRole("button", { name: "Save note" })).toHaveCount(0);
-  await expect(page.getByRole("button", { name: "Remove book" })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Remove book" })).toHaveCount(
+    0,
+  );
 
   await signInAs(page, "owner", ownerShelfUrl);
-  await page.getByRole("button", { name: "Remove book" }).click();
+  await page
+    .getByRole("button", {
+      name: "Remove The Test-Driven Book Club from shelf",
+    })
+    .click();
   await expect(page.getByText("Book removed from shelf.")).toBeVisible();
   await expect(page.getByText("No books on this shelf yet.")).toBeVisible();
 });
@@ -194,7 +262,9 @@ test("reading board management can import books from shelves into Want to Read",
 
   const importDialog = page.getByRole("dialog");
   await importDialog.getByLabel("The Test-Driven Book Club").check();
-  await importDialog.getByRole("button", { name: "Add to Want to Read" }).click();
+  await importDialog
+    .getByRole("button", { name: "Add to Want to Read" })
+    .click();
 
   await expect(page.getByText("1 book added to the club.")).toBeVisible();
   await expect(page.getByText("The Test-Driven Book Club")).toBeVisible();

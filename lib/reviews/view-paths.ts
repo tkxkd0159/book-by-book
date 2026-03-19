@@ -3,5 +3,5 @@ export function createMyReviewedHref() {
 }
 
 export function createMyReviewHref(googleVolumeId: string) {
-  return `/me/reviews/${encodeURIComponent(googleVolumeId)}`;
+  return `/books/${encodeURIComponent(googleVolumeId)}#review-editor`;
 }

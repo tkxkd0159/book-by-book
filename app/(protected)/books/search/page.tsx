@@ -6,6 +6,7 @@ import { BookSearchForm } from "@/components/books/book-search-form";
 import { Badge } from "@/components/ui/badge";
 import { buttonStyles } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { FlashToast } from "@/components/ui/flash-toast";
 import { requireCurrentUser } from "@/lib/auth/server";
 import {
   GoogleBooksQueryValidationError,
@@ -174,7 +175,9 @@ export default async function BookSearchPage({ searchParams }: Props.Page) {
   const isAdvancedOpen = advancedRequested || hasAdvancedFilters;
   const searchMode: BookSearchMode = isAdvancedOpen ? "advanced" : "basic";
   const searchQuery =
-    searchMode === "advanced" ? buildAdvancedSearchQuery(advancedFilters) : basicQuery;
+    searchMode === "advanced"
+      ? buildAdvancedSearchQuery(advancedFilters)
+      : basicQuery;
   const shouldSearch =
     searchMode === "advanced" ? hasAdvancedFilters : basicQuery.length >= 2;
 
@@ -236,10 +239,11 @@ export default async function BookSearchPage({ searchParams }: Props.Page) {
     advancedFilters,
   );
 
-  const clubTargetsByVolumeId = await listManageableClubBookTargetsByGoogleVolumeIds(
-    currentUser.id,
-    results.map((result) => result.googleVolumeId),
-  );
+  const clubTargetsByVolumeId =
+    await listManageableClubBookTargetsByGoogleVolumeIds(
+      currentUser.id,
+      results.map((result) => result.googleVolumeId),
+    );
   const shelfTargetsByVolumeId =
     await listManageableShelfBookTargetsByGoogleVolumeIds(
       currentUser.id,
@@ -263,8 +267,6 @@ export default async function BookSearchPage({ searchParams }: Props.Page) {
             queries.
           </p>
           <div className="flex flex-wrap gap-2 text-sm">
-            <Badge className="bg-(--surface)/85">Google Books Source</Badge>
-            <Badge className="bg-(--surface)/85">Postgres Cache Ready</Badge>
             {shouldSearch ? (
               <Badge className="bg-(--surface)/85">
                 {resultCount === null
@@ -297,23 +299,11 @@ export default async function BookSearchPage({ searchParams }: Props.Page) {
         isAdvancedOpen={isAdvancedOpen}
       />
 
-      {message ? (
-        <p className="rounded-md border border-[#b9d6cf] bg-[#eef9f5] p-3 text-sm text-[#125547]">
-          {message}
-        </p>
-      ) : null}
-
-      {actionError ? (
-        <p className="rounded-md border border-[#d39e95] bg-[#fff2ef] p-3 text-sm text-[#7e1f14]">
-          {actionError}
-        </p>
-      ) : null}
-
-      {searchError ? (
-        <p className="rounded-md border border-[#d39e95] bg-[#fff2ef] p-3 text-sm text-[#7e1f14]">
-          {searchError}
-        </p>
-      ) : null}
+      <FlashToast
+        key={`${message ?? ""}:${actionError ?? searchError ?? ""}`}
+        message={message}
+        error={actionError ?? searchError}
+      />
 
       {!shouldSearch ? (
         <p className="text-sm text-(--muted)">
@@ -377,7 +367,8 @@ export default async function BookSearchPage({ searchParams }: Props.Page) {
       {results.length > 0 ? (
         <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
           {results.map((book) => {
-            const clubTargets = clubTargetsByVolumeId[book.googleVolumeId] ?? [];
+            const clubTargets =
+              clubTargetsByVolumeId[book.googleVolumeId] ?? [];
             const authorsText =
               book.authors.length > 0
                 ? book.authors.join(", ")

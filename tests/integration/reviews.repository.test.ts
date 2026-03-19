@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { E2E_USER_PROVIDER } from "@/lib/auth/e2e";
 import { findUserByProviderIdentity } from "@/lib/auth/users";
 import { findBookByGoogleVolumeId, upsertBook } from "@/lib/books/repository";
+import sql from "@/lib/db";
 import {
   deleteReview,
   findReviewByUserAndBook,
@@ -11,10 +12,7 @@ import {
   listUserReviewedBooks,
   upsertReview,
 } from "@/lib/reviews/repository";
-import {
-  resetTestDatabase,
-  TEST_BOOK_VOLUME_ID,
-} from "@/lib/test/fixtures";
+import { resetTestDatabase, TEST_BOOK_VOLUME_ID } from "@/lib/test/fixtures";
 import type { AuthUser } from "@/types/db";
 
 async function getRequiredUser(key: string): Promise<AuthUser> {
@@ -32,7 +30,7 @@ beforeEach(async () => {
 });
 
 describe("reviews repository integration", () => {
-  it("upserts reviews and exposes reviewed books plus recent public reviews", async () => {
+  it("upserts reviews and exposes reviewed books plus reader reviews", async () => {
     const owner = await getRequiredUser("owner");
     const member = await getRequiredUser("member");
     const book = await findBookByGoogleVolumeId(TEST_BOOK_VOLUME_ID);
@@ -42,7 +40,8 @@ describe("reviews repository integration", () => {
     const ownerReview = await upsertReview({
       userId: owner.id,
       bookId: book!.id,
-      rating: 4,
+      rating: 4.5,
+      title: "Strong start",
       body: "Strong start.",
     });
     const memberReview = await upsertReview({
@@ -52,14 +51,16 @@ describe("reviews repository integration", () => {
       body: "Loved it.",
     });
 
-    expect(ownerReview.rating).toBe(4);
+    expect(ownerReview.rating).toBe(4.5);
+    expect(ownerReview.title).toBe("Strong start");
     expect(memberReview.rating).toBe(5);
 
-    const storedOwnerReview = await findReviewByUserAndBook({
+    const persistedOwnerReview = await findReviewByUserAndBook({
       userId: owner.id,
       bookId: book!.id,
     });
-    expect(storedOwnerReview?.body).toBe("Strong start.");
+    expect(persistedOwnerReview?.body).toBe("Strong start.");
+    expect(persistedOwnerReview?.title).toBe("Strong start");
 
     const reviewedBooks = await listUserReviewedBooks(member.id);
     expect(reviewedBooks).toHaveLength(1);
@@ -74,6 +75,16 @@ describe("reviews repository integration", () => {
     expect(recentReviews.map((entry) => entry.author.id)).toEqual(
       expect.arrayContaining([owner.id, member.id]),
     );
+
+    const [storedOwnerReview] = await sql<{ rating: number }[]>`
+      select rating
+      from bookapp.reviews
+      where user_id = ${owner.id}::uuid
+        and book_id = ${book!.id}::uuid
+        and deleted_at is null
+      limit 1
+    `;
+    expect(storedOwnerReview?.rating).toBe(9);
   });
 
   it("excludes deleted reviews from aggregates and reviewed lists", async () => {
@@ -86,19 +97,19 @@ describe("reviews repository integration", () => {
     await upsertReview({
       userId: owner.id,
       bookId: book!.id,
-      rating: 4,
+      rating: 4.5,
       body: "Good.",
     });
     await upsertReview({
       userId: member.id,
       bookId: book!.id,
-      rating: 2,
+      rating: 2.5,
       body: "Not for me.",
     });
 
     const beforeDelete = await getBookReviewAggregate(book!.id);
     expect(beforeDelete.reviewCount).toBe(2);
-    expect(beforeDelete.averageRating).toBe(3);
+    expect(beforeDelete.averageRating).toBeCloseTo(3.5);
 
     await deleteReview({
       userId: owner.id,
@@ -107,12 +118,12 @@ describe("reviews repository integration", () => {
 
     const afterDelete = await getBookReviewAggregate(book!.id);
     expect(afterDelete.reviewCount).toBe(1);
-    expect(afterDelete.averageRating).toBe(2);
+    expect(afterDelete.averageRating).toBe(2.5);
 
     expect(await listUserReviewedBooks(owner.id)).toHaveLength(0);
-    expect(await listRecentBookReviews({ bookId: book!.id, limit: 10 })).toHaveLength(
-      1,
-    );
+    expect(
+      await listRecentBookReviews({ bookId: book!.id, limit: 10 }),
+    ).toHaveLength(1);
   });
 
   it("revives a deleted review on upsert and rejects deleting missing active reviews", async () => {
@@ -134,7 +145,7 @@ describe("reviews repository integration", () => {
     await upsertReview({
       userId: owner.id,
       bookId: book!.id,
-      rating: 3,
+      rating: 3.5,
       body: "First draft.",
     });
     await deleteReview({
@@ -145,16 +156,16 @@ describe("reviews repository integration", () => {
     const revivedReview = await upsertReview({
       userId: owner.id,
       bookId: book!.id,
-      rating: 5,
+      rating: 4.5,
       body: "Changed my mind.",
     });
 
     expect(revivedReview.deletedAt).toBeNull();
-    expect(revivedReview.rating).toBe(5);
+    expect(revivedReview.rating).toBe(4.5);
 
     const aggregate = await getBookReviewAggregate(book!.id);
     expect(aggregate.reviewCount).toBe(1);
-    expect(aggregate.averageRating).toBe(5);
+    expect(aggregate.averageRating).toBe(4.5);
   });
 
   it("orders reviewed books and recent book reviews by the latest review update", async () => {
@@ -187,13 +198,13 @@ describe("reviews repository integration", () => {
     await upsertReview({
       userId: owner.id,
       bookId: fixtureBook!.id,
-      rating: 3,
+      rating: 3.5,
       body: "First pass.",
     });
     await upsertReview({
       userId: owner.id,
       bookId: secondBook.id,
-      rating: 4,
+      rating: 4.5,
       body: "Second book review.",
     });
     await upsertReview({

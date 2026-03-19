@@ -1,11 +1,11 @@
-import { LibraryBig, Search } from "lucide-react";
+import { BookMarked, LibraryBig, Search } from "lucide-react";
 import Link from "next/link";
 
 import ProfileMenu from "@/components/auth/profile-menu";
 import { ReactQueryProvider } from "@/components/providers/react-query-provider";
-import { Badge } from "@/components/ui/badge";
 import { buttonStyles } from "@/components/ui/button";
 import { requireCurrentUser } from "@/lib/auth/server";
+import { createMyShelvesHref } from "@/lib/shelves/view-paths";
 
 export default async function ProtectedLayout({ children }: Props.Layout) {
   const currentUser = await requireCurrentUser();
@@ -19,7 +19,6 @@ export default async function ProtectedLayout({ children }: Props.Layout) {
               <Link href="/books/search" className="text-lg font-semibold">
                 Book by Book
               </Link>
-              <Badge>Milestone 3</Badge>
             </div>
 
             <nav className="relative z-50 flex items-center gap-2">
@@ -36,6 +35,13 @@ export default async function ProtectedLayout({ children }: Props.Layout) {
               >
                 <LibraryBig aria-hidden className="h-4 w-4 shrink-0" />
                 Clubs
+              </Link>
+              <Link
+                href={createMyShelvesHref()}
+                className={buttonStyles({ variant: "ghost", size: "sm" })}
+              >
+                <BookMarked aria-hidden className="h-4 w-4 shrink-0" />
+                Shelves
               </Link>
               <ProfileMenu
                 name={currentUser.name}

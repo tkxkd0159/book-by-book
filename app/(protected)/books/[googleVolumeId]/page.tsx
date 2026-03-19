@@ -4,18 +4,17 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { AddBookModal } from "@/components/books/add-book-modal";
+import { BookReviewPanel } from "@/components/reviews/book-review-panel";
 import { PublicReviewList } from "@/components/reviews/public-review-list";
 import { ReviewRating } from "@/components/reviews/review-rating";
 import { Badge } from "@/components/ui/badge";
 import { buttonStyles } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { FlashToast } from "@/components/ui/flash-toast";
 import { requireCurrentUser } from "@/lib/auth/server";
 import { createSignedBookImportToken } from "@/lib/books/import-token";
 import { listManageableClubBookTargetsForGoogleVolumeId } from "@/lib/clubs/repository";
-import {
-  getReviewBodyPreview,
-  formatReviewCount,
-} from "@/lib/reviews/presentation";
+import { formatReviewCount } from "@/lib/reviews/presentation";
 import {
   findReviewByUserAndBook,
   getBookReviewAggregate,
@@ -93,7 +92,6 @@ export default async function BookDetailPage({
   const error = readMessage(query.error);
 
   const description = book.description;
-  const reviewHref = createMyReviewHref(book.googleVolumeId);
   const otherPublicReviews = recentReviews.filter(
     (entry) => entry.author.id !== currentUser.id,
   );
@@ -102,16 +100,11 @@ export default async function BookDetailPage({
 
   return (
     <article className="space-y-6">
-      {message ? (
-        <p className="rounded-xl border border-[#b9d6cf] bg-[#eef9f5] px-4 py-3 text-sm text-[#125547]">
-          {message}
-        </p>
-      ) : null}
-      {error ? (
-        <p className="rounded-xl border border-[#d39e95] bg-[#fff2ef] px-4 py-3 text-sm text-[#7e1f14]">
-          {error}
-        </p>
-      ) : null}
+      <FlashToast
+        key={`${message ?? ""}:${error ?? ""}`}
+        message={message}
+        error={error}
+      />
 
       <Card className="relative overflow-hidden border-2 border-(--border) bg-(--surface-strong)">
         <div className="pointer-events-none absolute -right-24 -top-24 h-72 w-72 rounded-full bg-(--accent)/10 blur-3xl" />
@@ -139,10 +132,7 @@ export default async function BookDetailPage({
           <div className="space-y-5">
             <header className="space-y-3">
               <div className="flex flex-wrap items-center gap-2">
-                <Badge>{book.persisted ? "Cached locally" : "Live from Google"}</Badge>
-                <code className="rounded-md bg-(--surface) px-2 py-1 text-xs">
-                  {book.googleVolumeId}
-                </code>
+                <Badge>{book.googleVolumeId}</Badge>
               </div>
               <h1 className="text-3xl font-semibold leading-tight sm:text-4xl">
                 {book.title}
@@ -244,62 +234,6 @@ export default async function BookDetailPage({
       </Card>
 
       <Card className="border-(--border)/90">
-        <CardContent className="space-y-6 p-7 sm:p-8">
-          <div className="flex flex-wrap items-start justify-between gap-3">
-            <div className="space-y-2">
-              <h2 className="text-xl font-semibold">Reader reviews</h2>
-              <p className="text-sm text-(--muted)">
-                Ratings and public thoughts from signed-in Book by Book members.
-              </p>
-            </div>
-
-            <Link href={reviewHref} className={buttonStyles({ variant: "secondary" })}>
-              {currentUserReview ? "Edit your review" : "Write a review"}
-            </Link>
-          </div>
-
-          <div className="grid gap-4 lg:grid-cols-[240px_1fr]">
-            <div className="space-y-3 rounded-xl border border-(--border) bg-(--surface) p-5">
-              <p className="text-sm font-medium text-(--muted)">Average rating</p>
-              <ReviewRating
-                value={reviewAggregate.averageRating}
-                reviewCount={reviewAggregate.reviewCount}
-              />
-              <p className="text-sm text-(--muted)">
-                {reviewAggregate.reviewCount > 0
-                  ? formatReviewCount(reviewAggregate.reviewCount)
-                  : "Be the first to review this book."}
-              </p>
-            </div>
-
-            <div className="space-y-3 rounded-xl border border-(--border) bg-(--surface) p-5">
-              <p className="text-sm font-medium text-(--muted)">Your review</p>
-              {currentUserReview ? (
-                <>
-                  <ReviewRating value={currentUserReview.rating} size="sm" />
-                  <p className="text-sm leading-6 text-(--muted)">
-                    {getReviewBodyPreview(currentUserReview.body)}
-                  </p>
-                </>
-              ) : (
-                <p className="text-sm leading-6 text-(--muted)">
-                  You have not reviewed this book yet.
-                </p>
-              )}
-            </div>
-          </div>
-
-          <div className="space-y-3">
-            <h3 className="text-lg font-semibold">Recent public reviews</h3>
-            <PublicReviewList
-              reviews={visibleRecentReviews}
-              emptyMessage="No public reviews yet."
-            />
-          </div>
-        </CardContent>
-      </Card>
-
-      <Card className="border-(--border)/90">
         <CardContent className="space-y-5 p-7 sm:p-8">
           <h2 className="text-xl font-semibold">About this book</h2>
           {description ? (
@@ -314,6 +248,62 @@ export default async function BookDetailPage({
           )}
         </CardContent>
       </Card>
+
+      <section className="space-y-6">
+        <div className="space-y-2">
+          <h2 className="text-2xl font-semibold">Reader reviews</h2>
+          <p className="text-sm text-(--muted)">
+            Ratings and public thoughts from signed-in Book by Book members.
+          </p>
+        </div>
+
+        <div className="grid gap-8 border-y border-(--border) py-7 lg:grid-cols-[220px_minmax(0,1fr)]">
+          <div className="space-y-3">
+            <p className="text-sm font-medium uppercase tracking-[0.18em] text-(--muted)">
+              Average rating
+            </p>
+            <ReviewRating
+              value={reviewAggregate.averageRating}
+              reviewCount={reviewAggregate.reviewCount}
+            />
+            <p className="text-sm leading-6 text-(--muted)">
+              {reviewAggregate.reviewCount > 0
+                ? formatReviewCount(reviewAggregate.reviewCount)
+                : "Be the first to review this book."}
+            </p>
+          </div>
+
+          <div
+            id="review-editor"
+            className="scroll-mt-24 border-t border-(--border)/70 pt-5 lg:border-l lg:border-t-0 lg:pl-8 lg:pt-0"
+          >
+            <BookReviewPanel
+              key={[
+                book.googleVolumeId,
+                currentUserReview?.id ?? "new",
+                currentUserReview?.updatedAt.toISOString() ?? "fresh",
+                error ? "error" : "clean",
+              ].join(":")}
+              googleVolumeId={book.googleVolumeId}
+              review={currentUserReview}
+              returnTo={createMyReviewHref(book.googleVolumeId)}
+              bookImportToken={createSignedBookImportToken(book)}
+              initialMode={currentUserReview && !error ? "view" : "edit"}
+            />
+          </div>
+        </div>
+
+        <div className="space-y-4">
+          <div className="space-y-1">
+            <h3 className="text-lg font-semibold">Recent reader reviews</h3>
+          </div>
+
+          <PublicReviewList
+            reviews={visibleRecentReviews}
+            emptyMessage="No public reviews yet."
+          />
+        </div>
+      </section>
     </article>
   );
 }

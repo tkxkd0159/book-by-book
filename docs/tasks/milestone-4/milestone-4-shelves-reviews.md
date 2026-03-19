@@ -7,7 +7,7 @@ Deliver the first personal reading workflow on top of the existing auth, books, 
 - let users add and remove books from shelves and maintain per-item notes
 - let signed-in users read public shelves owned by other members
 - let users create, edit, and delete one review per book
-- show review aggregates and recent public reviews on the book detail page
+- show review aggregates and reader reviews on the book detail page
 - add reviewed-book entry points to the profile
 
 ## Current Baseline

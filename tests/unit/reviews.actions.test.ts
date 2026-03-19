@@ -66,8 +66,9 @@ describe("review actions", () => {
 
     const formData = new FormData();
     formData.set("googleVolumeId", "club-test-book");
-    formData.set("returnTo", "/me/reviews/club-test-book");
-    formData.set("rating", "5");
+    formData.set("returnTo", "/books/club-test-book#review-editor");
+    formData.set("rating", "4.5");
+    formData.set("title", "  Great finish  ");
     formData.set("body", "  Loved the ending.  ");
     formData.set(
       "bookImportToken",
@@ -93,7 +94,7 @@ describe("review actions", () => {
     );
 
     await expect(upsertReviewAction(formData)).rejects.toThrow(
-      "NEXT_REDIRECT:/me/reviews/club-test-book?message=Review+saved.",
+      "NEXT_REDIRECT:/books/club-test-book?message=Review+saved.#review-editor",
     );
 
     expect(ensureBookInDatabaseMock).toHaveBeenCalledWith("club-test-book", {
@@ -105,12 +106,12 @@ describe("review actions", () => {
     expect(upsertReviewMock).toHaveBeenCalledWith({
       userId: "user-123",
       bookId: "book-123",
-      rating: 5,
+      rating: 4.5,
+      title: "Great finish",
       body: "Loved the ending.",
     });
     expect(revalidatePathMock).toHaveBeenCalledWith("/me");
     expect(revalidatePathMock).toHaveBeenCalledWith("/me/reviewed");
-    expect(revalidatePathMock).toHaveBeenCalledWith("/me/reviews/club-test-book");
     expect(revalidatePathMock).toHaveBeenCalledWith("/books/club-test-book");
   });
 
@@ -121,11 +122,11 @@ describe("review actions", () => {
 
     const formData = new FormData();
     formData.set("googleVolumeId", "club-test-book");
-    formData.set("returnTo", "/me/reviews/club-test-book");
+    formData.set("returnTo", "/books/club-test-book#review-editor");
     formData.set("body", "No rating yet.");
 
     await expect(upsertReviewAction(formData)).rejects.toThrow(
-      "NEXT_REDIRECT:/me/reviews/club-test-book?error=Choose+a+rating+from+1+to+5.",
+      "NEXT_REDIRECT:/books/club-test-book?error=Choose+a+rating+from+0.5+to+5+stars.#review-editor",
     );
 
     expect(ensureBookInDatabaseMock).not.toHaveBeenCalled();
@@ -144,10 +145,10 @@ describe("review actions", () => {
 
     const formData = new FormData();
     formData.set("googleVolumeId", "club-test-book");
-    formData.set("returnTo", "/me/reviews/club-test-book");
+    formData.set("returnTo", "/books/club-test-book#review-editor");
 
     await expect(deleteReviewAction(formData)).rejects.toThrow(
-      "NEXT_REDIRECT:/me/reviews/club-test-book?message=Review+deleted.",
+      "NEXT_REDIRECT:/books/club-test-book?message=Review+deleted.#review-editor",
     );
 
     expect(deleteReviewMock).toHaveBeenCalledWith({

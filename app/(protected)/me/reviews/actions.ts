@@ -13,6 +13,7 @@ import {
   parseReviewBody,
   parseReviewGoogleVolumeId,
   parseReviewRating,
+  parseReviewTitle,
   parseSafeReturnTo,
 } from "@/lib/reviews/validation";
 import {
@@ -55,10 +56,16 @@ function getErrorMessage(error: unknown) {
 }
 
 function revalidateReviewPaths(googleVolumeId: string) {
-  revalidatePath("/me");
-  revalidatePath(createMyReviewedHref());
-  revalidatePath(createMyReviewHref(googleVolumeId));
-  revalidatePath(`/books/${encodeURIComponent(googleVolumeId)}`);
+  const detailPath = `/books/${encodeURIComponent(googleVolumeId)}`;
+
+  for (const path of new Set([
+    "/me",
+    createMyReviewedHref(),
+    createMyReviewHref(googleVolumeId).split("#", 1)[0] ?? detailPath,
+    detailPath,
+  ])) {
+    revalidatePath(path);
+  }
 }
 
 export async function upsertReviewAction(formData: FormData) {
@@ -74,6 +81,7 @@ export async function upsertReviewAction(formData: FormData) {
       createMyReviewHref(googleVolumeId),
     );
     const rating = parseReviewRating(formData.get("rating"));
+    const title = parseReviewTitle(formData.get("title"));
     const body = parseReviewBody(formData.get("body"));
     const bookImportToken = readOptionalString(formData.get("bookImportToken"));
 
@@ -94,6 +102,7 @@ export async function upsertReviewAction(formData: FormData) {
       userId: currentUser.id,
       bookId: book.id,
       rating,
+      title,
       body,
     });
 

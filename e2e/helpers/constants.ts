@@ -18,6 +18,7 @@ export const E2E_ROUTE_PATHS = {
   clubs: "/clubs",
   clubsNew: "/clubs/new",
   fixtureBook: `/books/${TEST_BOOK_VOLUME_ID}`,
+  legacyFixtureReview: `/me/reviews/${TEST_BOOK_VOLUME_ID}`,
   me: "/me",
   meReviewed: "/me/reviewed",
   meShelves: "/me/shelves",
@@ -27,6 +28,7 @@ export const E2E_ROUTE_PATHS = {
 } as const;
 
 export const E2E_URL_PATTERNS = {
+  bookReview: /\/books\/[^/?#]+(?:\?[^#]*)?(?:#review-editor)?$/i,
   clubDetail: /\/clubs\/[0-9a-f-]+(?:\/board)?(?:\?|$)/i,
   clubBoard: /\/clubs\/[0-9a-f-]+\/board(?:\?|$)/i,
   clubMembers: /\/clubs\/[0-9a-f-]+\/members(?:\?|$)/i,

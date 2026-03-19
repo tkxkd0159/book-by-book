@@ -1,8 +1,7 @@
 import Link from "next/link";
+import { ArrowRight } from "lucide-react";
 
 import { UserAvatar } from "@/components/auth/user-avatar";
-import { Badge } from "@/components/ui/badge";
-import { buttonStyles } from "@/components/ui/button";
 import { requireCurrentUser } from "@/lib/auth/server";
 import {
   Card,
@@ -48,7 +47,6 @@ export default async function MePage() {
             <p className="text-(--muted)">
               {fallbackText(user.email, "No email found")}
             </p>
-            <Badge>Google Account</Badge>
           </div>
         </CardContent>
       </Card>
@@ -66,39 +64,56 @@ export default async function MePage() {
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader>
+        <Card className="group relative overflow-hidden border-2 transition-all duration-200 hover:-translate-y-1 hover:shadow-[0_18px_34px_rgba(42,32,18,0.12)] focus-within:-translate-y-1 focus-within:shadow-[0_18px_34px_rgba(42,32,18,0.12)]">
+          <div className="pointer-events-none absolute inset-x-0 top-0 h-1 bg-linear-to-r from-(--accent)/70 via-[#cb8b39]/50 to-(--accent)/70" />
+          <Link
+            href={createMyShelvesHref()}
+            aria-label="Open my shelves"
+            className="absolute inset-0 z-0 rounded-xl focus:outline-none focus-visible:ring-2 focus-visible:ring-(--accent-soft) focus-visible:ring-offset-2 focus-visible:ring-offset-(--surface-strong)"
+          />
+
+          <CardHeader className="relative z-10 space-y-1.5 pointer-events-none">
             <CardTitle className="text-lg">Shelves</CardTitle>
             <CardDescription>Personal reading lists</CardDescription>
           </CardHeader>
-          <CardContent className="space-y-4">
+          <CardContent className="relative z-10 space-y-4 pointer-events-none">
             <p className="text-sm leading-6 text-(--muted)">
-              Create public or private shelves to organize books outside your clubs.
+              Create public or private shelves to organize books outside your
+              clubs.
             </p>
-            <Link
-              href={createMyShelvesHref()}
-              className={buttonStyles({ variant: "secondary" })}
-            >
+            <p className="inline-flex items-center gap-2 text-sm font-medium text-(--accent)">
               Open my shelves
-            </Link>
+              <ArrowRight
+                aria-hidden
+                className="h-4 w-4 transition-transform duration-200 group-hover:translate-x-0.5 group-focus-within:translate-x-0.5"
+              />
+            </p>
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader>
+        <Card className="group relative overflow-hidden border-2 transition-all duration-200 hover:-translate-y-1 hover:shadow-[0_18px_34px_rgba(42,32,18,0.12)] focus-within:-translate-y-1 focus-within:shadow-[0_18px_34px_rgba(42,32,18,0.12)]">
+          <div className="pointer-events-none absolute inset-x-0 top-0 h-1 bg-linear-to-r from-(--accent)/70 via-[#cb8b39]/50 to-(--accent)/70" />
+          <Link
+            href={createMyReviewedHref()}
+            aria-label="Open reviewed books"
+            className="absolute inset-0 z-0 rounded-xl focus:outline-none focus-visible:ring-2 focus-visible:ring-(--accent-soft) focus-visible:ring-offset-2 focus-visible:ring-offset-(--surface-strong)"
+          />
+
+          <CardHeader className="relative z-10 space-y-1.5 pointer-events-none">
             <CardTitle className="text-lg">Reviewed</CardTitle>
             <CardDescription>Your ratings and written thoughts</CardDescription>
           </CardHeader>
-          <CardContent className="space-y-4">
+          <CardContent className="relative z-10 space-y-4 pointer-events-none">
             <p className="text-sm leading-6 text-(--muted)">
               Keep track of the books you have rated and revisit your reviews.
             </p>
-            <Link
-              href={createMyReviewedHref()}
-              className={buttonStyles({ variant: "secondary" })}
-            >
+            <p className="inline-flex items-center gap-2 text-sm font-medium text-(--accent)">
               Open reviewed books
-            </Link>
+              <ArrowRight
+                aria-hidden
+                className="h-4 w-4 transition-transform duration-200 group-hover:translate-x-0.5 group-focus-within:translate-x-0.5"
+              />
+            </p>
           </CardContent>
         </Card>
       </div>

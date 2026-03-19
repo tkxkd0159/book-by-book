@@ -8,6 +8,7 @@ import { InfiniteThreadComments } from "@/components/threads/infinite-thread-com
 import { PostComposer } from "@/components/threads/post-composer";
 import { Badge } from "@/components/ui/badge";
 import { Button, buttonStyles } from "@/components/ui/button";
+import { FlashToast } from "@/components/ui/flash-toast";
 import { makeQueryClient } from "@/lib/query/make-query-client";
 import { seedInfiniteQueryPage } from "@/lib/query/seed-infinite-query";
 import { loadThreadMemberRouteAccess } from "@/lib/threads/access";
@@ -128,16 +129,11 @@ export default async function ThreadDetailPage({
 
   return (
     <div className="space-y-6">
-      {message ? (
-        <p className="rounded-xl border border-[#b9d6cf] bg-[#eef9f5] px-4 py-3 text-sm text-[#125547]">
-          {message}
-        </p>
-      ) : null}
-      {error ? (
-        <p className="rounded-xl border border-[#d39e95] bg-[#fff2ef] px-4 py-3 text-sm text-[#7e1f14]">
-          {error}
-        </p>
-      ) : null}
+      <FlashToast
+        key={`${message ?? ""}:${error ?? ""}`}
+        message={message}
+        error={error}
+      />
 
       <section className="rounded-2xl border border-(--border) bg-(--surface-strong) p-6 shadow-[0_12px_30px_rgba(42,32,18,0.06)]">
         <div className="space-y-4">

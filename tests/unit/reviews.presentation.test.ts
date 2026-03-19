@@ -5,16 +5,23 @@ import {
   formatReviewCount,
   getReviewAuthorName,
   getReviewBodyPreview,
+  getReviewTitle,
   REVIEW_PRESENTATION_TEXT,
 } from "@/lib/reviews/presentation";
 
-describe("review presentation helpers", () => {
-  it("formats review aggregates for display", () => {
+describe("review presentation", () => {
+  it("formats fractional average ratings with one decimal place", () => {
     expect(formatAverageRating(null)).toBe(REVIEW_PRESENTATION_TEXT.noRatingsYet);
     expect(formatAverageRating(4)).toBe("4.0");
-    expect(formatAverageRating(4.25)).toBe("4.3");
+    expect(formatAverageRating(4.75)).toBe("4.8");
+    expect(formatAverageRating(4.5)).toBe("4.5");
     expect(formatReviewCount(1)).toBe("1 review");
     expect(formatReviewCount(3)).toBe("3 reviews");
+  });
+
+  it("uses fractional ratings in untitled review fallbacks", () => {
+    expect(getReviewTitle(null, 4.5)).toBe("Rated 4.5 out of 5");
+    expect(getReviewTitle(null, 4)).toBe("Rated 4 out of 5");
   });
 
   it("normalizes fallback text for review previews and authors", () => {

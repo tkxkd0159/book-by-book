@@ -1,11 +1,17 @@
-import Link from "next/link";
+"use client";
 
-import {
-  deleteReviewAction,
-  upsertReviewAction,
-} from "@/app/(protected)/me/reviews/actions";
-import { Button, buttonStyles } from "@/components/ui/button";
+import { useId, useState } from "react";
+
+import { upsertReviewAction } from "@/app/(protected)/me/reviews/actions";
+import { RatingStars } from "@/components/reviews/rating-stars";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import {
+  REVIEW_RATING_OPTIONS,
+  formatReviewRatingLabel,
+  formatReviewRatingValue,
+} from "@/lib/reviews/rating";
 import type { ReviewRecord, ReviewRating } from "@/types/db";
 
 type ReviewFormProps = {
@@ -13,18 +19,23 @@ type ReviewFormProps = {
   review: ReviewRecord | null;
   returnTo: string;
   bookImportToken?: string;
-  cancelHref?: string;
+  onCancel?: () => void;
 };
-
-const REVIEW_RATING_OPTIONS = [1, 2, 3, 4, 5] as const satisfies ReviewRating[];
 
 export function ReviewForm({
   googleVolumeId,
   review,
   returnTo,
   bookImportToken,
-  cancelHref,
+  onCancel,
 }: ReviewFormProps) {
+  const [selectedRating, setSelectedRating] = useState<ReviewRating | null>(
+    review?.rating ?? null,
+  );
+  const [hoveredRating, setHoveredRating] = useState<ReviewRating | null>(null);
+  const idPrefix = useId();
+  const previewRating = hoveredRating ?? selectedRating ?? 0;
+
   return (
     <div className="space-y-4">
       <form action={upsertReviewAction} className="space-y-5">
@@ -36,25 +47,61 @@ export function ReviewForm({
 
         <fieldset className="space-y-3">
           <legend className="text-sm font-medium">Rating</legend>
-          <div className="flex flex-wrap gap-2">
-            {REVIEW_RATING_OPTIONS.map((rating) => (
-              <label
-                key={rating}
-                className="inline-flex cursor-pointer items-center gap-2 rounded-full border border-(--border) bg-(--surface) px-4 py-2 text-sm font-medium"
+          <div className="space-y-3">
+            <div
+              className="space-y-3"
+              onMouseLeave={() => setHoveredRating(null)}
+            >
+              <div
+                role="radiogroup"
+                aria-label="Rating"
+                className="relative inline-flex rounded-lg p-1 focus-within:ring-2 focus-within:ring-(--accent-soft)"
               >
-                <input
-                  type="radio"
-                  name="rating"
-                  value={rating}
-                  defaultChecked={review?.rating === rating}
-                  required={rating === 1}
-                  className="h-4 w-4 accent-[var(--accent)]"
-                />
-                <span>{rating} star{rating === 1 ? "" : "s"}</span>
-              </label>
-            ))}
+                <RatingStars value={previewRating} size="lg" />
+
+                <div className="absolute inset-0 grid grid-cols-10 overflow-hidden rounded-lg">
+                  {REVIEW_RATING_OPTIONS.map((rating, index) => (
+                    <label
+                      key={rating}
+                      htmlFor={`${idPrefix}-${index}`}
+                      className="relative block h-full w-full cursor-pointer"
+                      onMouseEnter={() => setHoveredRating(rating)}
+                    >
+                      <input
+                        id={`${idPrefix}-${index}`}
+                        type="radio"
+                        name="rating"
+                        value={rating}
+                        checked={selectedRating === rating}
+                        onChange={() => setSelectedRating(rating)}
+                        required={index === 0}
+                        className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
+                      />
+                      <span className="sr-only">
+                        {formatReviewRatingLabel(rating)}
+                      </span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+            </div>
+            <p className="text-sm text-(--muted)">
+              {selectedRating
+                ? `${formatReviewRatingValue(selectedRating)} of 5 stars selected`
+                : "Choose a rating from 0.5 to 5 stars."}
+            </p>
           </div>
         </fieldset>
+
+        <label className="block space-y-2 text-sm font-medium">
+          <span>Title</span>
+          <Input
+            name="title"
+            defaultValue={review?.title ?? ""}
+            maxLength={120}
+            placeholder="Sum up your take in one line."
+          />
+        </label>
 
         <label className="block space-y-2 text-sm font-medium">
           <span>Review</span>
@@ -70,26 +117,13 @@ export function ReviewForm({
           <Button type="submit">
             {review ? "Save review" : "Publish review"}
           </Button>
-          {cancelHref ? (
-            <Link
-              href={cancelHref}
-              className={buttonStyles({ variant: "secondary" })}
-            >
+          {onCancel ? (
+            <Button type="button" variant="secondary" onClick={onCancel}>
               Cancel
-            </Link>
+            </Button>
           ) : null}
         </div>
       </form>
-
-      {review ? (
-        <form action={deleteReviewAction}>
-          <input type="hidden" name="googleVolumeId" value={googleVolumeId} />
-          <input type="hidden" name="returnTo" value={returnTo} />
-          <Button type="submit" variant="destructive">
-            Delete review
-          </Button>
-        </form>
-      ) : null}
     </div>
   );
 }

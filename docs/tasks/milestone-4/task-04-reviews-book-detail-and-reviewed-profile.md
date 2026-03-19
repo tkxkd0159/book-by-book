@@ -13,7 +13,7 @@ Add the first review workflow so users can rate books, maintain one review per b
 - Update `/books/[googleVolumeId]` to render:
   - average rating
   - review count
-  - recent public reviews from signed-in users
+  - reader reviews from signed-in users
   - a clear entry point to create or edit the current user's review
 - Update `/me` with a reviewed-content entry point only. Shelf entry points already exist from Task 02.
 
