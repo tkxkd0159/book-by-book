@@ -4,8 +4,8 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { AddBookModal } from "@/components/books/add-book-modal";
+import { BookReviewPanel } from "@/components/reviews/book-review-panel";
 import { PublicReviewList } from "@/components/reviews/public-review-list";
-import { ReviewForm } from "@/components/reviews/review-form";
 import { ReviewRating } from "@/components/reviews/review-rating";
 import { Badge } from "@/components/ui/badge";
 import { buttonStyles } from "@/components/ui/button";
@@ -13,9 +13,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { requireCurrentUser } from "@/lib/auth/server";
 import { createSignedBookImportToken } from "@/lib/books/import-token";
 import { listManageableClubBookTargetsForGoogleVolumeId } from "@/lib/clubs/repository";
-import {
-  formatReviewCount,
-} from "@/lib/reviews/presentation";
+import { formatReviewCount } from "@/lib/reviews/presentation";
 import {
   findReviewByUserAndBook,
   getBookReviewAggregate,
@@ -240,6 +238,22 @@ export default async function BookDetailPage({
       </Card>
 
       <Card className="border-(--border)/90">
+        <CardContent className="space-y-5 p-7 sm:p-8">
+          <h2 className="text-xl font-semibold">About this book</h2>
+          {description ? (
+            <div
+              className="text-[15px] leading-7 text-(--muted) [&_p]:mb-4 [&_p:last-child]:mb-0 [&_strong]:font-semibold [&_em]:italic [&_ul]:my-4 [&_ul]:list-disc [&_ul]:pl-6 [&_ol]:my-4 [&_ol]:list-decimal [&_ol]:pl-6 [&_li]:mb-1"
+              dangerouslySetInnerHTML={{ __html: description }}
+            />
+          ) : (
+            <p className="text-sm text-(--muted)">
+              No description available for this title.
+            </p>
+          )}
+        </CardContent>
+      </Card>
+
+      <Card className="border-(--border)/90">
         <CardContent className="space-y-6 p-7 sm:p-8">
           <div className="space-y-2">
             <h2 className="text-xl font-semibold">Reader reviews</h2>
@@ -268,23 +282,19 @@ export default async function BookDetailPage({
               id="review-editor"
               className="scroll-mt-24 rounded-xl border border-(--border) bg-(--surface) p-5"
             >
-              <div className="space-y-1">
-                <p className="text-sm font-medium text-(--muted)">
-                  {currentUserReview ? "Update your review" : "Write your review"}
-                </p>
-                <p className="text-sm text-(--muted)">
-                  Pick a rating and add optional thoughts without leaving this page.
-                </p>
-              </div>
-
-              <div className="mt-4">
-                <ReviewForm
-                  googleVolumeId={book.googleVolumeId}
-                  review={currentUserReview}
-                  returnTo={createMyReviewHref(book.googleVolumeId)}
-                  bookImportToken={createSignedBookImportToken(book)}
-                />
-              </div>
+              <BookReviewPanel
+                key={[
+                  book.googleVolumeId,
+                  currentUserReview?.id ?? "new",
+                  currentUserReview?.updatedAt.toISOString() ?? "fresh",
+                  error ? "error" : "clean",
+                ].join(":")}
+                googleVolumeId={book.googleVolumeId}
+                review={currentUserReview}
+                returnTo={createMyReviewHref(book.googleVolumeId)}
+                bookImportToken={createSignedBookImportToken(book)}
+                initialMode={currentUserReview && !error ? "view" : "edit"}
+              />
             </div>
           </div>
 
@@ -295,22 +305,6 @@ export default async function BookDetailPage({
               emptyMessage="No public reviews yet."
             />
           </div>
-        </CardContent>
-      </Card>
-
-      <Card className="border-(--border)/90">
-        <CardContent className="space-y-5 p-7 sm:p-8">
-          <h2 className="text-xl font-semibold">About this book</h2>
-          {description ? (
-            <div
-              className="text-[15px] leading-7 text-(--muted) [&_p]:mb-4 [&_p:last-child]:mb-0 [&_strong]:font-semibold [&_em]:italic [&_ul]:my-4 [&_ul]:list-disc [&_ul]:pl-6 [&_ol]:my-4 [&_ol]:list-decimal [&_ol]:pl-6 [&_li]:mb-1"
-              dangerouslySetInnerHTML={{ __html: description }}
-            />
-          ) : (
-            <p className="text-sm text-(--muted)">
-              No description available for this title.
-            </p>
-          )}
         </CardContent>
       </Card>
     </article>

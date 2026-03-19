@@ -128,7 +128,9 @@ test("signed-in readers can open public shelves, private shelves stay forbidden,
   await expect(
     page.getByRole("heading", { name: "Shared Shelf" }),
   ).toBeVisible();
-  await expect(page.getByText("Shared by Owner Reader.")).toBeVisible();
+  await expect(
+    page.getByText("Owner Reader's notes and titles, in read-only mode."),
+  ).toBeVisible();
   await expect(page.getByRole("button", { name: "Delete shelf" })).toHaveCount(
     0,
   );
@@ -170,14 +172,34 @@ test("owner can save notes, public readers can read them, and owner can remove s
   await expect(page.getByText("Book added to 1 shelf.")).toBeVisible();
 
   await page.goto(ownerShelfUrl);
-  await page.getByText("Edit shelf item").click();
+  await expect(page.getByRole("button", { name: "Open book" })).toHaveCount(0);
+  await expect(
+    page.getByRole("link", { name: "The Test-Driven Book Club" }),
+  ).toBeVisible();
+  await page
+    .getByRole("button", {
+      name: "Edit shelf item for The Test-Driven Book Club",
+    })
+    .click();
+  await expect(page.getByLabel("Note")).toBeVisible();
+  await page
+    .getByRole("button", {
+      name: "Cancel shelf item edit for The Test-Driven Book Club",
+    })
+    .click();
+  await expect(page.getByLabel("Note")).toHaveCount(0);
+  await page
+    .getByRole("button", {
+      name: "Edit shelf item for The Test-Driven Book Club",
+    })
+    .click();
   await page
     .getByLabel("Note")
     .fill("Discuss this chapter order at the next meetup.");
   await page.getByRole("button", { name: "Save note" }).click();
   await expect(page.getByText("Shelf note saved.")).toBeVisible();
 
-  await page.getByRole("button", { name: "Edit shelf" }).click();
+  await page.getByRole("button", { name: "Edit shelf", exact: true }).click();
   const publicShelfHref = await page
     .getByRole("link", { name: "Open public view" })
     .getAttribute("href");
@@ -194,7 +216,11 @@ test("owner can save notes, public readers can read them, and owner can remove s
   );
 
   await signInAs(page, "owner", ownerShelfUrl);
-  await page.getByText("Edit shelf item").click();
+  await page
+    .getByRole("button", {
+      name: "Edit shelf item for The Test-Driven Book Club",
+    })
+    .click();
   await page.getByRole("button", { name: "Remove book" }).click();
   await expect(page.getByText("Book removed from shelf.")).toBeVisible();
   await expect(page.getByText("No books on this shelf yet.")).toBeVisible();

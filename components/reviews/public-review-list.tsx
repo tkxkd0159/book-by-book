@@ -17,8 +17,8 @@ export function PublicReviewList({
 }: PublicReviewListProps) {
   if (reviews.length === 0) {
     return (
-      <Card className="mt-2 border-(--border)/90">
-        <CardContent className="p-5 text-sm text-(--muted)">
+      <Card className="border-(--border)/90">
+        <CardContent className="p-5 pt-5 text-sm text-(--muted)">
           {emptyMessage}
         </CardContent>
       </Card>

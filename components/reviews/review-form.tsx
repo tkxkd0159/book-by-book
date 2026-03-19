@@ -3,11 +3,8 @@
 import { Star } from "lucide-react";
 import { useId, useState } from "react";
 
-import {
-  deleteReviewAction,
-  upsertReviewAction,
-} from "@/app/(protected)/me/reviews/actions";
-import { Button, buttonStyles } from "@/components/ui/button";
+import { upsertReviewAction } from "@/app/(protected)/me/reviews/actions";
+import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 import type { ReviewRecord, ReviewRating } from "@/types/db";
@@ -17,6 +14,7 @@ type ReviewFormProps = {
   review: ReviewRecord | null;
   returnTo: string;
   bookImportToken?: string;
+  onCancel?: () => void;
 };
 
 const REVIEW_RATING_OPTIONS = [1, 2, 3, 4, 5] as const satisfies ReviewRating[];
@@ -26,6 +24,7 @@ export function ReviewForm({
   review,
   returnTo,
   bookImportToken,
+  onCancel,
 }: ReviewFormProps) {
   const [selectedRating, setSelectedRating] = useState<ReviewRating | null>(
     review?.rating ?? null,
@@ -49,36 +48,36 @@ export function ReviewForm({
               aria-label="Rating"
               className="flex flex-wrap items-center gap-1"
             >
-            {REVIEW_RATING_OPTIONS.map((rating) => (
-              <label
-                key={rating}
-                htmlFor={`${idPrefix}-${rating}`}
-                className="group relative cursor-pointer rounded-full p-1 focus-within:outline-none focus-within:ring-2 focus-within:ring-(--accent-soft)"
-              >
-                <input
-                  id={`${idPrefix}-${rating}`}
-                  type="radio"
-                  name="rating"
-                  value={rating}
-                  checked={selectedRating === rating}
-                  onChange={() => setSelectedRating(rating)}
-                  required={rating === 1}
-                  className="absolute inset-0 cursor-pointer opacity-0"
-                />
-                <Star
-                  aria-hidden
-                  className={cn(
-                    "pointer-events-none h-8 w-8 transition-transform duration-150 group-hover:scale-105",
-                    selectedRating !== null && rating <= selectedRating
-                      ? "fill-[#c78d42] text-[#c78d42]"
-                      : "text-(--border)",
-                  )}
-                />
-                <span className="sr-only">
-                  {rating} star{rating === 1 ? "" : "s"}
-                </span>
-              </label>
-            ))}
+              {REVIEW_RATING_OPTIONS.map((rating) => (
+                <label
+                  key={rating}
+                  htmlFor={`${idPrefix}-${rating}`}
+                  className="group relative cursor-pointer rounded-full p-1 focus-within:outline-none focus-within:ring-2 focus-within:ring-(--accent-soft)"
+                >
+                  <input
+                    id={`${idPrefix}-${rating}`}
+                    type="radio"
+                    name="rating"
+                    value={rating}
+                    checked={selectedRating === rating}
+                    onChange={() => setSelectedRating(rating)}
+                    required={rating === 1}
+                    className="absolute inset-0 cursor-pointer opacity-0"
+                  />
+                  <Star
+                    aria-hidden
+                    className={cn(
+                      "pointer-events-none h-8 w-8 transition-transform duration-150 group-hover:scale-105",
+                      selectedRating !== null && rating <= selectedRating
+                        ? "fill-[#c78d42] text-[#c78d42]"
+                        : "text-(--border)",
+                    )}
+                  />
+                  <span className="sr-only">
+                    {rating} star{rating === 1 ? "" : "s"}
+                  </span>
+                </label>
+              ))}
             </div>
             <p className="text-sm text-(--muted)">
               {selectedRating
@@ -102,14 +101,10 @@ export function ReviewForm({
           <Button type="submit">
             {review ? "Save review" : "Publish review"}
           </Button>
-          {review ? (
-            <button
-              type="submit"
-              formAction={deleteReviewAction}
-              className={buttonStyles({ variant: "destructive" })}
-            >
-              Delete review
-            </button>
+          {onCancel ? (
+            <Button type="button" variant="secondary" onClick={onCancel}>
+              Cancel
+            </Button>
           ) : null}
         </div>
       </form>
