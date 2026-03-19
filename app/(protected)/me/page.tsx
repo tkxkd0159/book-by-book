@@ -11,6 +11,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { createMyReviewedHref } from "@/lib/reviews/view-paths";
 import { createMyShelvesHref } from "@/lib/shelves/view-paths";
 
 function fallbackText(value: string | null | undefined, fallback: string) {
@@ -52,7 +53,7 @@ export default async function MePage() {
         </CardContent>
       </Card>
 
-      <div className="grid gap-4 sm:grid-cols-2">
+      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
         <Card>
           <CardHeader>
             <CardTitle className="text-lg">User ID</CardTitle>
@@ -79,6 +80,24 @@ export default async function MePage() {
               className={buttonStyles({ variant: "secondary" })}
             >
               Open my shelves
+            </Link>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-lg">Reviewed</CardTitle>
+            <CardDescription>Your ratings and written thoughts</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <p className="text-sm leading-6 text-(--muted)">
+              Keep track of the books you have rated and revisit your reviews.
+            </p>
+            <Link
+              href={createMyReviewedHref()}
+              className={buttonStyles({ variant: "secondary" })}
+            >
+              Open reviewed books
             </Link>
           </CardContent>
         </Card>

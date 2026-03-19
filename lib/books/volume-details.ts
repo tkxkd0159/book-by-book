@@ -52,9 +52,12 @@ export function mapBookRecordToDetail(book: BookRecord): BookDetail {
   );
 }
 
-export async function resolveBookDetail(
+export async function resolveBookDetailWithRecord(
   googleVolumeId: string,
-): Promise<BookDetail | null> {
+): Promise<{
+  book: BookDetail;
+  persistedBook: BookRecord | null;
+} | null> {
   const normalizedVolumeId = googleVolumeId.trim();
   if (!normalizedVolumeId) {
     return null;
@@ -62,7 +65,10 @@ export async function resolveBookDetail(
 
   const persistedBook = await findBookByGoogleVolumeId(normalizedVolumeId);
   if (persistedBook) {
-    return mapBookRecordToDetail(persistedBook);
+    return {
+      book: mapBookRecordToDetail(persistedBook),
+      persistedBook,
+    };
   }
 
   const googleBook = await fetchGoogleVolume(normalizedVolumeId);
@@ -70,25 +76,35 @@ export async function resolveBookDetail(
     return null;
   }
 
-  return mapNormalizedBookToDetail(
-    {
-      googleVolumeId: googleBook.googleVolumeId,
-      title: googleBook.title,
-      subtitle: googleBook.subtitle,
-      authors: googleBook.authors,
-      publisher: googleBook.publisher,
-      publishedDate: googleBook.publishedDate,
-      description: googleBook.description,
-      isbn10: googleBook.isbn10,
-      isbn13: googleBook.isbn13,
-      pageCount: googleBook.pageCount,
-      categories: googleBook.categories,
-      language: googleBook.language,
-      thumbnailUrl: googleBook.thumbnailUrl,
-      previewLink: googleBook.previewLink,
-      infoLink: googleBook.infoLink,
-      canonicalLink: googleBook.canonicalLink,
-    },
-    false,
-  );
+  return {
+    book: mapNormalizedBookToDetail(
+      {
+        googleVolumeId: googleBook.googleVolumeId,
+        title: googleBook.title,
+        subtitle: googleBook.subtitle,
+        authors: googleBook.authors,
+        publisher: googleBook.publisher,
+        publishedDate: googleBook.publishedDate,
+        description: googleBook.description,
+        isbn10: googleBook.isbn10,
+        isbn13: googleBook.isbn13,
+        pageCount: googleBook.pageCount,
+        categories: googleBook.categories,
+        language: googleBook.language,
+        thumbnailUrl: googleBook.thumbnailUrl,
+        previewLink: googleBook.previewLink,
+        infoLink: googleBook.infoLink,
+        canonicalLink: googleBook.canonicalLink,
+      },
+      false,
+    ),
+    persistedBook: null,
+  };
+}
+
+export async function resolveBookDetail(
+  googleVolumeId: string,
+): Promise<BookDetail | null> {
+  const resolvedBook = await resolveBookDetailWithRecord(googleVolumeId);
+  return resolvedBook?.book ?? null;
 }

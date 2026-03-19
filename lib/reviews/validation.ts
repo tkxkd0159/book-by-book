@@ -54,3 +54,27 @@ export function parseReviewBody(
 
   return normalized;
 }
+
+export function parseReviewGoogleVolumeId(
+  value: FormDataEntryValue | string | null | undefined,
+) {
+  const normalized = readString(value).trim();
+
+  if (!normalized) {
+    throw new ReviewError("VALIDATION", "Google volume is required.");
+  }
+
+  return normalized;
+}
+
+export function parseSafeReturnTo(
+  value: FormDataEntryValue | string | null | undefined,
+  fallback: string,
+) {
+  const normalized = readString(value).trim();
+  if (!normalized || !normalized.startsWith("/") || normalized.startsWith("//")) {
+    return fallback;
+  }
+
+  return normalized;
+}
