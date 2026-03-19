@@ -51,6 +51,11 @@ type ShelfItemWithBookRow = ShelfItemRow & {
   infoLink: string | null;
 };
 
+type ManageableShelfBookTargetRow = {
+  googleVolumeId: string;
+  shelfId: string;
+};
+
 export type ShelfSummary = ShelfRecord & {
   itemCount: number;
 };
@@ -76,6 +81,13 @@ export type ShelfDetail = ShelfRecord & {
   itemCount: number;
   owner: ShelfOwnerSummary;
   items: ShelfItemWithBook[];
+};
+
+export type ManageableShelfBookTarget = {
+  shelfId: string;
+  shelfName: string;
+  isPublic: boolean;
+  alreadyAdded: boolean;
 };
 
 function asQueryExecutor(tx: unknown) {
@@ -264,6 +276,69 @@ export async function listUserShelves(userId: string): Promise<ShelfSummary[]> {
   `;
 
   return rows.map(mapShelfSummary);
+}
+
+export async function listManageableShelfBookTargetsByGoogleVolumeIds(
+  userId: string,
+  googleVolumeIds: string[],
+) {
+  const normalizedVolumeIds = Array.from(
+    new Set(
+      googleVolumeIds
+        .map((googleVolumeId) => googleVolumeId.trim())
+        .filter((googleVolumeId) => googleVolumeId.length > 0),
+    ),
+  );
+
+  if (normalizedVolumeIds.length === 0) {
+    return {} satisfies Record<string, ManageableShelfBookTarget[]>;
+  }
+
+  const shelves = await listUserShelves(userId);
+  if (shelves.length === 0) {
+    return Object.fromEntries(
+      normalizedVolumeIds.map((googleVolumeId) => [googleVolumeId, []]),
+    ) satisfies Record<string, ManageableShelfBookTarget[]>;
+  }
+
+  const shelfIds = shelves.map((shelf) => shelf.id);
+  const rows = await sql<ManageableShelfBookTargetRow[]>`
+    select
+      books.google_volume_id as "googleVolumeId",
+      shelf_items.shelf_id::text as "shelfId"
+    from bookapp.shelf_items
+    inner join bookapp.books on books.id = shelf_items.book_id
+    where books.google_volume_id in ${sql(normalizedVolumeIds)}
+      and shelf_items.shelf_id in ${sql(shelfIds)}
+  `;
+
+  const activeTargets = new Set(
+    rows.map((row) => `${row.googleVolumeId}:${row.shelfId}`),
+  );
+
+  return Object.fromEntries(
+    normalizedVolumeIds.map((googleVolumeId) => [
+      googleVolumeId,
+      shelves.map((shelf) => ({
+        shelfId: shelf.id,
+        shelfName: shelf.name,
+        isPublic: shelf.isPublic,
+        alreadyAdded: activeTargets.has(`${googleVolumeId}:${shelf.id}`),
+      })),
+    ]),
+  ) satisfies Record<string, ManageableShelfBookTarget[]>;
+}
+
+export async function listManageableShelfBookTargetsForGoogleVolumeId(
+  userId: string,
+  googleVolumeId: string,
+) {
+  const targetsByVolumeId = await listManageableShelfBookTargetsByGoogleVolumeIds(
+    userId,
+    [googleVolumeId],
+  );
+
+  return targetsByVolumeId[googleVolumeId.trim()] ?? [];
 }
 
 export async function findOwnedShelfDetail(

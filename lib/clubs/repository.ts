@@ -103,6 +103,19 @@ type ManageableClubBookTargetRow = {
   status: ClubBookStatus;
 };
 
+type ShelfImportSourceRow = {
+  shelfId: string;
+  shelfName: string;
+  shelfIsPublic: boolean;
+  bookId: string | null;
+  googleVolumeId: string | null;
+  title: string | null;
+  authors: string[] | null;
+  thumbnailUrl: string | null;
+  note: string | null;
+  activeClubBookId: string | null;
+};
+
 export type ClubSummary = ClubRecord & {
   memberCount: number;
   currentUserRole: ClubMemberRole | null;
@@ -153,6 +166,22 @@ export type ManageableClubBookTarget = {
   currentUserRole: ClubMemberRole;
   alreadyAdded: boolean;
   existingStatus: ClubBookStatus | null;
+};
+
+export type ShelfImportBookOption = {
+  bookId: string;
+  googleVolumeId: string;
+  title: string;
+  authors: string[];
+  thumbnailUrl: string | null;
+  note: string | null;
+};
+
+export type ShelfImportSource = {
+  shelfId: string;
+  shelfName: string;
+  isPublic: boolean;
+  books: ShelfImportBookOption[];
 };
 
 const CLUB_INVITATION_TTL_DAYS = 7;
@@ -428,6 +457,64 @@ export async function listManageableClubBookTargetsForGoogleVolumeId(
   );
 
   return targetsByVolumeId[googleVolumeId.trim()] ?? [];
+}
+
+export async function listShelfImportSourcesForClub(input: {
+  clubId: string;
+  userId: string;
+}): Promise<ShelfImportSource[]> {
+  const rows = await sql<ShelfImportSourceRow[]>`
+    select
+      shelves.id::text as "shelfId",
+      shelves.name as "shelfName",
+      shelves.is_public as "shelfIsPublic",
+      books.id::text as "bookId",
+      books.google_volume_id as "googleVolumeId",
+      books.title,
+      books.authors,
+      books.thumbnail_url as "thumbnailUrl",
+      shelf_items.note,
+      club_books.id::text as "activeClubBookId"
+    from bookapp.shelves
+    left join bookapp.shelf_items on shelf_items.shelf_id = shelves.id
+    left join bookapp.books on books.id = shelf_items.book_id
+    left join bookapp.club_books
+      on club_books.club_id = ${input.clubId}::uuid
+     and club_books.book_id = books.id
+     and club_books.removed_at is null
+    where shelves.user_id = ${input.userId}::uuid
+    order by shelves.created_at desc, shelf_items.sort_order asc, shelf_items.added_at asc
+  `;
+
+  const sources = new Map<string, ShelfImportSource>();
+  for (const row of rows) {
+    const source = sources.get(row.shelfId) ?? {
+      shelfId: row.shelfId,
+      shelfName: row.shelfName,
+      isPublic: row.shelfIsPublic,
+      books: [],
+    };
+
+    if (
+      row.bookId &&
+      row.googleVolumeId &&
+      row.title &&
+      !row.activeClubBookId
+    ) {
+      source.books.push({
+        bookId: row.bookId,
+        googleVolumeId: row.googleVolumeId,
+        title: row.title,
+        authors: row.authors ?? [],
+        thumbnailUrl: row.thumbnailUrl,
+        note: row.note,
+      });
+    }
+
+    sources.set(row.shelfId, source);
+  }
+
+  return [...sources.values()];
 }
 
 export async function findClubDetail(clubId: string, userId: string) {

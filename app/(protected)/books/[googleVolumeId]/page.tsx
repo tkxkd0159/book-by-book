@@ -3,7 +3,7 @@ import { ArrowLeft, ExternalLink } from "lucide-react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
-import { AddBookToClubsModal } from "@/components/books/add-book-to-clubs-modal";
+import { AddBookModal } from "@/components/books/add-book-modal";
 import { Badge } from "@/components/ui/badge";
 import { buttonStyles } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -11,6 +11,7 @@ import { requireCurrentUser } from "@/lib/auth/server";
 import { createSignedBookImportToken } from "@/lib/books/import-token";
 import { listManageableClubBookTargetsForGoogleVolumeId } from "@/lib/clubs/repository";
 import { resolveBookDetail } from "@/lib/books/volume-details";
+import { listManageableShelfBookTargetsForGoogleVolumeId } from "@/lib/shelves/repository";
 
 type BookDetailPageProps = {
   params: Promise<{ googleVolumeId: string }>;
@@ -41,10 +42,16 @@ export default async function BookDetailPage({
     notFound();
   }
 
-  const clubTargets = await listManageableClubBookTargetsForGoogleVolumeId(
-    currentUser.id,
-    googleVolumeId,
-  );
+  const [clubTargets, shelfTargets] = await Promise.all([
+    listManageableClubBookTargetsForGoogleVolumeId(
+      currentUser.id,
+      googleVolumeId,
+    ),
+    listManageableShelfBookTargetsForGoogleVolumeId(
+      currentUser.id,
+      googleVolumeId,
+    ),
+  ]);
   const message = readMessage(query.message);
   const error = readMessage(query.error);
 
@@ -168,10 +175,11 @@ export default async function BookDetailPage({
                 <ArrowLeft aria-hidden className="h-4 w-4 shrink-0" />
                 Back to search
               </Link>
-              <AddBookToClubsModal
+              <AddBookModal
                 googleVolumeId={book.googleVolumeId}
                 bookTitle={book.title}
                 clubTargets={clubTargets}
+                shelfTargets={shelfTargets}
                 returnTo={`/books/${encodeURIComponent(book.googleVolumeId)}`}
                 bookImportToken={createSignedBookImportToken(book)}
                 triggerSize="md"

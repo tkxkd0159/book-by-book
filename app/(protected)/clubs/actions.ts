@@ -23,6 +23,7 @@ import {
   createClubInvitation,
   deleteClub,
   joinPublicClub,
+  listShelfImportSourcesForClub,
   leaveClub,
   listManageableClubBookTargetsForGoogleVolumeId,
   moveClubBook,
@@ -576,6 +577,100 @@ export async function addBookToClubsFromVolumeAction(formData: FormData) {
             skippedCount,
           )} already had this book.`
         : `Book added to ${pluralize("club", addedCount)}.`;
+
+    redirect(appendMessage(returnTo, "message", message));
+  } catch (error) {
+    rethrowIfRedirect(error);
+    redirect(appendMessage(returnTo, "error", getErrorMessage(error)));
+  }
+}
+
+export async function addBooksFromShelfToClubAction(formData: FormData) {
+  const currentUser = await requireCurrentUser();
+  const clubId = parseInternalId(formData.get("clubId"), "Club");
+  const shelfId = parseInternalId(formData.get("shelfId"), "Shelf");
+  const returnTo = parseSafeReturnTo(
+    formData.get("returnTo"),
+    createManageSectionHref({
+      clubId,
+      section: "board",
+    }),
+  );
+  const selectedBookIds = Array.from(
+    new Set(
+      formData
+        .getAll("bookId")
+        .map((bookId) => parseInternalId(bookId, "Book"))
+        .filter((bookId) => bookId.length > 0),
+    ),
+  );
+
+  if (selectedBookIds.length === 0) {
+    redirect(
+      appendMessage(
+        returnTo,
+        "error",
+        "Select at least one shelf book to add to the club.",
+      ),
+    );
+  }
+
+  try {
+    await enforceMutationRateLimit({
+      action: "add-book",
+      userId: currentUser.id,
+    });
+
+    const sources = await listShelfImportSourcesForClub({
+      clubId,
+      userId: currentUser.id,
+    });
+    const source = sources.find((candidate) => candidate.shelfId === shelfId);
+
+    if (!source) {
+      redirect(appendMessage(returnTo, "error", "Choose a valid shelf."));
+    }
+
+    const eligibleBooksById = new Map(
+      source.books.map((book) => [book.bookId, book]),
+    );
+    const eligibleBookIds = selectedBookIds.filter((bookId) =>
+      eligibleBooksById.has(bookId),
+    );
+    const skippedCount = selectedBookIds.length - eligibleBookIds.length;
+
+    if (eligibleBookIds.length === 0) {
+      redirect(
+        appendMessage(
+          returnTo,
+          "error",
+          "These shelf books can no longer be added to the club.",
+        ),
+      );
+    }
+
+    await Promise.all(
+      eligibleBookIds.map((bookId) =>
+        addBookToClub({
+          clubId,
+          bookId,
+          addedById: currentUser.id,
+          status: "WANT_TO_READ",
+        }),
+      ),
+    );
+
+    revalidateClubBookPages(clubId);
+    revalidateReturnTo(returnTo);
+
+    const addedCount = eligibleBookIds.length;
+    const message =
+      skippedCount > 0
+        ? `${pluralize("book", addedCount)} added to the club. ${pluralize(
+            "selection",
+            skippedCount,
+          )} already had this book.`
+        : `${pluralize("book", addedCount)} added to the club.`;
 
     redirect(appendMessage(returnTo, "message", message));
   } catch (error) {

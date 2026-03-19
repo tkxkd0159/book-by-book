@@ -1,16 +1,23 @@
 import Link from "next/link";
 
+import {
+  removeShelfItemAction,
+  updateShelfItemNoteAction,
+} from "@/app/(protected)/me/shelves/actions";
 import type { ShelfDetail as ShelfDetailRecord } from "@/lib/shelves/repository";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
-import { buttonStyles } from "@/components/ui/button";
+import { Button, buttonStyles } from "@/components/ui/button";
 
 type ShelfDetailProps = {
   shelf: ShelfDetailRecord;
   mode: "owner" | "public";
+  returnTo?: string;
 };
 
-export function ShelfDetail({ shelf, mode }: ShelfDetailProps) {
+export function ShelfDetail({ shelf, mode, returnTo }: ShelfDetailProps) {
+  const managementReturnTo = returnTo ?? `/me/shelves/${shelf.id}`;
+
   return (
     <div className="space-y-6">
       <Card className="border-2 border-(--border) bg-(--surface-strong)">
@@ -49,7 +56,17 @@ export function ShelfDetail({ shelf, mode }: ShelfDetailProps) {
         {shelf.items.length === 0 ? (
           <Card>
             <CardContent className="p-6 text-sm text-(--muted)">
-              No books on this shelf yet.
+              {mode === "owner" ? (
+                <>
+                  No books on this shelf yet. Find one from{" "}
+                  <Link href="/books/search" className="underline underline-offset-4">
+                    book search
+                  </Link>
+                  .
+                </>
+              ) : (
+                "No books on this shelf yet."
+              )}
             </CardContent>
           </Card>
         ) : (
@@ -78,7 +95,48 @@ export function ShelfDetail({ shelf, mode }: ShelfDetailProps) {
                     </p>
                   </div>
 
-                  {item.note ? (
+                  {mode === "owner" ? (
+                    <div className="space-y-3 rounded-xl border border-(--border) bg-(--surface) p-4">
+                      <form
+                        action={updateShelfItemNoteAction}
+                        className="space-y-3"
+                      >
+                        <input type="hidden" name="shelfId" value={shelf.id} />
+                        <input type="hidden" name="bookId" value={item.book.id} />
+                        <input
+                          type="hidden"
+                          name="returnTo"
+                          value={managementReturnTo}
+                        />
+                        <label className="block space-y-2 text-sm font-medium">
+                          <span>Note</span>
+                          <textarea
+                            name="note"
+                            defaultValue={item.note ?? ""}
+                            rows={4}
+                            placeholder="Add a personal note for this shelf item."
+                            className="min-h-28 w-full rounded-md border border-(--border) bg-(--surface-strong) px-3 py-2 text-sm outline-none transition focus:border-(--accent) focus:ring-2 focus:ring-(--accent-soft)"
+                          />
+                        </label>
+                        <Button type="submit" size="sm">
+                          Save note
+                        </Button>
+                      </form>
+
+                      <form action={removeShelfItemAction}>
+                        <input type="hidden" name="shelfId" value={shelf.id} />
+                        <input type="hidden" name="bookId" value={item.book.id} />
+                        <input
+                          type="hidden"
+                          name="returnTo"
+                          value={managementReturnTo}
+                        />
+                        <Button type="submit" variant="destructive" size="sm">
+                          Remove book
+                        </Button>
+                      </form>
+                    </div>
+                  ) : item.note ? (
                     <div className="rounded-xl border border-(--border) bg-(--surface) p-4 text-sm leading-6 text-(--muted)">
                       {item.note}
                     </div>
