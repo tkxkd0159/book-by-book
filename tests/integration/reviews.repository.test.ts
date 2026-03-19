@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it } from "vitest";
 
 import { E2E_USER_PROVIDER } from "@/lib/auth/e2e";
 import { findUserByProviderIdentity } from "@/lib/auth/users";
-import { findBookByGoogleVolumeId } from "@/lib/books/repository";
+import { findBookByGoogleVolumeId, upsertBook } from "@/lib/books/repository";
 import {
   deleteReview,
   findReviewByUserAndBook,
@@ -11,7 +11,10 @@ import {
   listUserReviewedBooks,
   upsertReview,
 } from "@/lib/reviews/repository";
-import { resetTestDatabase, TEST_BOOK_VOLUME_ID } from "@/lib/test/fixtures";
+import {
+  resetTestDatabase,
+  TEST_BOOK_VOLUME_ID,
+} from "@/lib/test/fixtures";
 import type { AuthUser } from "@/types/db";
 
 async function getRequiredUser(key: string): Promise<AuthUser> {
@@ -152,5 +155,71 @@ describe("reviews repository integration", () => {
     const aggregate = await getBookReviewAggregate(book!.id);
     expect(aggregate.reviewCount).toBe(1);
     expect(aggregate.averageRating).toBe(5);
+  });
+
+  it("orders reviewed books and recent book reviews by the latest review update", async () => {
+    const owner = await getRequiredUser("owner");
+    const member = await getRequiredUser("member");
+    const fixtureBook = await findBookByGoogleVolumeId(TEST_BOOK_VOLUME_ID);
+
+    expect(fixtureBook, "Expected seeded fixture book.").toBeTruthy();
+
+    const secondBook = await upsertBook({
+      googleVolumeId: "club-test-book-2",
+      title: "Second Test Book",
+      subtitle: "Follow-up Fixture",
+      authors: ["Fixture Author"],
+      publisher: "Book by Book Press",
+      publishedDate: "2026",
+      description: "Second fixture book.",
+      isbn10: null,
+      isbn13: "9780000000003",
+      pageCount: 280,
+      categories: ["Fiction"],
+      language: "en",
+      thumbnailUrl: null,
+      previewLink: null,
+      infoLink: "https://books.google.com/books?id=fixture-2",
+      canonicalLink: "https://books.google.com/books?id=fixture-2",
+      rawGoogleJson: { id: "fixture-2" },
+    });
+
+    await upsertReview({
+      userId: owner.id,
+      bookId: fixtureBook!.id,
+      rating: 3,
+      body: "First pass.",
+    });
+    await upsertReview({
+      userId: owner.id,
+      bookId: secondBook.id,
+      rating: 4,
+      body: "Second book review.",
+    });
+    await upsertReview({
+      userId: member.id,
+      bookId: fixtureBook!.id,
+      rating: 2,
+      body: "Member first pass.",
+    });
+    await upsertReview({
+      userId: owner.id,
+      bookId: fixtureBook!.id,
+      rating: 5,
+      body: "Updated fixture review.",
+    });
+
+    const reviewedBooks = await listUserReviewedBooks(owner.id);
+    expect(reviewedBooks).toHaveLength(2);
+    expect(reviewedBooks[0]?.book.googleVolumeId).toBe(TEST_BOOK_VOLUME_ID);
+    expect(reviewedBooks[1]?.book.googleVolumeId).toBe("club-test-book-2");
+
+    const recentReviews = await listRecentBookReviews({
+      bookId: fixtureBook!.id,
+      limit: 10,
+    });
+    expect(recentReviews).toHaveLength(2);
+    expect(recentReviews[0]?.author.id).toBe(owner.id);
+    expect(recentReviews[0]?.review.body).toBe("Updated fixture review.");
   });
 });

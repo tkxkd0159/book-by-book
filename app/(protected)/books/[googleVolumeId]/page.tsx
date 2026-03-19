@@ -4,13 +4,25 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { AddBookModal } from "@/components/books/add-book-modal";
+import { PublicReviewList } from "@/components/reviews/public-review-list";
+import { ReviewRating } from "@/components/reviews/review-rating";
 import { Badge } from "@/components/ui/badge";
 import { buttonStyles } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { requireCurrentUser } from "@/lib/auth/server";
 import { createSignedBookImportToken } from "@/lib/books/import-token";
 import { listManageableClubBookTargetsForGoogleVolumeId } from "@/lib/clubs/repository";
-import { resolveBookDetail } from "@/lib/books/volume-details";
+import {
+  getReviewBodyPreview,
+  formatReviewCount,
+} from "@/lib/reviews/presentation";
+import {
+  findReviewByUserAndBook,
+  getBookReviewAggregate,
+  listRecentBookReviews,
+} from "@/lib/reviews/repository";
+import { createMyReviewHref } from "@/lib/reviews/view-paths";
+import { resolveBookDetailWithRecord } from "@/lib/books/volume-details";
 import { listManageableShelfBookTargetsForGoogleVolumeId } from "@/lib/shelves/repository";
 
 type BookDetailPageProps = {
@@ -36,13 +48,20 @@ export default async function BookDetailPage({
 }: BookDetailPageProps) {
   const [{ googleVolumeId }, query] = await Promise.all([params, searchParams]);
   const currentUser = await requireCurrentUser();
-  const book = await resolveBookDetail(googleVolumeId);
+  const resolvedBook = await resolveBookDetailWithRecord(googleVolumeId);
 
-  if (!book) {
+  if (!resolvedBook) {
     notFound();
   }
 
-  const [clubTargets, shelfTargets] = await Promise.all([
+  const { book, persistedBook } = resolvedBook;
+  const [
+    clubTargets,
+    shelfTargets,
+    currentUserReview,
+    reviewAggregate,
+    recentReviews,
+  ] = await Promise.all([
     listManageableClubBookTargetsForGoogleVolumeId(
       currentUser.id,
       googleVolumeId,
@@ -51,11 +70,35 @@ export default async function BookDetailPage({
       currentUser.id,
       googleVolumeId,
     ),
+    persistedBook
+      ? findReviewByUserAndBook({
+          userId: currentUser.id,
+          bookId: persistedBook.id,
+        })
+      : Promise.resolve(null),
+    persistedBook
+      ? getBookReviewAggregate(persistedBook.id)
+      : Promise.resolve({
+          averageRating: null,
+          reviewCount: 0,
+        }),
+    persistedBook
+      ? listRecentBookReviews({
+          bookId: persistedBook.id,
+          limit: 5,
+        })
+      : Promise.resolve([]),
   ]);
   const message = readMessage(query.message);
   const error = readMessage(query.error);
 
   const description = book.description;
+  const reviewHref = createMyReviewHref(book.googleVolumeId);
+  const otherPublicReviews = recentReviews.filter(
+    (entry) => entry.author.id !== currentUser.id,
+  );
+  const visibleRecentReviews =
+    otherPublicReviews.length > 0 ? otherPublicReviews : recentReviews;
 
   return (
     <article className="space-y-6">
@@ -196,6 +239,62 @@ export default async function BookDetailPage({
                 </a>
               ) : null}
             </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card className="border-(--border)/90">
+        <CardContent className="space-y-6 p-7 sm:p-8">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div className="space-y-2">
+              <h2 className="text-xl font-semibold">Reader reviews</h2>
+              <p className="text-sm text-(--muted)">
+                Ratings and public thoughts from signed-in Book by Book members.
+              </p>
+            </div>
+
+            <Link href={reviewHref} className={buttonStyles({ variant: "secondary" })}>
+              {currentUserReview ? "Edit your review" : "Write a review"}
+            </Link>
+          </div>
+
+          <div className="grid gap-4 lg:grid-cols-[240px_1fr]">
+            <div className="space-y-3 rounded-xl border border-(--border) bg-(--surface) p-5">
+              <p className="text-sm font-medium text-(--muted)">Average rating</p>
+              <ReviewRating
+                value={reviewAggregate.averageRating}
+                reviewCount={reviewAggregate.reviewCount}
+              />
+              <p className="text-sm text-(--muted)">
+                {reviewAggregate.reviewCount > 0
+                  ? formatReviewCount(reviewAggregate.reviewCount)
+                  : "Be the first to review this book."}
+              </p>
+            </div>
+
+            <div className="space-y-3 rounded-xl border border-(--border) bg-(--surface) p-5">
+              <p className="text-sm font-medium text-(--muted)">Your review</p>
+              {currentUserReview ? (
+                <>
+                  <ReviewRating value={currentUserReview.rating} size="sm" />
+                  <p className="text-sm leading-6 text-(--muted)">
+                    {getReviewBodyPreview(currentUserReview.body)}
+                  </p>
+                </>
+              ) : (
+                <p className="text-sm leading-6 text-(--muted)">
+                  You have not reviewed this book yet.
+                </p>
+              )}
+            </div>
+          </div>
+
+          <div className="space-y-3">
+            <h3 className="text-lg font-semibold">Recent public reviews</h3>
+            <PublicReviewList
+              reviews={visibleRecentReviews}
+              emptyMessage="No public reviews yet."
+            />
           </div>
         </CardContent>
       </Card>
