@@ -6,20 +6,14 @@ import {
   findUserByProviderAccount,
   upsertGoogleOAuthUser,
 } from "@/lib/auth/users";
+import { getGoogleOAuthEnv, getRuntimeEnv } from "@/lib/env";
 
 const SESSION_MAX_AGE_SECONDS = 14 * 24 * 60 * 60;
-
-function readRequiredEnv(name: "GOOGLE_CLIENT_ID" | "GOOGLE_CLIENT_SECRET") {
-  const value = process.env[name];
-  if (!value) {
-    throw new Error(`${name} is required for Google sign-in.`);
-  }
-
-  return value;
-}
+const googleOAuthEnv = getGoogleOAuthEnv();
+const runtimeEnv = getRuntimeEnv();
 
 export const authOptions: NextAuthOptions = {
-  debug: process.env.NODE_ENV === "development",
+  debug: runtimeEnv.isDevelopment,
   secret: resolveAuthSecret(),
   session: {
     strategy: "jwt",
@@ -34,8 +28,8 @@ export const authOptions: NextAuthOptions = {
   },
   providers: [
     GoogleProvider({
-      clientId: readRequiredEnv("GOOGLE_CLIENT_ID"),
-      clientSecret: readRequiredEnv("GOOGLE_CLIENT_SECRET"),
+      clientId: googleOAuthEnv.clientId,
+      clientSecret: googleOAuthEnv.clientSecret,
     }),
   ],
   callbacks: {

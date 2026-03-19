@@ -96,7 +96,7 @@ export async function resetTestDatabase() {
         ${TEST_BOOK_FIXTURE.thumbnailUrl},
         ${TEST_BOOK_FIXTURE.infoLink},
         ${TEST_BOOK_FIXTURE.canonicalLink},
-        ${TEST_BOOK_FIXTURE.rawGoogleJson}::jsonb
+        ${JSON.stringify(TEST_BOOK_FIXTURE.rawGoogleJson)}::jsonb
       )
     `;
   });

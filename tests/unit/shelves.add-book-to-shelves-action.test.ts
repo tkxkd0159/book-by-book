@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { createSignedBookImportToken } from "@/lib/books/import-token";
 
@@ -60,10 +60,22 @@ vi.mock("@/lib/shelves/repository", async () => {
 });
 
 describe("addBookToShelvesFromVolumeAction", () => {
+  const originalAuthSecret = process.env.AUTH_SECRET;
+
   beforeEach(() => {
     vi.resetModules();
     vi.clearAllMocks();
+    process.env.AUTH_SECRET = "test-auth-secret";
     enforceMutationRateLimitMock.mockResolvedValue({ allowed: true });
+  });
+
+  afterEach(() => {
+    if (originalAuthSecret) {
+      process.env.AUTH_SECRET = originalAuthSecret;
+      return;
+    }
+
+    delete process.env.AUTH_SECRET;
   });
 
   it("requires at least one selected shelf", async () => {

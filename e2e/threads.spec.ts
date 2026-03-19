@@ -84,7 +84,7 @@ async function addFixtureBookToClub(
   await page.getByRole("button", { name: "Add Book" }).click();
   const dialog = page.getByRole("dialog");
   await dialog.getByLabel(clubName).check();
-  await dialog.getByRole("button", { name: "Add Book" }).click();
+  await dialog.getByRole("button", { name: "Add to clubs" }).click();
   await expect(page.getByText("Book added to 1 club.")).toBeVisible();
 }
 

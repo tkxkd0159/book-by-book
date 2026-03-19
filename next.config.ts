@@ -1,5 +1,9 @@
 import type { NextConfig } from "next";
 
+import { validateStartupEnv } from "./lib/env";
+
+validateStartupEnv();
+
 const nextConfig: NextConfig = {
   experimental: {
     authInterrupts: true,

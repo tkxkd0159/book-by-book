@@ -1,7 +1,11 @@
 import type { Page } from "@playwright/test";
 
 import { expect, test } from "./fixtures/test";
-import { E2E_ROUTE_PATHS, E2E_URL_PATTERNS } from "./helpers/constants";
+import {
+  E2E_BOOK_FIXTURES,
+  E2E_ROUTE_PATHS,
+  E2E_URL_PATTERNS,
+} from "./helpers/constants";
 import { resetApp, signInAs } from "./helpers/auth";
 
 const FIXTURE_BOOK_URL = E2E_ROUTE_PATHS.fixtureBook;
@@ -146,9 +150,10 @@ test("search results support the Clubs tab flow", async ({ page }) => {
   const clubUrl = await createClub(page, "Search Modal Club");
 
   await page.goto(SEARCH_RESULTS_URL);
+  await expect(
+    page.getByRole("heading", { name: E2E_BOOK_FIXTURES.searchResult.title }),
+  ).toBeVisible();
   await expect(page.getByRole("button", { name: "Add Book" }).first()).toBeVisible();
-  const firstResultTitle = (await page.locator("h2").first().textContent())?.trim();
-  expect(firstResultTitle).toBeTruthy();
 
   await page.getByRole("button", { name: "Add Book" }).first().click();
   const dialog = page.getByRole("dialog");
@@ -163,7 +168,7 @@ test("search results support the Clubs tab flow", async ({ page }) => {
   ).toHaveCount(0);
 
   await page.goto(clubUrl);
-  await expect(page.getByText(firstResultTitle!)).toBeVisible();
+  await expect(page.getByText(E2E_BOOK_FIXTURES.searchResult.title)).toBeVisible();
 });
 
 test("search results support the Shelves tab flow", async ({ page }) => {
@@ -171,8 +176,9 @@ test("search results support the Shelves tab flow", async ({ page }) => {
   const shelfUrl = await createShelf(page, "Search Shelf");
 
   await page.goto(SEARCH_RESULTS_URL);
-  const firstResultTitle = (await page.locator("h2").first().textContent())?.trim();
-  expect(firstResultTitle).toBeTruthy();
+  await expect(
+    page.getByRole("heading", { name: E2E_BOOK_FIXTURES.searchResult.title }),
+  ).toBeVisible();
 
   await page.getByRole("button", { name: "Add Book" }).first().click();
   const dialog = page.getByRole("dialog");
@@ -190,5 +196,5 @@ test("search results support the Shelves tab flow", async ({ page }) => {
   await expect(dialog.getByLabel("Search Shelf")).toBeDisabled();
 
   await page.goto(shelfUrl);
-  await expect(page.getByText(firstResultTitle!)).toBeVisible();
+  await expect(page.getByText(E2E_BOOK_FIXTURES.searchResult.title)).toBeVisible();
 });

@@ -145,28 +145,44 @@ test("book detail shows aggregate ratings, reader reviews, and keeps the add-boo
   await expect(publicReviewsSection.getByText("Owner headline")).toBeVisible();
   await expect(page.getByText("Your review")).toBeVisible();
 
-  await signInAs(page, "member", E2E_ROUTE_PATHS.fixtureBook);
-  await page.getByLabel("4 stars").check();
-  await page.getByLabel("Title").fill("Member headline");
-  await page.getByRole("textbox", { name: "Review" }).fill("Member review body.");
-  await page.getByRole("button", { name: "Publish review" }).click();
-  await expect(page).toHaveURL(E2E_URL_PATTERNS.bookReview);
-  await expect(page.getByText("Your review")).toBeVisible();
+  const memberPage = await page.context().newPage();
+  await signInAs(memberPage, "member", E2E_ROUTE_PATHS.fixtureBook);
+  await memberPage.getByLabel("4 stars").check();
+  await memberPage.getByLabel("Title").fill("Member headline");
+  await memberPage
+    .getByRole("textbox", { name: "Review" })
+    .fill("Member review body.");
+  await memberPage.getByRole("button", { name: "Publish review" }).click();
+  await expect(memberPage).toHaveURL(E2E_URL_PATTERNS.bookReview);
+  await expect(memberPage.getByText("Your review")).toBeVisible();
 
-  await page.goto(E2E_ROUTE_PATHS.fixtureBook);
+  await expect
+    .poll(
+      async () => {
+        await memberPage.reload();
+        return (await memberPage.locator("main").textContent())?.replace(
+          /\s+/g,
+          " ",
+        ) ?? "";
+      },
+      {
+        timeout: 20_000,
+      },
+    )
+    .toContain("4.3 (2)");
   await expect(
-    page.getByRole("heading", { name: "Reader reviews", exact: true }),
+    memberPage.getByRole("heading", { name: "Reader reviews", exact: true }),
   ).toBeVisible();
-  await expect(page.getByLabel("Rating 4.3")).toBeVisible();
-  await expect(page.getByText(/^2 reviews$/)).toBeVisible();
-  await expect(page.getByText("Member review body.")).toBeVisible();
-  await expect(page.getByText("Owner review body.")).toBeVisible();
-  await expect(page.getByText("Member headline")).toBeVisible();
-  await expect(page.getByText("Owner headline")).toBeVisible();
-  await expect(page.getByText("Your review")).toBeVisible();
+  await expect(memberPage.getByText("4.3 (2)")).toBeVisible();
+  await expect(memberPage.getByText(/^2 reviews$/)).toBeVisible();
+  await expect(memberPage.getByText("Member review body.")).toBeVisible();
+  await expect(memberPage.getByText("Owner review body.")).toBeVisible();
+  await expect(memberPage.getByText("Member headline")).toBeVisible();
+  await expect(memberPage.getByText("Owner headline")).toBeVisible();
+  await expect(memberPage.getByText("Your review")).toBeVisible();
 
-  await page.getByRole("button", { name: "Add Book" }).click();
-  const addBookDialog = page.getByRole("dialog");
+  await memberPage.getByRole("button", { name: "Add Book" }).click();
+  const addBookDialog = memberPage.getByRole("dialog");
   await expect(
     addBookDialog.getByRole("tab", { name: /^Clubs/ }),
   ).toBeVisible();

@@ -1,6 +1,7 @@
 import { E2E_AUTH_COOKIE_NAME } from "../../lib/auth/constants";
 import {
   E2E_DEFAULT_RETURN_TO,
+  E2E_SEARCH_RESULT_FIXTURE,
   E2E_TEST_ROUTE_PATHS,
   TEST_BOOK_VOLUME_ID,
   TEST_USER_KEYS,
@@ -23,8 +24,20 @@ export const E2E_ROUTE_PATHS = {
   meReviewed: "/me/reviewed",
   meShelves: "/me/shelves",
   meShelvesNew: "/me/shelves/new",
-  searchResults: "/books/search?advanced=1&isbn=9780140328721",
+  searchResults: `/books/search?advanced=1&isbn=${E2E_SEARCH_RESULT_FIXTURE.isbn13}`,
   signIn: "/signin",
+} as const;
+
+export const E2E_BOOK_FIXTURES = {
+  detail: {
+    title: "The Test-Driven Book Club",
+    volumeId: TEST_BOOK_VOLUME_ID,
+  },
+  searchResult: {
+    title: E2E_SEARCH_RESULT_FIXTURE.title,
+    volumeId: E2E_SEARCH_RESULT_FIXTURE.googleVolumeId,
+    isbn13: E2E_SEARCH_RESULT_FIXTURE.isbn13,
+  },
 } as const;
 
 export const E2E_URL_PATTERNS = {

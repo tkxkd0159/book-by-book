@@ -17,10 +17,6 @@ GOOGLE_CLIENT_SECRET=...
 GOOGLE_BOOKS_API_KEY=...
 
 DATABASE_URL=postgres://...
-
-RATE_LIMIT_PROVIDER=<redis|upstash>
-UPSTASH_REDIS_REST_URL=...
-UPSTASH_REDIS_REST_TOKEN=...
 ```
 
 Optional:
@@ -28,6 +24,10 @@ Optional:
 ```bash
 NEXTAUTH_URL=http://localhost:3000
 NEXTAUTH_SECRET=...
+RATE_LIMIT_PROVIDER=<disabled|memory|redis|upstash>
+RATE_LIMIT_REDIS_URL=redis://...
+UPSTASH_REDIS_REST_URL=...
+UPSTASH_REDIS_REST_TOKEN=...
 ```
 
 Generate a strong secret:
@@ -96,6 +96,8 @@ REMOVE_VOLUME=1
 ```bash
 pnpm dev
 ```
+
+`next dev`, `next build`, and `next start` now validate the required application environment before the app fully boots. Missing or invalid values fail fast with one aggregated error message.
 
 When you run `npm start` or `pnpm start`, a `prestart` hook now verifies that local PostgreSQL is reachable at `localhost:54329` when `DATABASE_URL` targets the local dev database. If it is not running, start it with:
 

@@ -4,6 +4,7 @@ import { searchGoogleBooks } from "@/lib/books/google";
 
 const fetchMock = vi.fn();
 const originalGoogleBooksApiKey = process.env.GOOGLE_BOOKS_API_KEY;
+const originalBooksProvider = process.env.BOOKS_PROVIDER;
 
 describe("searchGoogleBooks quick search", () => {
   beforeEach(() => {
@@ -15,6 +16,7 @@ describe("searchGoogleBooks quick search", () => {
         headers: { "content-type": "application/json" },
       }),
     );
+    delete process.env.BOOKS_PROVIDER;
     process.env.GOOGLE_BOOKS_API_KEY = "test-api-key";
   });
 
@@ -23,10 +25,16 @@ describe("searchGoogleBooks quick search", () => {
 
     if (originalGoogleBooksApiKey) {
       process.env.GOOGLE_BOOKS_API_KEY = originalGoogleBooksApiKey;
+    } else {
+      delete process.env.GOOGLE_BOOKS_API_KEY;
+    }
+
+    if (originalBooksProvider) {
+      process.env.BOOKS_PROVIDER = originalBooksProvider;
       return;
     }
 
-    delete process.env.GOOGLE_BOOKS_API_KEY;
+    delete process.env.BOOKS_PROVIDER;
   });
 
   it("wraps default quick searches in an intitle query", async () => {
