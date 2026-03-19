@@ -9,6 +9,7 @@ import {
   deleteShelf,
   findOwnedShelfDetail,
   findPublicShelfDetail,
+  listManageableShelfBookTargetsByGoogleVolumeIds,
   listUserShelves,
   removeShelfItem,
   updateShelf,
@@ -203,5 +204,66 @@ describe("shelves repository integration", () => {
       code: "NOT_FOUND",
       message: "Shelf item not found.",
     });
+  });
+
+  it("reports manageable shelf targets for added and missing shelf books", async () => {
+    const owner = await getRequiredUser("owner");
+    const book = await findBookByGoogleVolumeId(TEST_BOOK_VOLUME_ID);
+
+    expect(book, "Expected seeded fixture book.").toBeTruthy();
+
+    const addedShelf = await createShelf({
+      userId: owner.id,
+      name: "Added Shelf",
+      description: null,
+      isPublic: false,
+    });
+    await createShelf({
+      userId: owner.id,
+      name: "Empty Shelf",
+      description: null,
+      isPublic: true,
+    });
+
+    await addBookToShelf({
+      shelfId: addedShelf.id,
+      bookId: book!.id,
+      addedById: owner.id,
+    });
+
+    const targetsByVolumeId = await listManageableShelfBookTargetsByGoogleVolumeIds(
+      owner.id,
+      [TEST_BOOK_VOLUME_ID, "missing-google-volume-id"],
+    );
+
+    expect(targetsByVolumeId[TEST_BOOK_VOLUME_ID]).toEqual([
+      {
+        shelfId: expect.any(String),
+        shelfName: "Empty Shelf",
+        isPublic: true,
+        alreadyAdded: false,
+      },
+      {
+        shelfId: addedShelf.id,
+        shelfName: "Added Shelf",
+        isPublic: false,
+        alreadyAdded: true,
+      },
+    ]);
+
+    expect(targetsByVolumeId["missing-google-volume-id"]).toEqual([
+      {
+        shelfId: expect.any(String),
+        shelfName: "Empty Shelf",
+        isPublic: true,
+        alreadyAdded: false,
+      },
+      {
+        shelfId: addedShelf.id,
+        shelfName: "Added Shelf",
+        isPublic: false,
+        alreadyAdded: false,
+      },
+    ]);
   });
 });

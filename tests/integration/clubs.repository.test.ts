@@ -15,6 +15,7 @@ import {
   listClubBooks,
   listClubMembers,
   listManageableClubBookTargetsByGoogleVolumeIds,
+  listShelfImportSourcesForClub,
   listDiscoverablePublicClubs,
   listUserClubs,
   moveClubBook,
@@ -24,7 +25,8 @@ import {
 } from "@/lib/clubs/repository";
 import { resetTestDatabase, TEST_BOOK_VOLUME_ID } from "@/lib/test/fixtures";
 import { E2E_USER_PROVIDER } from "@/lib/auth/e2e";
-import { findBookByGoogleVolumeId } from "@/lib/books/repository";
+import { findBookByGoogleVolumeId, upsertBook } from "@/lib/books/repository";
+import { addBookToShelf, createShelf } from "@/lib/shelves/repository";
 import type { AuthUser } from "@/types/db";
 
 async function getRequiredUser(key: string): Promise<AuthUser> {
@@ -394,6 +396,101 @@ describe("club repository integration", () => {
         currentUserRole: "OWNER",
         alreadyAdded: false,
         existingStatus: null,
+      },
+    ]);
+  });
+
+  it("lists owned shelf books that are still importable into a club", async () => {
+    const owner = await getRequiredUser("owner");
+    const fixtureBook = await findBookByGoogleVolumeId(TEST_BOOK_VOLUME_ID);
+
+    expect(fixtureBook, "Expected seeded fixture book.").toBeTruthy();
+
+    const extraBook = await upsertBook({
+      googleVolumeId: "importable-extra-volume",
+      title: "Importable Extra Book",
+      subtitle: null,
+      authors: ["Extra Author"],
+      publisher: "Extra Publisher",
+      publishedDate: "2025",
+      description: null,
+      isbn10: null,
+      isbn13: "9780000000001",
+      pageCount: 280,
+      categories: ["Fiction"],
+      language: "en",
+      thumbnailUrl: null,
+      previewLink: null,
+      infoLink: "https://example.com/info",
+      canonicalLink: "https://example.com/canonical",
+      rawGoogleJson: {},
+    });
+
+    const club = await createClub({
+      createdById: owner.id,
+      name: "Shelf Import Club",
+      description: null,
+      visibility: "PUBLIC",
+    });
+    const activeShelf = await createShelf({
+      userId: owner.id,
+      name: "Main Shelf",
+      description: null,
+      isPublic: true,
+    });
+    await createShelf({
+      userId: owner.id,
+      name: "Empty Shelf",
+      description: null,
+      isPublic: false,
+    });
+
+    await addBookToShelf({
+      shelfId: activeShelf.id,
+      bookId: fixtureBook!.id,
+      addedById: owner.id,
+      note: "Already reading with the club.",
+    });
+    await addBookToShelf({
+      shelfId: activeShelf.id,
+      bookId: extraBook.id,
+      addedById: owner.id,
+      note: "Import this one next.",
+    });
+
+    await addBookToClub({
+      clubId: club.id,
+      bookId: fixtureBook!.id,
+      addedById: owner.id,
+      status: "READING",
+    });
+
+    const sources = await listShelfImportSourcesForClub({
+      clubId: club.id,
+      userId: owner.id,
+    });
+
+    expect(sources).toEqual([
+      {
+        shelfId: expect.any(String),
+        shelfName: "Empty Shelf",
+        isPublic: false,
+        books: [],
+      },
+      {
+        shelfId: activeShelf.id,
+        shelfName: "Main Shelf",
+        isPublic: true,
+        books: [
+          {
+            bookId: extraBook.id,
+            googleVolumeId: "importable-extra-volume",
+            title: "Importable Extra Book",
+            authors: ["Extra Author"],
+            thumbnailUrl: null,
+            note: "Import this one next.",
+          },
+        ],
       },
     ]);
   });

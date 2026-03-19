@@ -86,7 +86,7 @@ export default async function MyShelfDetailPage({
         </p>
       ) : null}
 
-      <ShelfDetail shelf={access.shelf} mode="owner" />
+      <ShelfDetail shelf={access.shelf} mode="owner" returnTo={returnTo} />
 
       <Card className="border-(--border)/90">
         <CardHeader>

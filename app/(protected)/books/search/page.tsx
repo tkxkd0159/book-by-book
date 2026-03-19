@@ -1,7 +1,7 @@
 import Image from "next/image";
 import Link from "next/link";
 
-import { AddBookToClubsModal } from "@/components/books/add-book-to-clubs-modal";
+import { AddBookModal } from "@/components/books/add-book-modal";
 import { BookSearchForm } from "@/components/books/book-search-form";
 import { Badge } from "@/components/ui/badge";
 import { buttonStyles } from "@/components/ui/button";
@@ -12,6 +12,7 @@ import {
   searchGoogleBooks,
 } from "@/lib/books/google";
 import { listManageableClubBookTargetsByGoogleVolumeIds } from "@/lib/clubs/repository";
+import { listManageableShelfBookTargetsByGoogleVolumeIds } from "@/lib/shelves/repository";
 import type { BookSearchMode, BookSearchPage } from "@/lib/books/types";
 const SEARCH_PAGE_SIZE = 18;
 const advancedFilterKeys = [
@@ -239,6 +240,11 @@ export default async function BookSearchPage({ searchParams }: Props.Page) {
     currentUser.id,
     results.map((result) => result.googleVolumeId),
   );
+  const shelfTargetsByVolumeId =
+    await listManageableShelfBookTargetsByGoogleVolumeIds(
+      currentUser.id,
+      results.map((result) => result.googleVolumeId),
+    );
   const resultCount = searchResult.totalItems;
 
   return (
@@ -431,10 +437,13 @@ export default async function BookSearchPage({ searchParams }: Props.Page) {
                     >
                       Details
                     </Link>
-                    <AddBookToClubsModal
+                    <AddBookModal
                       googleVolumeId={book.googleVolumeId}
                       bookTitle={book.title}
                       clubTargets={clubTargets}
+                      shelfTargets={
+                        shelfTargetsByVolumeId[book.googleVolumeId] ?? []
+                      }
                       returnTo={currentSearchHref}
                       triggerClassName="flex-1"
                     />
