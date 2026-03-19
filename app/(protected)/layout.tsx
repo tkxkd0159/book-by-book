@@ -30,18 +30,18 @@ export default async function ProtectedLayout({ children }: Props.Layout) {
                 Search
               </Link>
               <Link
-                href={createMyShelvesHref()}
-                className={buttonStyles({ variant: "ghost", size: "sm" })}
-              >
-                <BookMarked aria-hidden className="h-4 w-4 shrink-0" />
-                Shelves
-              </Link>
-              <Link
                 href="/clubs"
                 className={buttonStyles({ variant: "ghost", size: "sm" })}
               >
                 <LibraryBig aria-hidden className="h-4 w-4 shrink-0" />
                 Clubs
+              </Link>
+              <Link
+                href={createMyShelvesHref()}
+                className={buttonStyles({ variant: "ghost", size: "sm" })}
+              >
+                <BookMarked aria-hidden className="h-4 w-4 shrink-0" />
+                Shelves
               </Link>
               <ProfileMenu
                 name={currentUser.name}

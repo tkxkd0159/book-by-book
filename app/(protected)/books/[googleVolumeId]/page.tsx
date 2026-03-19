@@ -296,9 +296,6 @@ export default async function BookDetailPage({
         <div className="space-y-4">
           <div className="space-y-1">
             <h3 className="text-lg font-semibold">Recent reader reviews</h3>
-            <p className="text-sm text-(--muted)">
-              Headline, stars, profile, member ID, and written impressions from recent readers.
-            </p>
           </div>
 
           <PublicReviewList
