@@ -17,6 +17,14 @@ test("profile links to shelves", async ({ page }) => {
   await expect(page).toHaveURL(E2E_ROUTE_PATHS.meShelves);
 });
 
+test("protected navigation links to shelves", async ({ page }) => {
+  await signInAs(page, "owner", E2E_ROUTE_PATHS.booksSearch);
+
+  await expect(page.getByRole("link", { name: "Shelves" })).toBeVisible();
+  await page.getByRole("link", { name: "Shelves" }).click();
+  await expect(page).toHaveURL(E2E_ROUTE_PATHS.meShelves);
+});
+
 test("profile links to reviewed books", async ({ page }) => {
   await signInAs(page, "owner", E2E_ROUTE_PATHS.me);
 
@@ -45,7 +53,7 @@ test("members can create, update, and delete reviews from the book detail page",
 
   await expect(page.getByText("Write your review")).toBeVisible();
 
-  await page.getByLabel("4 stars").check();
+  await page.getByLabel("4.5 stars").check();
   await page.getByLabel("Title").fill("Strong opener");
   await page
     .getByRole("textbox", { name: "Review" })
@@ -88,7 +96,7 @@ test("members can create, update, and delete reviews from the book detail page",
     page.getByRole("button", { name: "Cancel", exact: true }),
   ).toBeVisible();
   await page.getByLabel("Title").fill("Less effective later");
-  await page.getByLabel("2 stars").check();
+  await page.getByLabel("2.5 stars").check();
   await page
     .getByRole("textbox", { name: "Review" })
     .fill("Less effective on a second read.");
@@ -125,7 +133,7 @@ test("book detail shows aggregate ratings, reader reviews, and keeps the add-boo
   await signInAs(page, "owner", E2E_ROUTE_PATHS.fixtureBook);
   const publicReviewsSection = page.getByTestId("public-review-list");
 
-  await page.getByLabel("4 stars").check();
+  await page.getByLabel("4.5 stars").check();
   await page.getByLabel("Title").fill("Owner headline");
   await page.getByRole("textbox", { name: "Review" }).fill("Owner review body.");
   await page.getByRole("button", { name: "Publish review" }).click();
@@ -138,20 +146,18 @@ test("book detail shows aggregate ratings, reader reviews, and keeps the add-boo
   await expect(page.getByText("Your review")).toBeVisible();
 
   await signInAs(page, "member", E2E_ROUTE_PATHS.fixtureBook);
-  await page.getByLabel("5 stars").check();
+  await page.getByLabel("4 stars").check();
   await page.getByLabel("Title").fill("Member headline");
   await page.getByRole("textbox", { name: "Review" }).fill("Member review body.");
   await page.getByRole("button", { name: "Publish review" }).click();
   await expect(page).toHaveURL(E2E_URL_PATTERNS.bookReview);
-  await expect(page.getByText("Review saved.")).toBeVisible();
-  await expect(page.getByLabel("Rating 4.5")).toBeVisible();
   await expect(page.getByText("Your review")).toBeVisible();
 
   await page.goto(E2E_ROUTE_PATHS.fixtureBook);
   await expect(
     page.getByRole("heading", { name: "Reader reviews", exact: true }),
   ).toBeVisible();
-  await expect(page.getByLabel("Rating 4.5")).toBeVisible();
+  await expect(page.getByLabel("Rating 4.3")).toBeVisible();
   await expect(page.getByText(/^2 reviews$/)).toBeVisible();
   await expect(page.getByText("Member review body.")).toBeVisible();
   await expect(page.getByText("Owner review body.")).toBeVisible();

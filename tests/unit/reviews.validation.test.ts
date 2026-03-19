@@ -11,13 +11,18 @@ import {
 
 describe("review validation", () => {
   it("accepts supported rating values", () => {
+    expect(parseReviewRating("0.5")).toBe(0.5);
     expect(parseReviewRating("1")).toBe(1);
+    expect(parseReviewRating("4.5")).toBe(4.5);
     expect(parseReviewRating(5)).toBe(5);
   });
 
-  it("requires a rating from 1 to 5", () => {
+  it("requires a rating from 0.5 to 5 in half-star steps", () => {
     expect(() => parseReviewRating("0")).toThrow(ReviewError);
+    expect(() => parseReviewRating("0.4")).toThrow(ReviewError);
+    expect(() => parseReviewRating("1.2")).toThrow(ReviewError);
     expect(() => parseReviewRating("6")).toThrow(ReviewError);
+    expect(() => parseReviewRating("5.5")).toThrow(ReviewError);
     expect(() => parseReviewRating("")).toThrow(ReviewError);
   });
 

@@ -66,6 +66,11 @@ export function OwnerShelfPageHeader({
             <PencilLine aria-hidden className="h-4 w-4 shrink-0" />
             {isEditOpen ? "Hide edit" : "Edit shelf"}
           </Button>
+          <DeleteShelfButton
+            shelfId={shelf.id}
+            shelfName={shelf.name}
+            returnTo={returnTo}
+          />
         </div>
       </div>
 
@@ -97,12 +102,6 @@ export function OwnerShelfPageHeader({
                 description: shelf.description,
                 isPublic: shelf.isPublic,
               }}
-            />
-
-            <DeleteShelfButton
-              shelfId={shelf.id}
-              shelfName={shelf.name}
-              returnTo={returnTo}
             />
           </CardContent>
         </Card>

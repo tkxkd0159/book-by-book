@@ -99,7 +99,16 @@ test("owner can create, update, list, and delete a shelf", async ({ page }) => {
   ).toBeVisible();
 
   await page.getByRole("button", { name: "Delete shelf" }).click();
-  await page.getByRole("button", { name: "Yes, delete shelf" }).click();
+  const deleteDialog = page.getByRole("dialog");
+  await expect(
+    deleteDialog.getByRole("button", { name: "Delete this shelf" }),
+  ).toBeDisabled();
+  await deleteDialog.getByLabel("Confirm shelf name").fill("Weekend Favorites");
+  await expect(
+    deleteDialog.getByRole("button", { name: "Delete this shelf" }),
+  ).toBeDisabled();
+  await deleteDialog.getByLabel("Confirm shelf name").fill("Weekend Classics");
+  await deleteDialog.getByRole("button", { name: "Delete this shelf" }).click();
 
   await expect(page).toHaveURL(/\/me\/shelves\?message=/i);
   await expect(page.getByText("Shelf deleted.")).toBeVisible();
@@ -176,6 +185,9 @@ test("owner can save notes, public readers can read them, and owner can remove s
   await expect(
     page.getByRole("link", { name: "The Test-Driven Book Club" }),
   ).toBeVisible();
+  await expect(page.getByRole("button", { name: "Remove book" })).toHaveCount(
+    0,
+  );
   await page
     .getByRole("button", {
       name: "Edit shelf item for The Test-Driven Book Club",
@@ -218,10 +230,9 @@ test("owner can save notes, public readers can read them, and owner can remove s
   await signInAs(page, "owner", ownerShelfUrl);
   await page
     .getByRole("button", {
-      name: "Edit shelf item for The Test-Driven Book Club",
+      name: "Remove The Test-Driven Book Club from shelf",
     })
     .click();
-  await page.getByRole("button", { name: "Remove book" }).click();
   await expect(page.getByText("Book removed from shelf.")).toBeVisible();
   await expect(page.getByText("No books on this shelf yet.")).toBeVisible();
 });

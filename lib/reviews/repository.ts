@@ -2,12 +2,16 @@ import sql from "@/lib/db";
 import type { AuthUser, BookRecord, ReviewRecord, ReviewRating } from "@/types/db";
 
 import { REVIEW_ERROR_MESSAGES, ReviewError } from "@/lib/reviews/errors";
+import {
+  reviewRatingToStoredSteps,
+  storedStepsToReviewRating,
+} from "@/lib/reviews/rating";
 
 type ReviewRow = {
   id: string;
   userId: string;
   bookId: string;
-  rating: ReviewRating | null;
+  rating: number | null;
   title: string | null;
   body: string | null;
   containsSpoilers: boolean;
@@ -53,7 +57,10 @@ export type PublicBookReview = {
 };
 
 function mapReview(row: ReviewRow): ReviewRecord {
-  return row;
+  return {
+    ...row,
+    rating: storedStepsToReviewRating(row.rating),
+  };
 }
 
 function mapReviewedBook(row: ReviewedBookRow): ReviewedBookEntry {
@@ -142,7 +149,7 @@ export async function getBookReviewAggregate(
 ): Promise<BookReviewAggregate> {
   const [aggregate] = await sql<BookReviewAggregateRow[]>`
     select
-      avg(rating)::float8 as "averageRating",
+      (avg(rating)::float8 / 2) as "averageRating",
       count(*)::int as "reviewCount"
     from bookapp.reviews
     where book_id = ${bookId}::uuid
@@ -206,7 +213,7 @@ export async function upsertReview(input: {
     values (
       ${input.userId}::uuid,
       ${input.bookId}::uuid,
-      ${input.rating},
+      ${reviewRatingToStoredSteps(input.rating)},
       ${input.title ?? null},
       ${input.body},
       ${input.containsSpoilers ?? false},

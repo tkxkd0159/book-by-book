@@ -1,6 +1,10 @@
 import type { ReviewRating } from "@/types/db";
 
 import { ReviewError } from "@/lib/reviews/errors";
+import {
+  REVIEW_RATING_OPTIONS,
+  isReviewRating,
+} from "@/lib/reviews/rating";
 
 const REVIEW_BODY_MAX_LENGTH = 5_000;
 const REVIEW_TITLE_MAX_LENGTH = 120;
@@ -18,24 +22,16 @@ export function parseReviewRating(
 ): ReviewRating {
   const normalized =
     typeof value === "number" ? String(value) : readString(value).trim();
+  const numericValue = Number(normalized);
 
-  if (normalized === "1") {
-    return 1;
-  }
-  if (normalized === "2") {
-    return 2;
-  }
-  if (normalized === "3") {
-    return 3;
-  }
-  if (normalized === "4") {
-    return 4;
-  }
-  if (normalized === "5") {
-    return 5;
+  if (Number.isFinite(numericValue) && isReviewRating(numericValue)) {
+    return numericValue;
   }
 
-  throw new ReviewError("VALIDATION", "Choose a rating from 1 to 5.");
+  throw new ReviewError(
+    "VALIDATION",
+    `Choose a rating from ${REVIEW_RATING_OPTIONS[0]} to ${REVIEW_RATING_OPTIONS.at(-1)} stars.`,
+  );
 }
 
 export function parseReviewBody(

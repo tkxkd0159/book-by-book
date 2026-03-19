@@ -1,13 +1,17 @@
 "use client";
 
-import { Star } from "lucide-react";
 import { useId, useState } from "react";
 
 import { upsertReviewAction } from "@/app/(protected)/me/reviews/actions";
+import { RatingStars } from "@/components/reviews/rating-stars";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { cn } from "@/lib/utils";
+import {
+  REVIEW_RATING_OPTIONS,
+  formatReviewRatingLabel,
+  formatReviewRatingValue,
+} from "@/lib/reviews/rating";
 import type { ReviewRecord, ReviewRating } from "@/types/db";
 
 type ReviewFormProps = {
@@ -17,8 +21,6 @@ type ReviewFormProps = {
   bookImportToken?: string;
   onCancel?: () => void;
 };
-
-const REVIEW_RATING_OPTIONS = [1, 2, 3, 4, 5] as const satisfies ReviewRating[];
 
 export function ReviewForm({
   googleVolumeId,
@@ -30,7 +32,9 @@ export function ReviewForm({
   const [selectedRating, setSelectedRating] = useState<ReviewRating | null>(
     review?.rating ?? null,
   );
+  const [hoveredRating, setHoveredRating] = useState<ReviewRating | null>(null);
   const idPrefix = useId();
+  const previewRating = hoveredRating ?? selectedRating ?? 0;
 
   return (
     <div className="space-y-4">
@@ -45,45 +49,46 @@ export function ReviewForm({
           <legend className="text-sm font-medium">Rating</legend>
           <div className="space-y-3">
             <div
-              role="radiogroup"
-              aria-label="Rating"
-              className="flex flex-wrap items-center gap-1"
+              className="space-y-3"
+              onMouseLeave={() => setHoveredRating(null)}
             >
-              {REVIEW_RATING_OPTIONS.map((rating) => (
-                <label
-                  key={rating}
-                  htmlFor={`${idPrefix}-${rating}`}
-                  className="group relative cursor-pointer rounded-full p-1 focus-within:outline-none focus-within:ring-2 focus-within:ring-(--accent-soft)"
-                >
-                  <input
-                    id={`${idPrefix}-${rating}`}
-                    type="radio"
-                    name="rating"
-                    value={rating}
-                    checked={selectedRating === rating}
-                    onChange={() => setSelectedRating(rating)}
-                    required={rating === 1}
-                    className="absolute inset-0 cursor-pointer opacity-0"
-                  />
-                  <Star
-                    aria-hidden
-                    className={cn(
-                      "pointer-events-none h-8 w-8 transition-transform duration-150 group-hover:scale-105",
-                      selectedRating !== null && rating <= selectedRating
-                        ? "fill-[#c78d42] text-[#c78d42]"
-                        : "text-(--border)",
-                    )}
-                  />
-                  <span className="sr-only">
-                    {rating} star{rating === 1 ? "" : "s"}
-                  </span>
-                </label>
-              ))}
+              <div
+                role="radiogroup"
+                aria-label="Rating"
+                className="relative inline-flex rounded-lg p-1 focus-within:ring-2 focus-within:ring-(--accent-soft)"
+              >
+                <RatingStars value={previewRating} size="lg" />
+
+                <div className="absolute inset-0 grid grid-cols-10 overflow-hidden rounded-lg">
+                  {REVIEW_RATING_OPTIONS.map((rating, index) => (
+                    <label
+                      key={rating}
+                      htmlFor={`${idPrefix}-${index}`}
+                      className="relative block h-full w-full cursor-pointer"
+                      onMouseEnter={() => setHoveredRating(rating)}
+                    >
+                      <input
+                        id={`${idPrefix}-${index}`}
+                        type="radio"
+                        name="rating"
+                        value={rating}
+                        checked={selectedRating === rating}
+                        onChange={() => setSelectedRating(rating)}
+                        required={index === 0}
+                        className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
+                      />
+                      <span className="sr-only">
+                        {formatReviewRatingLabel(rating)}
+                      </span>
+                    </label>
+                  ))}
+                </div>
+              </div>
             </div>
             <p className="text-sm text-(--muted)">
               {selectedRating
-                ? `${selectedRating} of 5 stars selected`
-                : "Choose a rating from 1 to 5."}
+                ? `${formatReviewRatingValue(selectedRating)} of 5 stars selected`
+                : "Choose a rating from 0.5 to 5 stars."}
             </p>
           </div>
         </fieldset>

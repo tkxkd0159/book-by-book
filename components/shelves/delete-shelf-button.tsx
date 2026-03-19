@@ -1,11 +1,12 @@
 "use client";
 
-import { AlertTriangle, X } from "lucide-react";
+import { AlertTriangle, Trash2, X } from "lucide-react";
 import { usePathname, useSearchParams } from "next/navigation";
 import { useId, useState } from "react";
 
 import { deleteShelfAction } from "@/app/(protected)/me/shelves/actions";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { ModalShell } from "@/components/ui/modal-shell";
 
 type DeleteShelfButtonProps = {
@@ -20,20 +21,24 @@ export function DeleteShelfButton({
   returnTo,
 }: DeleteShelfButtonProps) {
   const [open, setOpen] = useState(false);
+  const [confirmationName, setConfirmationName] = useState("");
   const titleId = useId();
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const currentQuery = searchParams.toString();
   const resolvedReturnTo =
     returnTo ?? (currentQuery ? `${pathname}?${currentQuery}` : pathname);
+  const isConfirmationMatch = confirmationName.trim() === shelfName.trim();
 
   function closeModal() {
     setOpen(false);
+    setConfirmationName("");
   }
 
   return (
     <>
       <Button variant="destructive" onClick={() => setOpen(true)}>
+        <Trash2 aria-hidden className="h-4 w-4 shrink-0" />
         Delete shelf
       </Button>
 
@@ -52,7 +57,8 @@ export function DeleteShelfButton({
               </h2>
               <p className="text-sm text-(--muted)">
                 This permanently removes the shelf and any books or notes stored
-                on it. This cannot be undone.
+                on it. Type the shelf name exactly to confirm. This cannot be
+                undone.
               </p>
             </div>
 
@@ -74,21 +80,46 @@ export function DeleteShelfButton({
                 className="mt-0.5 h-5 w-5 shrink-0 text-[#8f2318]"
               />
               <p className="text-sm text-[#7e1f14]">
-                Public readers lose access immediately and any shelf notes disappear
-                with the shelf.
+                Public readers lose access immediately and any shelf notes
+                disappear with the shelf.
               </p>
             </div>
           </div>
 
-          <form action={deleteShelfAction} className="flex flex-wrap gap-2">
+          <form action={deleteShelfAction} className="space-y-4">
             <input type="hidden" name="shelfId" value={shelfId} />
             <input type="hidden" name="returnTo" value={resolvedReturnTo} />
-            <Button type="button" variant="secondary" onClick={closeModal}>
-              Cancel
-            </Button>
-            <Button type="submit" variant="destructive">
-              Yes, delete shelf
-            </Button>
+
+            <label className="block space-y-2 text-sm font-medium">
+              <span>Confirm shelf name</span>
+              <Input
+                value={confirmationName}
+                onChange={(event) => setConfirmationName(event.target.value)}
+                autoComplete="off"
+                spellCheck={false}
+                placeholder={shelfName}
+              />
+            </label>
+
+            <p className="text-xs text-(--muted)">
+              Type{" "}
+              <span className="font-medium text-foreground">{shelfName}</span>{" "}
+              to enable deletion.
+            </p>
+
+            <div className="flex flex-wrap gap-2">
+              <Button type="button" variant="secondary" onClick={closeModal}>
+                Cancel
+              </Button>
+              <Button
+                type="submit"
+                variant="destructive"
+                disabled={!isConfirmationMatch}
+              >
+                <Trash2 aria-hidden className="h-4 w-4 shrink-0" />
+                Delete this shelf
+              </Button>
+            </div>
           </form>
         </div>
       </ModalShell>

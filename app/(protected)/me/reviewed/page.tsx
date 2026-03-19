@@ -26,7 +26,7 @@ export default async function MyReviewedPage({ searchParams }: Props.Page) {
   const focusReview = readMessage(params.focusReview);
 
   return (
-    <div className="space-y-6">
+    <div className="max-w-4xl space-y-6">
       <FlashToast
         key={`${message ?? ""}:${error ?? ""}`}
         message={message}
@@ -56,7 +56,7 @@ export default async function MyReviewedPage({ searchParams }: Props.Page) {
           </CardContent>
         </Card>
       ) : (
-        <div className="space-y-4">
+        <div className="space-y-3">
           {reviewedBooks.map((entry) => (
             <ReviewedBookCard
               key={[

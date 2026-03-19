@@ -79,24 +79,41 @@ export function OwnerShelfItemCard({
                 ) : null}
               </div>
 
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                className="h-9 w-9 rounded-full p-0"
-                aria-label={
-                  isEditing
-                    ? `Cancel shelf item edit for ${item.book.title}`
-                    : `Edit shelf item for ${item.book.title}`
-                }
-                onClick={() => setIsEditing((open) => !open)}
-              >
-                {isEditing ? (
-                  <X aria-hidden className="h-4 w-4 shrink-0" />
-                ) : (
-                  <PencilLine aria-hidden className="h-4 w-4 shrink-0" />
-                )}
-              </Button>
+              <div className="flex items-center gap-1">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="h-9 w-9 rounded-full p-0"
+                  aria-label={
+                    isEditing
+                      ? `Cancel shelf item edit for ${item.book.title}`
+                      : `Edit shelf item for ${item.book.title}`
+                  }
+                  onClick={() => setIsEditing((open) => !open)}
+                >
+                  {isEditing ? (
+                    <X aria-hidden className="h-4 w-4 shrink-0" />
+                  ) : (
+                    <PencilLine aria-hidden className="h-4 w-4 shrink-0" />
+                  )}
+                </Button>
+
+                <form action={removeShelfItemAction}>
+                  <input type="hidden" name="shelfId" value={shelfId} />
+                  <input type="hidden" name="bookId" value={item.book.id} />
+                  <input type="hidden" name="returnTo" value={returnTo} />
+                  <Button
+                    type="submit"
+                    variant="ghost"
+                    size="sm"
+                    className="h-9 w-9 rounded-full p-0 text-[#8f2318] hover:bg-[#fff1ee] hover:text-[#741a13]"
+                    aria-label={`Remove ${item.book.title} from shelf`}
+                  >
+                    <Trash2 aria-hidden className="h-4 w-4 shrink-0" />
+                  </Button>
+                </form>
+              </div>
             </div>
 
             {isEditing ? (
@@ -116,16 +133,6 @@ export function OwnerShelfItemCard({
                   </label>
                   <Button type="submit" size="sm">
                     Save note
-                  </Button>
-                </form>
-
-                <form action={removeShelfItemAction} className="mt-3">
-                  <input type="hidden" name="shelfId" value={shelfId} />
-                  <input type="hidden" name="bookId" value={item.book.id} />
-                  <input type="hidden" name="returnTo" value={returnTo} />
-                  <Button type="submit" variant="destructive" size="sm">
-                    <Trash2 aria-hidden className="h-4 w-4 shrink-0" />
-                    Remove book
                   </Button>
                 </form>
               </div>

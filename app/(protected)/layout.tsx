@@ -1,11 +1,11 @@
-import { LibraryBig, Search } from "lucide-react";
+import { BookMarked, LibraryBig, Search } from "lucide-react";
 import Link from "next/link";
 
 import ProfileMenu from "@/components/auth/profile-menu";
 import { ReactQueryProvider } from "@/components/providers/react-query-provider";
-import { Badge } from "@/components/ui/badge";
 import { buttonStyles } from "@/components/ui/button";
 import { requireCurrentUser } from "@/lib/auth/server";
+import { createMyShelvesHref } from "@/lib/shelves/view-paths";
 
 export default async function ProtectedLayout({ children }: Props.Layout) {
   const currentUser = await requireCurrentUser();
@@ -28,6 +28,13 @@ export default async function ProtectedLayout({ children }: Props.Layout) {
               >
                 <Search aria-hidden className="h-4 w-4 shrink-0" />
                 Search
+              </Link>
+              <Link
+                href={createMyShelvesHref()}
+                className={buttonStyles({ variant: "ghost", size: "sm" })}
+              >
+                <BookMarked aria-hidden className="h-4 w-4 shrink-0" />
+                Shelves
               </Link>
               <Link
                 href="/clubs"

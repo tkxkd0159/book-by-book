@@ -446,7 +446,7 @@ CREATE TABLE IF NOT EXISTS reviews (
   deleted_at         timestamptz,
 
   CONSTRAINT reviews_uniq UNIQUE (user_id, book_id),
-  CONSTRAINT reviews_rating_chk CHECK (rating IS NULL OR (rating >= 1 AND rating <= 5))
+  CONSTRAINT reviews_rating_chk CHECK (rating IS NULL OR (rating >= 1 AND rating <= 10))
 );
 
 DROP TRIGGER IF EXISTS trg_reviews_updated_at ON reviews;

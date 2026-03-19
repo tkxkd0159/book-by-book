@@ -1,3 +1,5 @@
+import { formatReviewRatingValue } from "@/lib/reviews/rating";
+
 const REVIEW_PRESENTATION_TEXT = {
   noRatingsYet: "No ratings yet",
   ratingOnly: "Left a rating only.",
@@ -41,7 +43,7 @@ export function getReviewTitle(
   }
 
   if (typeof rating === "number") {
-    return `${REVIEW_PRESENTATION_TEXT.untitledPrefix} ${rating} out of 5`;
+    return `${REVIEW_PRESENTATION_TEXT.untitledPrefix} ${formatReviewRatingValue(rating)} out of 5`;
   }
 
   return "Untitled review";

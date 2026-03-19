@@ -35,7 +35,10 @@ export function PublicReviewList({
       className="divide-y divide-(--border)/70 border-y border-(--border)/70"
     >
       {reviews.map((entry) => (
-        <article key={entry.review.id} className="grid gap-4 py-5 sm:grid-cols-[auto_1fr]">
+        <article
+          key={entry.review.id}
+          className="grid gap-4 py-5 sm:grid-cols-[auto_1fr]"
+        >
           <div className="flex items-start gap-3">
             <UserAvatar
               name={entry.author.name}
