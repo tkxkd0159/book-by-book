@@ -54,7 +54,7 @@ export default function SignInGoogleButton({
             </svg>
           </span>
           <span className="google-signin-contents">
-            {isPending ? "Redirecting..." : "Sign in with Google"}
+            {isPending ? "Redirecting..." : "Continue with Google"}
           </span>
         </span>
       </button>
@@ -90,7 +90,10 @@ export default function SignInGoogleButton({
           padding: 0;
           position: relative;
           text-align: center;
-          transition: transform 0.18s ease, box-shadow 0.2s ease, filter 0.2s ease;
+          transition:
+            transform 0.18s ease,
+            box-shadow 0.2s ease,
+            filter 0.2s ease;
           vertical-align: middle;
           white-space: nowrap;
           width: 100%;

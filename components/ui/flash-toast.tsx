@@ -43,7 +43,7 @@ function buildToastItems(message: string | null, error: string | null) {
 export function FlashToast({
   message = null,
   error = null,
-  durationMs = 2000,
+  durationMs = 1500,
 }: FlashToastProps) {
   const router = useRouter();
   const pathname = usePathname();

@@ -16,7 +16,11 @@ export default async function ProtectedLayout({ children }: Props.Layout) {
         <header className="relative z-40 overflow-visible border-b border-(--border) bg-(--surface-strong)/90 backdrop-blur">
           <div className="mx-auto flex w-full max-w-6xl flex-wrap items-center justify-between gap-3 px-4 py-4 sm:px-6 lg:px-8">
             <div className="flex items-center gap-2">
-              <Link href="/books/search" className="text-lg font-semibold">
+              <Link
+                href="/books/search"
+                className="text-4xl leading-none text-foreground"
+                style={{ fontFamily: '"Romanesco", cursive' }}
+              >
                 Book by Book
               </Link>
             </div>

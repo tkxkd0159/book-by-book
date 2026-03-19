@@ -23,48 +23,48 @@ export default async function Page() {
         Book by Book
       </p>
       <h1 className="max-w-3xl text-4xl font-semibold leading-tight sm:text-5xl">
-        Build your reading life with social clubs and personal shelves.
+        A social home for your reading life.
       </h1>
       <p className="mt-5 max-w-2xl text-lg text-(--muted)">
-        Sign in, discover books from our vast catalog, and start shaping your
-        next reads.
+        Discover books, organize them on personal shelves, read together in
+        clubs, and leave reviews and discussions that stay tied to each title.
       </p>
 
       <div className="mt-8">
         <Link href="/signin" className={buttonStyles({ size: "lg" })}>
-          Let the fun begin!
+          Start your reading life
         </Link>
       </div>
 
       <div className="mt-14 grid w-full gap-4 md:grid-cols-3">
         <Card>
           <CardHeader>
-            <CardTitle>Search Fast</CardTitle>
-            <CardDescription>Google Books-backed discovery</CardDescription>
+            <CardTitle>Read together in clubs</CardTitle>
+            <CardDescription>Shared boards and book threads</CardDescription>
           </CardHeader>
           <CardContent className="text-sm text-(--muted)">
-            Find titles by author, title, or ISBN and add them directly to the
-            clubs you manage.
+            Track what your club wants to read, is reading, and has finished,
+            then keep every discussion anchored to the book itself.
           </CardContent>
         </Card>
         <Card>
           <CardHeader>
-            <CardTitle>Cache Reliable</CardTitle>
-            <CardDescription>Local database copy</CardDescription>
+            <CardTitle>Build personal shelves</CardTitle>
+            <CardDescription>Private or public reading lists</CardDescription>
           </CardHeader>
           <CardContent className="text-sm text-(--muted)">
-            Books added to your clubs are cached in Postgres and reused for
-            book detail rendering.
+            Create custom shelves for themes, moods, and reading projects, add
+            notes, and share the lists you want others to browse.
           </CardContent>
         </Card>
         <Card>
           <CardHeader>
-            <CardTitle>Milestone Ready</CardTitle>
-            <CardDescription>Foundation for clubs</CardDescription>
+            <CardTitle>Review books, not just lists</CardTitle>
+            <CardDescription>Ratings that stay with the book</CardDescription>
           </CardHeader>
           <CardContent className="text-sm text-(--muted)">
-            Auth and books are in place so clubs, threads, shelves, and reviews
-            can layer on next.
+            Leave your take on the book detail page, build a reviewed history,
+            and see how other readers responded to the same title.
           </CardContent>
         </Card>
       </div>

@@ -45,10 +45,7 @@ export default async function SignInPage({ searchParams }: Props.Page) {
       <Card className="w-full border-2 bg-(--surface-strong)">
         <CardHeader>
           <CardTitle className="text-3xl">Sign in to Book by Book</CardTitle>
-          <CardDescription>
-            Google login is required for milestone 1 and ready for future
-            provider extensions.
-          </CardDescription>
+          <CardDescription></CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           {errorMessage ? (
