@@ -18,6 +18,7 @@ import {
 import {
   acceptClubInvitation,
   addBookToClub,
+  addBooksToClub,
   changeClubMemberRole,
   createClub,
   createClubInvitation,
@@ -649,16 +650,12 @@ export async function addBooksFromShelfToClubAction(formData: FormData) {
       );
     }
 
-    await Promise.all(
-      eligibleBookIds.map((bookId) =>
-        addBookToClub({
-          clubId,
-          bookId,
-          addedById: currentUser.id,
-          status: "WANT_TO_READ",
-        }),
-      ),
-    );
+    await addBooksToClub({
+      clubId,
+      bookIds: eligibleBookIds,
+      addedById: currentUser.id,
+      status: "WANT_TO_READ",
+    });
 
     revalidateClubBookPages(clubId);
     revalidateReturnTo(returnTo);

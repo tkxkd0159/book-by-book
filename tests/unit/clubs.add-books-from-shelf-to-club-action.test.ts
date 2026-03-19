@@ -6,6 +6,7 @@ const redirectMock = vi.fn((location: string) => {
 const requireCurrentUserMock = vi.fn();
 const enforceMutationRateLimitMock = vi.fn();
 const addBookToClubMock = vi.fn();
+const addBooksToClubMock = vi.fn();
 const listShelfImportSourcesForClubMock = vi.fn();
 
 vi.mock("next/navigation", () => ({
@@ -46,15 +47,34 @@ vi.mock("@/lib/clubs/repository", async () => {
   return {
     ...actual,
     addBookToClub: addBookToClubMock,
+    addBooksToClub: addBooksToClubMock,
     listShelfImportSourcesForClub: listShelfImportSourcesForClubMock,
   };
 });
+
+async function captureRedirectLocation(action: Promise<unknown>) {
+  try {
+    await action;
+  } catch (error) {
+    expect(error).toBeInstanceOf(Error);
+
+    if (error instanceof Error) {
+      const prefix = "NEXT_REDIRECT:";
+
+      expect(error.message.startsWith(prefix)).toBe(true);
+      return error.message.slice(prefix.length);
+    }
+  }
+
+  throw new Error("Expected action to redirect.");
+}
 
 describe("addBooksFromShelfToClubAction", () => {
   beforeEach(() => {
     vi.resetModules();
     vi.clearAllMocks();
     enforceMutationRateLimitMock.mockResolvedValue({ allowed: true });
+    addBooksToClubMock.mockResolvedValue([]);
   });
 
   it("requires at least one selected shelf book", async () => {
@@ -71,8 +91,14 @@ describe("addBooksFromShelfToClubAction", () => {
     formData.set("shelfId", "shelf-1");
     formData.set("returnTo", "/clubs/club-1/manage/board");
 
-    await expect(addBooksFromShelfToClubAction(formData)).rejects.toThrow(
-      "NEXT_REDIRECT:/clubs/club-1/manage/board?error=Select+at+least+one+shelf+book+to+add+to+the+club.",
+    const location = await captureRedirectLocation(
+      addBooksFromShelfToClubAction(formData),
+    );
+    const url = new URL(location, "http://localhost");
+
+    expect(url.pathname).toBe("/clubs/club-1/manage/board");
+    expect(url.searchParams.get("error")).toBe(
+      "Select at least one shelf book to add to the club.",
     );
   });
 
@@ -117,20 +143,18 @@ describe("addBooksFromShelfToClubAction", () => {
     formData.append("bookId", "book-1");
     formData.append("bookId", "book-2");
 
-    await expect(addBooksFromShelfToClubAction(formData)).rejects.toThrow(
-      "NEXT_REDIRECT:/clubs/club-1/manage/board?message=2+books+added+to+the+club.",
+    const location = await captureRedirectLocation(
+      addBooksFromShelfToClubAction(formData),
     );
+    const url = new URL(location, "http://localhost");
 
-    expect(addBookToClubMock).toHaveBeenCalledTimes(2);
-    expect(addBookToClubMock).toHaveBeenNthCalledWith(1, {
+    expect(url.pathname).toBe("/clubs/club-1/manage/board");
+    expect(url.searchParams.get("message")).toBe("2 books added to the club.");
+
+    expect(addBooksToClubMock).toHaveBeenCalledTimes(1);
+    expect(addBooksToClubMock).toHaveBeenCalledWith({
       clubId: "club-1",
-      bookId: "book-1",
-      addedById: "user-123",
-      status: "WANT_TO_READ",
-    });
-    expect(addBookToClubMock).toHaveBeenNthCalledWith(2, {
-      clubId: "club-1",
-      bookId: "book-2",
+      bookIds: ["book-1", "book-2"],
       addedById: "user-123",
       status: "WANT_TO_READ",
     });
@@ -169,16 +193,56 @@ describe("addBooksFromShelfToClubAction", () => {
     formData.append("bookId", "book-1");
     formData.append("bookId", "book-2");
 
-    await expect(addBooksFromShelfToClubAction(formData)).rejects.toThrow(
-      "NEXT_REDIRECT:/clubs/club-1/manage/board?message=1+book+added+to+the+club.+1+selection+already+had+this+book.",
+    const location = await captureRedirectLocation(
+      addBooksFromShelfToClubAction(formData),
+    );
+    const url = new URL(location, "http://localhost");
+
+    expect(url.pathname).toBe("/clubs/club-1/manage/board");
+    expect(url.searchParams.get("message")).toBe(
+      "1 book added to the club. 1 selection already had this book.",
     );
 
-    expect(addBookToClubMock).toHaveBeenCalledTimes(1);
-    expect(addBookToClubMock).toHaveBeenCalledWith({
+    expect(addBooksToClubMock).toHaveBeenCalledTimes(1);
+    expect(addBooksToClubMock).toHaveBeenCalledWith({
       clubId: "club-1",
-      bookId: "book-1",
+      bookIds: ["book-1"],
       addedById: "user-123",
       status: "WANT_TO_READ",
     });
+  });
+
+  it("rejects a shelf that is no longer available to import", async () => {
+    requireCurrentUserMock.mockResolvedValue({
+      id: "user-123",
+    });
+    listShelfImportSourcesForClubMock.mockResolvedValue([
+      {
+        shelfId: "shelf-2",
+        shelfName: "Other Shelf",
+        isPublic: false,
+        books: [],
+      },
+    ]);
+
+    const { addBooksFromShelfToClubAction } = await import(
+      "@/app/(protected)/clubs/actions"
+    );
+
+    const formData = new FormData();
+    formData.set("clubId", "club-1");
+    formData.set("shelfId", "shelf-1");
+    formData.set("returnTo", "/clubs/club-1/manage/board");
+    formData.append("bookId", "book-1");
+
+    const location = await captureRedirectLocation(
+      addBooksFromShelfToClubAction(formData),
+    );
+    const url = new URL(location, "http://localhost");
+
+    expect(url.pathname).toBe("/clubs/club-1/manage/board");
+    expect(url.searchParams.get("error")).toBe("Choose a valid shelf.");
+    expect(addBooksToClubMock).not.toHaveBeenCalled();
+    expect(addBookToClubMock).not.toHaveBeenCalled();
   });
 });

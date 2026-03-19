@@ -308,6 +308,70 @@ async function getNextSortOrder(
   return result?.nextSortOrder ?? 0;
 }
 
+async function requireClubBookManager(
+  query: QueryExecutor,
+  clubId: string,
+  userId: string,
+) {
+  const membership = await getMembershipForUpdate(query, clubId, userId);
+  if (!membership || !isClubAdmin(membership.role)) {
+    throw new ClubError(
+      membership ? "FORBIDDEN" : "NOT_FOUND",
+      "Only club admins can manage books.",
+    );
+  }
+}
+
+async function upsertClubBook(
+  query: QueryExecutor,
+  input: {
+    clubId: string;
+    bookId: string;
+    addedById: string;
+    status: ClubBookStatus;
+    sortOrder: number;
+  },
+) {
+  const [clubBook] = await query<ClubBookRow[]>`
+    insert into bookapp.club_books (
+      club_id,
+      book_id,
+      status,
+      added_by_id,
+      sort_order,
+      removed_at
+    )
+    values (
+      ${input.clubId}::uuid,
+      ${input.bookId}::uuid,
+      ${input.status},
+      ${input.addedById}::uuid,
+      ${input.sortOrder},
+      null
+    )
+    on conflict (club_id, book_id)
+    do update set
+      status = excluded.status,
+      added_by_id = excluded.added_by_id,
+      sort_order = excluded.sort_order,
+      removed_at = null,
+      updated_at = now()
+    returning
+      id::text as id,
+      club_id::text as "clubId",
+      book_id::text as "bookId",
+      status,
+      added_by_id::text as "addedById",
+      sort_order as "sortOrder",
+      added_at as "addedAt",
+      removed_at as "removedAt",
+      created_at as "createdAt",
+      updated_at as "updatedAt"
+  `;
+
+  return mapClubBook(clubBook);
+}
+
 export async function listUserClubs(userId: string) {
   const rows = await sql<ClubSummaryRow[]>`
     select
@@ -997,61 +1061,53 @@ export async function addBookToClub(input: {
 }) {
   return sql.begin(async (tx) => {
     const query = asQueryExecutor(tx);
-    const membership = await getMembershipForUpdate(
-      query,
-      input.clubId,
-      input.addedById,
-    );
-    if (!membership || !isClubAdmin(membership.role)) {
-      throw new ClubError(
-        membership ? "FORBIDDEN" : "NOT_FOUND",
-        "Only club admins can manage books.",
-      );
-    }
+    await requireClubBookManager(query, input.clubId, input.addedById);
 
     const nextSortOrder = await getNextSortOrder(
       query,
       input.clubId,
       input.status,
     );
-    const [clubBook] = await query<ClubBookRow[]>`
-      insert into bookapp.club_books (
-        club_id,
-        book_id,
-        status,
-        added_by_id,
-        sort_order,
-        removed_at
-      )
-      values (
-        ${input.clubId}::uuid,
-        ${input.bookId}::uuid,
-        ${input.status},
-        ${input.addedById}::uuid,
-        ${nextSortOrder},
-        null
-      )
-      on conflict (club_id, book_id)
-      do update set
-        status = excluded.status,
-        added_by_id = excluded.added_by_id,
-        sort_order = excluded.sort_order,
-        removed_at = null,
-        updated_at = now()
-      returning
-        id::text as id,
-        club_id::text as "clubId",
-        book_id::text as "bookId",
-        status,
-        added_by_id::text as "addedById",
-        sort_order as "sortOrder",
-        added_at as "addedAt",
-        removed_at as "removedAt",
-        created_at as "createdAt",
-        updated_at as "updatedAt"
-    `;
+    return upsertClubBook(query, {
+      ...input,
+      sortOrder: nextSortOrder,
+    });
+  });
+}
 
-    return mapClubBook(clubBook);
+export async function addBooksToClub(input: {
+  clubId: string;
+  bookIds: string[];
+  addedById: string;
+  status: ClubBookStatus;
+}) {
+  if (input.bookIds.length === 0) {
+    return [];
+  }
+
+  return sql.begin(async (tx) => {
+    const query = asQueryExecutor(tx);
+    await requireClubBookManager(query, input.clubId, input.addedById);
+
+    const startingSortOrder = await getNextSortOrder(
+      query,
+      input.clubId,
+      input.status,
+    );
+    const clubBooks: ClubBookRecord[] = [];
+
+    for (const [index, bookId] of input.bookIds.entries()) {
+      const clubBook = await upsertClubBook(query, {
+        clubId: input.clubId,
+        bookId,
+        addedById: input.addedById,
+        status: input.status,
+        sortOrder: startingSortOrder + index,
+      });
+      clubBooks.push(clubBook);
+    }
+
+    return clubBooks;
   });
 }
 
