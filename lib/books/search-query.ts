@@ -45,7 +45,9 @@ export function normalizeBasicQuery(query: string) {
 }
 
 export function buildTitleOnlySearchQuery(normalizedQuery: string) {
-  const escaped = normalizedQuery.replace(/"/g, '\\"');
+  const escaped = normalizedQuery
+    .replace(/\\/g, "\\\\")
+    .replace(/"/g, '\\"');
   return `intitle:"${escaped}"`;
 }
 
