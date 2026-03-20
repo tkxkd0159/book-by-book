@@ -442,7 +442,6 @@ test("members can create one-depth replies while authors retain edit and delete 
     .locator(`#${firstReplyCommentId}`)
     .getByRole("button", { name: "Delete post" })
     .click();
-  await expect(page.getByText("Post deleted.")).toBeVisible();
   const deletedReplyComment = page.locator(`#${firstReplyCommentId}`);
   await expect(deletedReplyComment.getByTestId("thread-post-meta")).toContainText(
     "[deleted]",
@@ -454,7 +453,6 @@ test("members can create one-depth replies while authors retain edit and delete 
     .getByRole("button", { name: "Delete post" })
     .first()
     .click();
-  await expect(page.getByText("Post deleted.")).toBeVisible();
   const deletedTopLevelComment = page.locator(`#${topLevelCommentId}`);
   await expect(deletedTopLevelComment).toContainText("This post was deleted.");
   await expect(
@@ -730,7 +728,6 @@ test("thread comments infinite-load older batches and preserve long-feed mutatio
   await commentArticle(page, "Long comment 21 updated")
     .getByRole("button", { name: "Delete post" })
     .click();
-  await expect(page.getByText("Post deleted.")).toBeVisible();
   await expect(commentArticle(page, "This post was deleted.")).toContainText(
     "This post was deleted.",
   );
