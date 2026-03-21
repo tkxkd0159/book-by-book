@@ -61,13 +61,19 @@ export async function authorizeInternalAdminCredentials(
   },
 ): Promise<User | null> {
   try {
-    const adminUser = await authenticateInternalAdmin({
-      email: typeof credentials?.email === "string" ? credentials.email : null,
-      password:
-        typeof credentials?.password === "string" ? credentials.password : null,
-    }, {
-      headers: request?.headers,
-    });
+    const adminUser = await authenticateInternalAdmin(
+      {
+        email:
+          typeof credentials?.email === "string" ? credentials.email : null,
+        password:
+          typeof credentials?.password === "string"
+            ? credentials.password
+            : null,
+      },
+      {
+        headers: request?.headers,
+      },
+    );
 
     return {
       id: adminUser.id,

@@ -17,10 +17,7 @@ const SESSION_MAX_AGE_SECONDS = 14 * 24 * 60 * 60;
 const googleOAuthEnv = env.googleOAuth;
 const runtimeEnv = env.runtime;
 
-function applyDbUserToToken(
-  token: Record<string, unknown>,
-  user: AuthUser,
-) {
+function applyDbUserToToken(token: Record<string, unknown>, user: AuthUser) {
   token.userId = user.id;
   token.provider = user.provider;
   token.nickname = user.nickname;
