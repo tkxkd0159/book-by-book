@@ -58,14 +58,18 @@ export default async function SignupPage({ searchParams }: Props.Page) {
       <Card className="w-full border-2 bg-(--surface-strong)">
         <CardHeader className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
           <div className="space-y-2">
-            <CardTitle className="text-3xl">Finish your Book by Book signup</CardTitle>
+            <CardTitle className="text-3xl">
+              Finish your Book by Book signup
+            </CardTitle>
             <CardDescription className="max-w-2xl">
-              Your Google account is connected. Before beta access opens, set the
-              nickname and profile details Book by Book will use across shelves,
-              clubs, reviews, and invites.
+              Your Google account is connected. Before beta access opens, set
+              the nickname and profile details Book by Book will use across
+              shelves, clubs, reviews, and invites.
             </CardDescription>
           </div>
-          <SignOutButton variant="secondary">Use a different account</SignOutButton>
+          <SignOutButton variant="secondary">
+            Use a different account
+          </SignOutButton>
         </CardHeader>
         <CardContent className="grid gap-8 lg:grid-cols-[minmax(0,1.5fr)_minmax(20rem,1fr)]">
           <form action={completeSignupAction} className="space-y-6">
@@ -87,13 +91,19 @@ export default async function SignupPage({ searchParams }: Props.Page) {
                   required
                 />
                 <span className="block text-xs font-normal text-(--muted)">
-                  Lowercase only, 3-20 characters, and used in share links and invites.
+                  Lowercase only, 3-20 characters, and used in share links and
+                  invites.
                 </span>
               </label>
 
               <label className="space-y-2 text-sm font-medium text-foreground">
                 <span>Gender</span>
-                <select name="gender" className={SELECT_CLASS_NAME} defaultValue="" required>
+                <select
+                  name="gender"
+                  className={SELECT_CLASS_NAME}
+                  defaultValue=""
+                  required
+                >
                   <option value="" disabled>
                     Select your gender
                   </option>
@@ -102,7 +112,10 @@ export default async function SignupPage({ searchParams }: Props.Page) {
                       {gender
                         .toLowerCase()
                         .split("_")
-                        .map((segment) => segment[0]?.toUpperCase() + segment.slice(1))
+                        .map(
+                          (segment) =>
+                            segment[0]?.toUpperCase() + segment.slice(1),
+                        )
                         .join(" ")}
                     </option>
                   ))}
@@ -175,9 +188,6 @@ export default async function SignupPage({ searchParams }: Props.Page) {
                 autoCorrect="off"
                 required
               />
-              <span className="block text-xs font-normal text-(--muted)">
-                Beta access is limited to invited readers.
-              </span>
             </label>
 
             <div className="flex flex-wrap items-center gap-3">
@@ -212,7 +222,10 @@ export default async function SignupPage({ searchParams }: Props.Page) {
               <ul className="mt-3 space-y-2 text-sm text-(--muted)">
                 <li>Your nickname becomes your Book by Book identity.</li>
                 <li>Reader routes unlock after the beta code is redeemed.</li>
-                <li>Future shelf sharing and club invites will use the nickname, not your email.</li>
+                <li>
+                  Future shelf sharing and club invites will use the nickname,
+                  not your email.
+                </li>
               </ul>
             </div>
           </aside>

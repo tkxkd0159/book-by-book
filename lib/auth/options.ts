@@ -4,7 +4,10 @@ import GoogleProvider from "next-auth/providers/google";
 
 import { env } from "@/lib/env";
 import { isAuthFlowError } from "@/lib/auth/errors";
-import { INTERNAL_AUTH_PROVIDER } from "@/lib/auth/identity";
+import {
+  INTERNAL_AUTH_PROVIDER,
+  GOOGLE_AUTH_PROVIDER,
+} from "@/lib/auth/identity";
 import { authorizeInternalAdminCredentials } from "@/lib/auth/internal-auth";
 import {
   findUserById,
@@ -48,7 +51,7 @@ export const authOptions: NextAuthOptions = {
     }),
     CredentialsProvider({
       id: INTERNAL_AUTH_PROVIDER,
-      name: "Internal",
+      name: "Internal Credentials",
       credentials: {
         email: { label: "Email", type: "email" },
         password: { label: "Password", type: "password" },
@@ -64,7 +67,7 @@ export const authOptions: NextAuthOptions = {
 
       try {
         switch (account?.provider) {
-          case "google":
+          case GOOGLE_AUTH_PROVIDER:
             await upsertGoogleOAuthUser({
               email: user.email,
               name: user.name ?? null,
@@ -100,7 +103,7 @@ export const authOptions: NextAuthOptions = {
         console.error(error);
 
         if (
-          account?.provider === "google" &&
+          account?.provider === GOOGLE_AUTH_PROVIDER &&
           isAuthFlowError(error) &&
           error.code === "CONFLICT"
         ) {
@@ -132,18 +135,6 @@ export const authOptions: NextAuthOptions = {
         typeof user?.id === "string"
       ) {
         const dbUser = await findUserById(user.id);
-        if (dbUser) {
-          return applyDbUserToToken(token, dbUser);
-        }
-      }
-
-      if (
-        !account &&
-        typeof token.userId === "string" &&
-        (typeof token.provider !== "string" ||
-          typeof token.sessionIdentity !== "string")
-      ) {
-        const dbUser = await findUserById(token.userId);
         if (dbUser) {
           return applyDbUserToToken(token, dbUser);
         }
