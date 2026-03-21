@@ -40,13 +40,6 @@ export default async function MePage() {
 
   return (
     <div className="space-y-6">
-      <section className="space-y-3">
-        <h1 className="text-3xl font-semibold sm:text-4xl">Profile</h1>
-        <p className="text-(--muted)">
-          Your account information used for Book by Book.
-        </p>
-      </section>
-
       <Card className="border-2">
         <div className="h-24 bg-[radial-gradient(circle_at_top_left,rgba(15,97,82,0.18),transparent_48%),linear-gradient(135deg,rgba(255,246,222,0.85),rgba(214,236,230,0.7))]" />
         <CardContent className="relative flex flex-col gap-6 p-6 pt-0 sm:p-8 sm:pt-0">
