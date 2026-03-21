@@ -65,7 +65,7 @@ describe("environment validation", () => {
           GOOGLE_CLIENT_ID: "",
         }),
       ).validateForBuildOrThrow(),
-    ).toThrowError(
+    ).toThrow(
       expect.objectContaining({
         message: expect.stringContaining(
           "Invalid application environment configuration:",
@@ -82,7 +82,7 @@ describe("environment validation", () => {
           GOOGLE_CLIENT_ID: "",
         }),
       ).validateForBuildOrThrow(),
-    ).toThrowError(/DATABASE_URL is required for the database connection\./);
+    ).toThrow(/DATABASE_URL is required for the database connection\./);
     expect(() =>
       AppEnv.from(
         createEnv({
@@ -92,7 +92,7 @@ describe("environment validation", () => {
           GOOGLE_CLIENT_ID: "",
         }),
       ).validateForBuildOrThrow(),
-    ).toThrowError(/GOOGLE_CLIENT_ID is required for Google sign-in\./);
+    ).toThrow(/GOOGLE_CLIENT_ID is required for Google sign-in\./);
     expect(() =>
       AppEnv.from(
         createEnv({
@@ -102,7 +102,7 @@ describe("environment validation", () => {
           GOOGLE_CLIENT_ID: "",
         }),
       ).validateForBuildOrThrow(),
-    ).toThrowError(/GOOGLE_BOOKS_API_KEY is required for Google Books requests\./);
+    ).toThrow(/GOOGLE_BOOKS_API_KEY is required for Google Books requests\./);
     expect(() =>
       AppEnv.from(
         createEnv({
@@ -112,7 +112,9 @@ describe("environment validation", () => {
           GOOGLE_CLIENT_ID: "",
         }),
       ).validateForBuildOrThrow(),
-    ).toThrowError(/AUTH_SECRET or NEXTAUTH_SECRET is required for authentication\./);
+    ).toThrow(
+      /AUTH_SECRET or NEXTAUTH_SECRET is required for authentication\./,
+    );
   });
 
   it("requires provider-specific rate-limit configuration", () => {
@@ -124,7 +126,7 @@ describe("environment validation", () => {
           UPSTASH_REDIS_REST_TOKEN: "",
         }),
       ).validateForBuildOrThrow(),
-    ).toThrowError(/UPSTASH_REDIS_REST_URL is required/);
+    ).toThrow(/UPSTASH_REDIS_REST_URL is required/);
 
     expect(() =>
       AppEnv.from(
@@ -133,7 +135,7 @@ describe("environment validation", () => {
           RATE_LIMIT_REDIS_URL: "",
         }),
       ).validateForBuildOrThrow(),
-    ).toThrowError(/RATE_LIMIT_REDIS_URL is required/);
+    ).toThrow(/RATE_LIMIT_REDIS_URL is required/);
   });
 
   it("rejects invalid positive integer overrides", () => {
@@ -144,7 +146,7 @@ describe("environment validation", () => {
           RATE_LIMIT_ADD_BOOK_WINDOW_SECONDS: "abc",
         }),
       ).validateForBuildOrThrow(),
-    ).toThrowError(/RATE_LIMIT_CREATE_CLUB_LIMIT must be a positive integer\./);
+    ).toThrow(/RATE_LIMIT_CREATE_CLUB_LIMIT must be a positive integer\./);
 
     expect(() =>
       AppEnv.from(
@@ -153,7 +155,7 @@ describe("environment validation", () => {
           RATE_LIMIT_ADD_BOOK_WINDOW_SECONDS: "abc",
         }),
       ).validateForBuildOrThrow(),
-    ).toThrowError(
+    ).toThrow(
       /RATE_LIMIT_ADD_BOOK_WINDOW_SECONDS must be a positive integer\./,
     );
   });
@@ -165,7 +167,7 @@ describe("environment validation", () => {
           GOOGLE_BOOKS_API_BASE_URL: "/books/v1/volumes",
         }),
       ).validateForBuildOrThrow(),
-    ).toThrowError(/GOOGLE_BOOKS_API_BASE_URL must be an absolute URL\./);
+    ).toThrow(/GOOGLE_BOOKS_API_BASE_URL must be an absolute URL\./);
   });
 
   it("requires NEXTAUTH_URL for production-like app runs", () => {
@@ -176,7 +178,7 @@ describe("environment validation", () => {
           NODE_ENV: "production",
         }),
       ).validateForBuildOrThrow(),
-    ).toThrowError(
+    ).toThrow(
       /NEXTAUTH_URL is required for production and e2e-authenticated app runs\./,
     );
   });
@@ -190,20 +192,21 @@ describe("environment validation", () => {
           NODE_ENV: "test",
         }),
       ).validateForBuildOrThrow(),
-    ).toThrowError(
+    ).toThrow(
       /NEXTAUTH_URL is required for production and e2e-authenticated app runs\./,
     );
   });
 
   it("rejects memory rate limiting in production-like runtime", () => {
-    expect(() =>
-      AppEnv.from(
-        createEnv({
-          NODE_ENV: "production",
-          RATE_LIMIT_PROVIDER: "memory",
-        }),
-      ).rateLimit,
-    ).toThrowError(
+    expect(
+      () =>
+        AppEnv.from(
+          createEnv({
+            NODE_ENV: "production",
+            RATE_LIMIT_PROVIDER: "memory",
+          }),
+        ).rateLimit,
+    ).toThrow(
       "RATE_LIMIT_PROVIDER=memory is only supported in test and local development environments.",
     );
   });

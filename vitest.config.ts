@@ -2,8 +2,6 @@ import path from "node:path";
 
 import { defineConfig } from "vitest/config";
 
-loadOptionalEnvFile(".env.local");
-
 export default defineConfig({
   resolve: {
     alias: {
@@ -12,18 +10,7 @@ export default defineConfig({
   },
   test: {
     environment: "node",
-    fileParallelism: false,
-    maxWorkers: 1,
-    setupFiles: ["./tests/support/vitest-env.ts"],
+    include: ["tests/unit/*.test.ts", "tests/unit/**/*.test.ts"],
+    setupFiles: ["./tests/support/unit-test-setup.ts"],
   },
 });
-
-function loadOptionalEnvFile(pathname: string) {
-  try {
-    process.loadEnvFile?.(pathname);
-  } catch (error) {
-    if ((error as NodeJS.ErrnoException).code !== "ENOENT") {
-      throw error;
-    }
-  }
-}
