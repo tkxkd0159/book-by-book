@@ -118,8 +118,8 @@ CREATE TABLE IF NOT EXISTS users (
   )
 );
 
-CREATE UNIQUE INDEX IF NOT EXISTS users_provider_email_uniq
-ON users (provider, email)
+CREATE UNIQUE INDEX IF NOT EXISTS users_email_uniq
+ON users (email)
 WHERE email IS NOT NULL;
 
 CREATE UNIQUE INDEX IF NOT EXISTS users_nickname_uniq
@@ -298,14 +298,13 @@ CREATE TRIGGER trg_club_members_member_count
 AFTER INSERT OR DELETE ON club_members
 FOR EACH ROW EXECUTE FUNCTION sync_club_member_count();
 
--- Invitations (supports inviting by existing user_id OR by email for claim-on-signup)
+-- Invitations (target an existing signed-up user by invited_user_id)
 CREATE TABLE IF NOT EXISTS club_invitations (
   id              uuid        PRIMARY KEY DEFAULT gen_random_uuid(),
   club_id         uuid        NOT NULL REFERENCES clubs(id) ON DELETE CASCADE,
   invited_by_id   uuid        NOT NULL REFERENCES users(id) ON DELETE RESTRICT,
 
   invited_user_id uuid        REFERENCES users(id) ON DELETE SET NULL,
-  invited_email   citext,
 
   status          text        NOT NULL DEFAULT 'PENDING',
   token_hash      text        NOT NULL UNIQUE, -- store hash(token); do NOT store raw token
@@ -316,7 +315,7 @@ CREATE TABLE IF NOT EXISTS club_invitations (
   updated_at      timestamptz NOT NULL DEFAULT now(),
 
   CONSTRAINT club_invitations_status_chk CHECK (status IN ('PENDING', 'ACCEPTED', 'REVOKED', 'EXPIRED')),
-  CONSTRAINT club_invitations_target_chk CHECK (invited_user_id IS NOT NULL OR invited_email IS NOT NULL)
+  CONSTRAINT club_invitations_target_chk CHECK (invited_user_id IS NOT NULL)
 );
 
 DROP TRIGGER IF EXISTS trg_club_invitations_updated_at ON club_invitations;
@@ -325,15 +324,10 @@ BEFORE UPDATE ON club_invitations
 FOR EACH ROW EXECUTE FUNCTION set_updated_at();
 
 CREATE INDEX IF NOT EXISTS club_invitations_club_status_idx ON club_invitations(club_id, status);
-CREATE INDEX IF NOT EXISTS club_invitations_invited_email_idx ON club_invitations(invited_email);
 CREATE INDEX IF NOT EXISTS club_invitations_invited_user_id_idx ON club_invitations(invited_user_id);
 CREATE INDEX IF NOT EXISTS club_invitations_expires_at_idx ON club_invitations(expires_at);
 
--- Prevent multiple pending invites for same club+email or club+user
-CREATE UNIQUE INDEX IF NOT EXISTS club_invitations_pending_email_uniq
-ON club_invitations (club_id, invited_email)
-WHERE status = 'PENDING' AND invited_email IS NOT NULL;
-
+-- Prevent multiple pending invites for the same club+user
 CREATE UNIQUE INDEX IF NOT EXISTS club_invitations_pending_user_uniq
 ON club_invitations (club_id, invited_user_id)
 WHERE status = 'PENDING' AND invited_user_id IS NOT NULL;

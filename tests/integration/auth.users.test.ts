@@ -6,9 +6,11 @@ import {
   findInternalAdminByEmail,
   findPublicUserByNickname,
   findUserByProviderIdentity,
+  upsertGoogleOAuthUser,
 } from "@/lib/auth/users";
 import { E2E_USER_PROVIDER } from "@/lib/test-harness/auth";
 import { resetTestDatabase } from "@/lib/test-harness/fixtures";
+import { TEST_INTERNAL_ADMIN } from "@/lib/test-harness/constants";
 
 beforeEach(async () => {
   await resetTestDatabase();
@@ -23,7 +25,7 @@ describe("auth user repository integration", () => {
       nickname: "owner-reader",
       gender: "MAN",
       countryCode: "US",
-      favoriteGenres: ["Fantasy", "Science"],
+      favoriteGenres: ["FANTASY", "SCIENCE"],
       isInternalAdmin: false,
       isSignupComplete: true,
       sessionIdentity: "PUBLIC",
@@ -59,5 +61,25 @@ describe("auth user repository integration", () => {
     await expect(
       verifyInternalAdminPassword("internal-secret", admin?.passwordHash),
     ).resolves.toBe(true);
+  });
+
+  it("rejects Google account creation when the email is reserved by an internal admin", async () => {
+    await expect(
+      upsertGoogleOAuthUser({
+        email: TEST_INTERNAL_ADMIN.email,
+        name: "Reserved Email Reader",
+        imageUrl: null,
+        providerAccountId: "google-admin-email-conflict",
+        refreshToken: null,
+        accessToken: null,
+        expiresAt: null,
+        tokenType: null,
+        scope: null,
+        idToken: null,
+      }),
+    ).rejects.toMatchObject({
+      code: "CONFLICT",
+      message: "This email is already reserved for another Book by Book account.",
+    });
   });
 });

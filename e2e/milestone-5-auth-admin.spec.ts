@@ -149,3 +149,26 @@ test("internal admins can sign in and manage invitation-code activation", async 
   await page.goto(E2E_ROUTE_PATHS.signup);
   await expect(page).toHaveURL(/\/admin\/invitation-codes$/);
 });
+
+test("internal admin sign-in throttles repeated failed attempts", async ({
+  page,
+}) => {
+  await page.goto(E2E_ROUTE_PATHS.adminSignIn);
+
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    await page.getByLabel("Email").fill(E2E_INTERNAL_ADMIN.email);
+    await page.getByLabel("Password").fill("wrong-password");
+    await page.getByRole("button", { name: "Sign in to admin" }).click();
+    await expect(
+      page.getByText("Sign-in failed. Check the details you provided are correct."),
+    ).toBeVisible();
+  }
+
+  await page.getByLabel("Email").fill(E2E_INTERNAL_ADMIN.email);
+  await page.getByLabel("Password").fill("wrong-password");
+  await page.getByRole("button", { name: "Sign in to admin" }).click();
+
+  await expect(
+    page.getByText(/Sign-in failed\. Check the details you provided are correct\. Try again in about /),
+  ).toBeVisible();
+});

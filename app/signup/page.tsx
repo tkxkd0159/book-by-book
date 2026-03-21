@@ -19,6 +19,7 @@ import {
 import { requireCurrentUser } from "@/lib/auth/server";
 import {
   FAVORITE_GENRE_GROUPS,
+  getFavoriteGenreLabel,
   listSupportedCountryOptions,
   USER_GENDERS,
 } from "@/lib/auth/signup";
@@ -147,16 +148,16 @@ export default async function SignupPage({ searchParams }: Props.Page) {
                     <div className="mt-3 grid gap-2">
                       {group.genres.map((genre) => (
                         <label
-                          key={genre}
+                          key={genre.key}
                           className="flex items-start gap-3 rounded-lg border border-transparent px-2 py-1.5 text-sm text-foreground transition hover:border-(--border)"
                         >
                           <input
                             type="checkbox"
                             name="favoriteGenres"
-                            value={genre}
+                            value={genre.key}
                             className="mt-0.5 h-4 w-4 rounded border-(--border)"
                           />
-                          <span>{genre}</span>
+                          <span>{getFavoriteGenreLabel(genre.key)}</span>
                         </label>
                       ))}
                     </div>
@@ -169,7 +170,7 @@ export default async function SignupPage({ searchParams }: Props.Page) {
               <span>Invitation code</span>
               <Input
                 name="invitationCode"
-                placeholder="ABCD-1234-EFGH"
+                placeholder="ABCDE-12345-FGHIJ-67890"
                 autoCapitalize="characters"
                 autoCorrect="off"
                 required

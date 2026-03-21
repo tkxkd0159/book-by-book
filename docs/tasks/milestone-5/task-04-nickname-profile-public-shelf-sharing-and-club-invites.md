@@ -24,12 +24,14 @@ Make nickname the default reader-facing identity, switch public shelf sharing fr
 
 ## Implementation Notes
 - Keep `shelfId` in the public shelf URL so Milestone 5 changes only the owner segment, not the shelf identifier model.
+- Because the app is still pre-launch, do not add UUID fallback or redirect behavior for old userId-based public shelf links.
 - Do not add a general public profile page in this milestone; only the public shelf route changes.
 - Gender, country, and favorite genres remain owner-profile data; milestone scope does not require surfacing those fields publicly outside `/me`.
 - Invitation codes and private club invites are separate domains and should not be coupled in repository or UI behavior.
 - Inviting someone who has not completed signup is out of scope; the club-invite flow should fail clearly when the nickname does not map to a signed-up public user.
 - Duplicate pending club invites should be blocked per `clubId + invitedUserId`.
 - Invite acceptance UI and copy should stop referring to email entirely and should identify the invite target by nickname or a generic targeted-user message.
+- Because the app is pre-launch, remove all email-targeted club-invite schema and code paths instead of preserving compatibility.
 
 ## Acceptance Criteria
 - `/me` clearly shows nickname as the primary Book by Book identity and surfaces the new profile fields.

@@ -3,6 +3,7 @@ import CredentialsProvider from "next-auth/providers/credentials";
 import GoogleProvider from "next-auth/providers/google";
 
 import { env } from "@/lib/env";
+import { isAuthFlowError } from "@/lib/auth/errors";
 import { INTERNAL_AUTH_PROVIDER } from "@/lib/auth/identity";
 import { authorizeInternalAdminCredentials } from "@/lib/auth/internal-auth";
 import { resolveAuthSecret } from "@/lib/auth/secret";
@@ -101,6 +102,15 @@ export const authOptions: NextAuthOptions = {
         }
       } catch (error) {
         console.error(error);
+
+        if (
+          account?.provider === "google" &&
+          isAuthFlowError(error) &&
+          error.code === "CONFLICT"
+        ) {
+          return "/auth/error?error=EmailReserved";
+        }
+
         return false;
       }
 

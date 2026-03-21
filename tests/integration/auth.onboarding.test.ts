@@ -75,7 +75,7 @@ describe("signup completion integration", () => {
       nickname: "onboarded-reader",
       gender: "WOMAN",
       countryCode: "KR",
-      favoriteGenres: ["Fantasy", "Travel"],
+      favoriteGenres: ["FANTASY", "TRAVEL"],
       invitationCode: "beta-code-1234",
     });
 
@@ -84,7 +84,7 @@ describe("signup completion integration", () => {
       nickname: "onboarded-reader",
       gender: "WOMAN",
       countryCode: "KR",
-      favoriteGenres: ["Fantasy", "Travel"],
+      favoriteGenres: ["FANTASY", "TRAVEL"],
       isSignupComplete: true,
       sessionIdentity: "PUBLIC",
     });
@@ -110,7 +110,7 @@ describe("signup completion integration", () => {
         nickname: "missing-code",
         gender: "MAN",
         countryCode: "US",
-        favoriteGenres: ["Science"],
+        favoriteGenres: ["SCIENCE"],
         invitationCode: "does-not-exist",
       }),
     ).rejects.toMatchObject({
@@ -135,7 +135,7 @@ describe("signup completion integration", () => {
       nickname: "first-reader",
       gender: "MAN",
       countryCode: "US",
-      favoriteGenres: ["Fantasy"],
+      favoriteGenres: ["FANTASY"],
       invitationCode: "beta-code-9999",
     });
 
@@ -145,12 +145,100 @@ describe("signup completion integration", () => {
         nickname: "second-reader",
         gender: "NON_BINARY",
         countryCode: "CA",
-        favoriteGenres: ["History"],
+        favoriteGenres: ["HISTORY"],
         invitationCode: "beta-code-9999",
       }),
     ).rejects.toMatchObject({
       code: "FORBIDDEN",
       message: "This invitation code has no uses remaining.",
     });
+  });
+
+  it("allows only one successful concurrent signup submission for the same user", async () => {
+    const userId = await createIncompletePublicUser();
+    const codeId = await createBetaInvitationCode("beta-code-double-submit");
+
+    const results = await Promise.allSettled([
+      completeSignup({
+        userId,
+        nickname: "double-submit-reader",
+        gender: "WOMAN",
+        countryCode: "US",
+        favoriteGenres: ["FANTASY"],
+        invitationCode: "beta-code-double-submit",
+      }),
+      completeSignup({
+        userId,
+        nickname: "double-submit-reader",
+        gender: "WOMAN",
+        countryCode: "US",
+        favoriteGenres: ["FANTASY"],
+        invitationCode: "beta-code-double-submit",
+      }),
+    ]);
+
+    expect(results.filter((result) => result.status === "fulfilled")).toHaveLength(1);
+    expect(results.filter((result) => result.status === "rejected")).toHaveLength(1);
+
+    const [redemptionCount] = await sql<{ count: number }[]>`
+      select count(*)::int as count
+      from bookapp.invitation_code_redemptions
+      where code_id = ${codeId}::uuid
+        and user_id = ${userId}::uuid
+    `;
+    expect(redemptionCount?.count).toBe(1);
+
+    const storedUser = await findUserById(userId);
+    expect(storedUser?.signupCompletedAt).toBeInstanceOf(Date);
+    expect(storedUser?.nickname).toBe("double-submit-reader");
+  });
+
+  it("allows only one successful concurrent redemption when a code has one remaining use", async () => {
+    const codeId = await createBetaInvitationCode("beta-code-last-use");
+    const firstUserId = await createIncompletePublicUser();
+    const secondUserId = await createIncompletePublicUser();
+
+    await sql`
+      update bookapp.invitation_codes
+      set max_uses = 1
+      where id = ${codeId}::uuid
+    `;
+
+    const results = await Promise.allSettled([
+      completeSignup({
+        userId: firstUserId,
+        nickname: "last-use-reader-one",
+        gender: "MAN",
+        countryCode: "US",
+        favoriteGenres: ["FANTASY"],
+        invitationCode: "beta-code-last-use",
+      }),
+      completeSignup({
+        userId: secondUserId,
+        nickname: "last-use-reader-two",
+        gender: "WOMAN",
+        countryCode: "KR",
+        favoriteGenres: ["TRAVEL"],
+        invitationCode: "beta-code-last-use",
+      }),
+    ]);
+
+    expect(results.filter((result) => result.status === "fulfilled")).toHaveLength(1);
+    expect(results.filter((result) => result.status === "rejected")).toHaveLength(1);
+
+    const [redemptionCount] = await sql<{ count: number }[]>`
+      select count(*)::int as count
+      from bookapp.invitation_code_redemptions
+      where code_id = ${codeId}::uuid
+    `;
+    expect(redemptionCount?.count).toBe(1);
+
+    const [completedCount] = await sql<{ count: number }[]>`
+      select count(*)::int as count
+      from bookapp.users
+      where id = any(${sql.array([firstUserId, secondUserId])}::uuid[])
+        and signup_completed_at is not null
+    `;
+    expect(completedCount?.count).toBe(1);
   });
 });

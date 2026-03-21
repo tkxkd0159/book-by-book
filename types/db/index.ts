@@ -1,25 +1,25 @@
 type UserGender = "MAN" | "WOMAN" | "NON_BINARY" | "PREFER_NOT_TO_SAY";
 
-type FavoriteGenre =
-  | "Fantasy"
-  | "Sci-Fi"
-  | "Mystery & Crime"
-  | "Thriller & suspense"
-  | "Romance"
-  | "Historical Fiction"
-  | "Horror"
-  | "Literary Fiction"
-  | "Biography & Autobiography"
-  | "Memoir"
-  | "History"
-  | "True Crime"
-  | "Personal Development"
-  | "Science"
-  | "Philosophy"
-  | "Travel"
-  | "Business & Economics"
-  | "Cooking & Food"
-  | "Essays & Journalism";
+type FavoriteGenreKey =
+  | "FANTASY"
+  | "SCI_FI"
+  | "MYSTERY_CRIME"
+  | "THRILLER_SUSPENSE"
+  | "ROMANCE"
+  | "HISTORICAL_FICTION"
+  | "HORROR"
+  | "LITERARY_FICTION"
+  | "BIOGRAPHY_AUTOBIOGRAPHY"
+  | "MEMOIR"
+  | "HISTORY"
+  | "TRUE_CRIME"
+  | "PERSONAL_DEVELOPMENT"
+  | "SCIENCE"
+  | "PHILOSOPHY"
+  | "TRAVEL"
+  | "BUSINESS_ECONOMICS"
+  | "COOKING_FOOD"
+  | "ESSAYS_JOURNALISM";
 
 type AppSessionIdentity = "PUBLIC_INCOMPLETE" | "PUBLIC" | "INTERNAL_ADMIN";
 
@@ -33,7 +33,7 @@ type UserRecord = {
   nickname: string | null;
   gender: UserGender | null;
   countryCode: string | null;
-  favoriteGenres: FavoriteGenre[];
+  favoriteGenres: FavoriteGenreKey[];
   signupCompletedAt: Date | null;
   passwordHash: string | null;
 };
@@ -221,7 +221,7 @@ export type {
   ClubMemberRole,
   ClubRecord,
   ClubVisibility,
-  FavoriteGenre,
+  FavoriteGenreKey,
   InternalAdminAuthUser,
   InvitationCodePurpose,
   InvitationCodeRecord,

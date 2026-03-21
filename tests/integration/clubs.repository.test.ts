@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 
 import { beforeEach, describe, expect, it } from "vitest";
 
+import sql from "@/lib/db";
 import { findUserByProviderIdentity } from "@/lib/auth/users";
 import {
   acceptClubInvitation,
@@ -214,6 +215,50 @@ describe("club repository integration", () => {
     const invitationLookup = await findInvitationByToken(invitationResult.rawToken);
     expect(invitationLookup?.effectiveStatus).toBe("PENDING");
     expect(invitationLookup?.invitedUserId).toBe(member.id);
+  });
+
+  it("keeps invite acceptance idempotent under concurrent submissions", async () => {
+    const owner = await getRequiredUser("owner");
+    const member = await getRequiredUser("member");
+
+    const privateClub = await createClub({
+      createdById: owner.id,
+      name: "Concurrent Acceptance Club",
+      description: null,
+      visibility: "PRIVATE",
+    });
+
+    const invitationResult = await createClubInvitation({
+      clubId: privateClub.id,
+      invitedById: owner.id,
+      invitedNickname: member.nickname ?? "",
+    });
+
+    const results = await Promise.allSettled([
+      acceptClubInvitation({
+        token: invitationResult.rawToken,
+        user: member,
+      }),
+      acceptClubInvitation({
+        token: invitationResult.rawToken,
+        user: member,
+      }),
+    ]);
+
+    expect(results).toHaveLength(2);
+    expect(results.every((result) => result.status === "fulfilled")).toBe(true);
+
+    const [membershipCount] = await sql<{ count: number }[]>`
+      select count(*)::int as count
+      from bookapp.club_members
+      where club_id = ${privateClub.id}::uuid
+        and user_id = ${member.id}::uuid
+    `;
+    expect(membershipCount?.count).toBe(1);
+
+    const updatedLookup = await findInvitationByToken(invitationResult.rawToken);
+    expect(updatedLookup?.effectiveStatus).toBe("ACCEPTED");
+    expect((await findClubDetail(privateClub.id, member.id))?.memberCount).toBe(2);
   });
 
   it("hides private clubs from public discovery for non-members", async () => {

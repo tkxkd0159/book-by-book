@@ -110,6 +110,13 @@ async function openThreadCard(
   await page.getByLabel(`Open thread ${threadTitle}`).click();
 }
 
+async function joinClubFromBoard(page: Page) {
+  await page.getByRole("button", { name: "Join club" }).click();
+  await expect(page.getByRole("button", { name: "Leave club" })).toBeVisible({
+    timeout: 15_000,
+  });
+}
+
 async function openStartThreadModal(page: import("@playwright/test").Page) {
   await page.getByRole("button", { name: "Start a thread" }).click();
   await expect(
@@ -285,8 +292,7 @@ test("members can create one-depth replies while authors retain edit and delete 
   const threadUrl = page.url();
 
   await signInAs(page, "member", clubBoardPath);
-  await page.getByRole("button", { name: "Join club" }).click();
-  await expect(page.getByText("You joined the club.")).toBeVisible();
+  await joinClubFromBoard(page);
 
   await page.goto(threadUrl);
   await expect(page.getByText("Add a reply")).toHaveCount(0);
@@ -651,8 +657,7 @@ test("club admins can delete threads while members cannot", async ({
   const threadUrl = page.url();
 
   await signInAs(page, "member", clubBoardPath);
-  await page.getByRole("button", { name: "Join club" }).click();
-  await expect(page.getByText("You joined the club.")).toBeVisible();
+  await joinClubFromBoard(page);
   await page.goto(threadUrl);
   await expect(page.getByRole("button", { name: "Delete thread" })).toHaveCount(
     0,
@@ -699,8 +704,7 @@ test("thread comments infinite-load older batches and preserve long-feed mutatio
   const threadUrl = page.url();
 
   await signInAs(page, "member", clubBoardPath);
-  await page.getByRole("button", { name: "Join club" }).click();
-  await expect(page.getByText("You joined the club.")).toBeVisible();
+  await joinClubFromBoard(page);
 
   await page.goto(threadUrl);
   await createTopLevelComments(request, page, 21, "Long comment");

@@ -8,7 +8,7 @@ Add the schema, shared validation, repository contracts, and identity helpers ne
   - `nickname`
   - `gender`
   - `countryCode`
-  - `favoriteGenres`
+  - `favoriteGenres` using stable enum-like keys
   - `signupCompletedAt`
 - Extend the `users` model for internal admins with a nullable `passwordHash` used only for `provider = 'internal'`.
 - Add the schema migration and source-of-truth schema updates needed to persist:
@@ -45,6 +45,7 @@ Add the schema, shared validation, repository contracts, and identity helpers ne
 - Internal admins are manually created in Supabase UI and are not provisioned by the app.
 - OAuth-linked public users still use `auth_accounts`; internal credentials auth can resolve directly from `users`.
 - Internal admin records should not require `auth_accounts` rows in Milestone 5.
+- Non-null `users.email` must be globally unique so internal-admin emails are reserved across the shared `users` table.
 - This task should document the exact manual Supabase bootstrap fields for internal admins:
   - `provider`
   - `provider_user_id`
@@ -58,6 +59,7 @@ Add the schema, shared validation, repository contracts, and identity helpers ne
 ## Acceptance Criteria
 - The database schema and app-facing types expose all required Milestone 5 public-user, internal-admin, and invitation-code fields.
 - Shared validation covers nickname normalization, allowed genre values, required country/gender selection, internal admin auth inputs, and invitation-code hashing contracts.
+- Shared validation stores favorite genres as stable keys while the UI continues to render human labels.
 - Reusable repository helpers can distinguish incomplete public users, completed public users, and internal admins without route-local duplication.
 - Shared display helpers make nickname the first-class reader-facing identity.
 - Shared code-management types are stable enough to support future invitation-code purposes without revisiting the schema shape.

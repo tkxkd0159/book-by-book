@@ -1,4 +1,5 @@
 import sql from "@/lib/db";
+import { AuthFlowError } from "@/lib/auth/errors";
 import {
   getUserDisplayName,
   INTERNAL_AUTH_PROVIDER,
@@ -99,7 +100,6 @@ export async function findUserByEmail(email: string): Promise<AuthUser | null> {
       password_hash as "passwordHash"
     from bookapp.users
     where email = ${email}
-    order by updated_at desc
     limit 1
   `;
 
@@ -251,29 +251,53 @@ export function getPublicUserIdentityLabel(user: AuthUser) {
 export async function upsertGoogleOAuthUser(
   input: UpsertGoogleOAuthUserInput,
 ): Promise<AuthUser> {
-  const [user] = await sql<UserRow[]>`
-    insert into bookapp.users (provider, provider_user_id, email, name, image_url)
-    values ('google', ${input.providerAccountId}, ${input.email}, ${input.name}, ${input.imageUrl})
-    on conflict (provider, provider_user_id)
-    do update set
-      email = coalesce(excluded.email, bookapp.users.email),
-      name = coalesce(excluded.name, bookapp.users.name),
-      image_url = coalesce(excluded.image_url, bookapp.users.image_url),
-      updated_at = now()
-    returning
-      id::text as id,
-      provider,
-      provider_user_id as "providerUserId",
-      email::text as email,
-      name,
-      image_url as "imageUrl",
-      nickname,
-      gender,
-      country_code as "countryCode",
-      favorite_genres as "favoriteGenres",
-      signup_completed_at as "signupCompletedAt",
-      password_hash as "passwordHash"
-  `;
+  let user: UserRow | undefined;
+
+  try {
+    [user] = await sql<UserRow[]>`
+      insert into bookapp.users (provider, provider_user_id, email, name, image_url)
+      values ('google', ${input.providerAccountId}, ${input.email}, ${input.name}, ${input.imageUrl})
+      on conflict (provider, provider_user_id)
+      do update set
+        email = excluded.email,
+        name = coalesce(excluded.name, bookapp.users.name),
+        image_url = coalesce(excluded.image_url, bookapp.users.image_url),
+        updated_at = now()
+      returning
+        id::text as id,
+        provider,
+        provider_user_id as "providerUserId",
+        email::text as email,
+        name,
+        image_url as "imageUrl",
+        nickname,
+        gender,
+        country_code as "countryCode",
+        favorite_genres as "favoriteGenres",
+        signup_completed_at as "signupCompletedAt",
+        password_hash as "passwordHash"
+    `;
+  } catch (error) {
+    if (
+      typeof error === "object" &&
+      error !== null &&
+      "code" in error &&
+      error.code === "23505" &&
+      "constraint_name" in error &&
+      error.constraint_name === "users_email_uniq"
+    ) {
+      throw new AuthFlowError(
+        "CONFLICT",
+        "This email is already reserved for another Book by Book account.",
+      );
+    }
+
+    throw error;
+  }
+
+  if (!user) {
+    throw new AuthFlowError("UNAUTHORIZED", "Could not create a Google-backed user.");
+  }
 
   await sql`
     insert into bookapp.auth_accounts (

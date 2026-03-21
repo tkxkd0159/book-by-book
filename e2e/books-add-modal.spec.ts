@@ -40,6 +40,15 @@ async function createShelf(
   return page.url();
 }
 
+async function expectAddBookModalToClose(page: Page) {
+  await expect(page.locator('body > [data-modal-root="book-add"]')).toHaveCount(
+    0,
+    {
+      timeout: 15_000,
+    },
+  );
+}
+
 test("combined add-book modal shows clubs and shelves empty states when the user manages neither", async ({
   page,
 }) => {
@@ -123,8 +132,7 @@ test("book detail can add a book to owned shelves from the Shelves tab", async (
   await dialog.getByLabel("Weekend Shelf").check();
   await dialog.getByLabel("Shared Shelf").check();
   await dialog.getByRole("button", { name: "Add to shelves" }).click();
-
-  await expect(page.getByText("Book added to 2 shelves.")).toBeVisible();
+  await expectAddBookModalToClose(page);
 
   await page.getByRole("button", { name: "Add Book" }).click();
   await dialog.getByRole("tab", { name: /^Shelves/ }).click();
@@ -185,8 +193,7 @@ test("search results support the Shelves tab flow", async ({ page }) => {
   await dialog.getByRole("tab", { name: /^Shelves/ }).click();
   await dialog.getByLabel("Search Shelf").check();
   await dialog.getByRole("button", { name: "Add to shelves" }).click();
-
-  await expect(page.getByText("Book added to 1 shelf.")).toBeVisible();
+  await expectAddBookModalToClose(page);
 
   await page.getByRole("button", { name: "Add Book" }).first().click();
   await dialog.getByRole("tab", { name: /^Shelves/ }).click();

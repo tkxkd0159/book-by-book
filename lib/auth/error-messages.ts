@@ -2,6 +2,8 @@ const AUTH_ERROR_MESSAGES: Record<string, string> = {
   AccessDenied: "Google sign-in was denied.",
   Callback: "Authentication callback failed. Try again.",
   Configuration: "Authentication is misconfigured. Contact support.",
+  EmailReserved:
+    "This email is already reserved for another Book by Book account.",
   OAuthAccountNotLinked:
     "This account is linked to a different sign-in method.",
   OAuthCallback: "Google callback failed. Try again.",

@@ -1,4 +1,4 @@
-import type { FavoriteGenre, UserGender } from "@/types/db";
+import type { FavoriteGenreKey, UserGender } from "@/types/db";
 
 export const USER_GENDERS = [
   "MAN",
@@ -11,47 +11,58 @@ export const FAVORITE_GENRE_GROUPS = [
   {
     label: "Fiction",
     genres: [
-      "Fantasy",
-      "Sci-Fi",
-      "Mystery & Crime",
-      "Thriller & suspense",
-      "Romance",
-      "Historical Fiction",
-      "Horror",
-      "Literary Fiction",
+      { key: "FANTASY", label: "Fantasy" },
+      { key: "SCI_FI", label: "Sci-Fi" },
+      { key: "MYSTERY_CRIME", label: "Mystery & Crime" },
+      { key: "THRILLER_SUSPENSE", label: "Thriller & suspense" },
+      { key: "ROMANCE", label: "Romance" },
+      { key: "HISTORICAL_FICTION", label: "Historical Fiction" },
+      { key: "HORROR", label: "Horror" },
+      { key: "LITERARY_FICTION", label: "Literary Fiction" },
     ],
   },
   {
     label: "Non-Fiction",
     genres: [
-      "Biography & Autobiography",
-      "Memoir",
-      "History",
-      "True Crime",
-      "Personal Development",
-      "Science",
-      "Philosophy",
-      "Travel",
-      "Business & Economics",
-      "Cooking & Food",
-      "Essays & Journalism",
+      {
+        key: "BIOGRAPHY_AUTOBIOGRAPHY",
+        label: "Biography & Autobiography",
+      },
+      { key: "MEMOIR", label: "Memoir" },
+      { key: "HISTORY", label: "History" },
+      { key: "TRUE_CRIME", label: "True Crime" },
+      { key: "PERSONAL_DEVELOPMENT", label: "Personal Development" },
+      { key: "SCIENCE", label: "Science" },
+      { key: "PHILOSOPHY", label: "Philosophy" },
+      { key: "TRAVEL", label: "Travel" },
+      { key: "BUSINESS_ECONOMICS", label: "Business & Economics" },
+      { key: "COOKING_FOOD", label: "Cooking & Food" },
+      { key: "ESSAYS_JOURNALISM", label: "Essays & Journalism" },
     ],
   },
 ] as const satisfies ReadonlyArray<{
   label: string;
-  genres: readonly FavoriteGenre[];
+  genres: ReadonlyArray<{
+    key: FavoriteGenreKey;
+    label: string;
+  }>;
 }>;
 
 export const FAVORITE_GENRES = FAVORITE_GENRE_GROUPS.flatMap(
-  (group) => group.genres,
-) as FavoriteGenre[];
+  (group) => group.genres.map((genre) => genre.key),
+) as FavoriteGenreKey[];
 
 export const NICKNAME_PATTERN = /^[a-z0-9_-]{3,20}$/;
 
 const USER_GENDER_SET = new Set<UserGender>(USER_GENDERS);
-const FAVORITE_GENRE_SET = new Set<FavoriteGenre>(FAVORITE_GENRES);
+const FAVORITE_GENRE_SET = new Set<FavoriteGenreKey>(FAVORITE_GENRES);
 const COUNTRY_CODE_PATTERN = /^[A-Z]{2}$/;
 const COUNTRY_DISPLAY_NAMES = new Intl.DisplayNames(["en"], { type: "region" });
+const FAVORITE_GENRE_LABELS = new Map<FavoriteGenreKey, string>(
+  FAVORITE_GENRE_GROUPS.flatMap((group) =>
+    group.genres.map((genre) => [genre.key, genre.label] as const),
+  ),
+);
 
 const COUNTRY_OPTIONS = Array.from({ length: 26 }, (_, firstIndex) =>
   Array.from({ length: 26 }, (_, secondIndex) => {
@@ -177,21 +188,21 @@ export function listSupportedCountryOptions() {
   return COUNTRY_OPTIONS;
 }
 
-export function isFavoriteGenre(value: string): value is FavoriteGenre {
-  return FAVORITE_GENRE_SET.has(value as FavoriteGenre);
+export function isFavoriteGenreKey(value: string): value is FavoriteGenreKey {
+  return FAVORITE_GENRE_SET.has(value as FavoriteGenreKey);
 }
 
 export function coerceFavoriteGenres(
   values: readonly string[] | null | undefined,
-): FavoriteGenre[] {
+): FavoriteGenreKey[] {
   if (!values) {
     return [];
   }
 
-  const deduped = new Set<FavoriteGenre>();
+  const deduped = new Set<FavoriteGenreKey>();
   for (const value of values) {
-    const normalized = normalizeOptionalText(value);
-    if (normalized && isFavoriteGenre(normalized)) {
+    const normalized = normalizeOptionalText(value)?.toUpperCase().replace(/\s+/g, "_");
+    if (normalized && isFavoriteGenreKey(normalized)) {
       deduped.add(normalized);
     }
   }
@@ -211,4 +222,8 @@ export function parseFavoriteGenres(
   }
 
   return normalized;
+}
+
+export function getFavoriteGenreLabel(genreKey: FavoriteGenreKey) {
+  return FAVORITE_GENRE_LABELS.get(genreKey) ?? genreKey;
 }

@@ -35,7 +35,9 @@ export function AdminSignInForm({ callbackUrl }: AdminSignInFormProps) {
             redirect: false,
           }).then((result) => {
             if (!result || result.error) {
-              setErrorMessage("Invalid email or password.");
+              setErrorMessage(
+                result?.error ?? "Sign-in failed. Check the details you provided are correct.",
+              );
               return;
             }
 
