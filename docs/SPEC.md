@@ -6,13 +6,16 @@ A social book platform with:
 - **Discussion Threads** per book inside a club (any club member can create threads for books in those sections).
 - **Personal Shelves**: each user can create unlimited custom book lists independent of clubs.
 - **Reviews**: each user can write one review per book; profile includes a **Reviewed** section.
-- **Closed beta onboarding**: social login authenticates the external account first, then Book by Book signup collects a stable nickname, gender, country, favorite genres, and a beta invitation code before app access is granted.
+- **Closed beta onboarding**: social login authenticates the external account first, then Book by Book signup collects a stable nickname, gender, country, favorite genres, and an invitation code before public app access is granted.
+- **Internal admin panel**: internal users sign in with internal email/password to manage invitation codes for beta signup and future uses.
 - **Book data** sourced from **Google Books API**; local DB caches book metadata.
 
 Non-negotiables:
-- **Social login** required (Google now, extensible for future providers).
-- **Completed signup** required before users can access core product routes.
-- **Nickname** is the stable public identity used across the app.
+- **Social login** required for public users (Google now, extensible for future providers).
+- **Completed signup** required before public users can access core product routes.
+- **Nickname** is the stable public identity used across the reader-facing app.
+- **DB-backed invitation codes** managed from an internal admin panel.
+- **Internal admins** authenticate separately from public signup.
 - **All necessary DB schemas** defined.
 - **Next.js framework + shadcn/ui**.
 - **Responsive design** required (works well on laptop + mobile).
@@ -27,8 +30,9 @@ Non-negotiables:
 - Provide reviews and a “Reviewed” profile section.
 - Integrate Google Books API as the source of truth for book discovery.
 - Provide a flexible auth architecture for multiple OAuth providers over time.
-- Gate beta access through completed signup and a server-controlled invitation code.
+- Gate beta access through admin-managed invitation codes.
 - Use a Book by Book nickname instead of provider identity or email for app-facing sharing and invites.
+- Provide an internal-only admin surface to manage invitation codes and prepare future code-backed workflows.
 
 ### Non-Goals (for v1 / beta)
 - Payments / subscriptions.
@@ -38,7 +42,8 @@ Non-negotiables:
 - Full-text search infra beyond DB indexes (can add later).
 - Nickname change UI.
 - Public profile pages beyond shareable public shelf routes.
-- Admin UI for managing beta invitation codes.
+- In-app creation of internal admin users.
+- Reader-facing support for invitation-code purposes other than `BETA_SIGNUP`.
 
 ---
 
@@ -47,7 +52,9 @@ Non-negotiables:
 - **shadcn/ui** + **Tailwind CSS**
 - **PostgreSQL**
 - Use raw SQL with `Postgre.js` and write SQL files for our DB schemas.
-- **Auth.js / NextAuth** (OAuth provider architecture; Google provider now)
+- **Auth.js / NextAuth**
+  - Google OAuth for public users
+  - Credentials provider for internal admin email/password login
 - **Zod** for input validation
 - **React Hook Form** for forms
 
@@ -55,12 +62,29 @@ Non-negotiables:
 
 ## 3) Core Concepts
 
-### Users
+### Public Users
 - Authenticate via OAuth (Google initially).
 - Complete Book by Book signup before they can use `/books`, `/clubs`, `/me`, or invite acceptance flows.
 - Have a stable Book by Book nickname that becomes their public app identity.
 - Keep provider `email`, `name`, and `image` as provider metadata rather than the app’s primary identity.
 - Have a profile, personal shelves, and reviews.
+
+### Internal Admins
+- Authenticate with internal email/password at `/admin/signin`.
+- Are stored in the same `users` table with `provider = 'internal'`.
+- Are created manually in Supabase UI rather than through the public app.
+- Access `/admin/*` only and do not go through public signup or nickname onboarding.
+
+### Invitation Codes
+- Stored in the database, never as plaintext.
+- Managed from the internal admin panel.
+- Support:
+  - `purpose`
+  - `isActive`
+  - optional expiry
+  - optional max uses
+- Current redemption use case is `BETA_SIGNUP`.
+- Future code purposes can reuse the same domain without changing the public-user auth model.
 
 ### Books
 - Discovered from Google Books API.
@@ -68,12 +92,13 @@ Non-negotiables:
 - Identified by `googleVolumeId` (unique).
 
 ### Clubs
-- Created by any signed-up user.
+- Created by any signed-up public user.
 - **Visibility**:
   - `PUBLIC`: visible in discovery/search; any signed-up user can join immediately.
   - `PRIVATE`: not listed; membership only via invite.
 - Membership has roles: `OWNER`, `ADMIN`, `MEMBER`.
-- Private invites target an existing signed-up Book by Book user via nickname, then resolve to `invitedUserId` on the server.
+- Private club invites target an existing signed-up Book by Book user via nickname, then resolve to `invitedUserId` on the server.
+- Club invites are a separate domain from admin-managed invitation codes.
 
 ### Club Book Sections
 Fixed statuses:
@@ -104,24 +129,39 @@ Admin assigns books to these sections for the club.
 
 ## 4) Permissions & Rules
 
-### Authentication
+### Public App Authentication
 - Must be authenticated **and have completed signup** to:
-  - Create/join clubs
-  - Create threads/posts
-  - Create shelves
-  - Write reviews
-  - Accept private club invitations
-- Authenticated users who have not completed signup may only access:
+  - create/join clubs
+  - create threads/posts
+  - create shelves
+  - write reviews
+  - accept private club invitations
+- Authenticated public users who have not completed signup may only access:
   - `/signup`
   - auth pages and callbacks needed to finish sign-in
   - sign-out
 
+### Internal Admin Authentication
+- `/admin/signin` is the entry point for internal admins.
+- `/admin/*` requires an authenticated internal user with `provider = 'internal'`.
+- Internal admins bypass public signup-completion checks, but only for admin routes.
+- Public Google-authenticated users cannot access `/admin/*`.
+- Internal admins should be redirected away from `/signup` and reader-facing product routes.
+
+### Admin Panel
+- Only internal admins can:
+  - list invitation codes
+  - create new invitation codes
+  - activate/deactivate codes
+  - inspect usage counts and redemption history
+- Internal admin UI is limited to invitation-code management in Milestone 5.
+
 ### Clubs
-- **Create club**: any signed-up user.
+- **Create club**: any signed-up public user.
 - **Update club settings** (name, visibility, description): `OWNER` or `ADMIN`.
 - **Invite**: `OWNER` or `ADMIN`.
 - **Join**:
-  - `PUBLIC`: any signed-up user can join.
+  - `PUBLIC`: any signed-up public user can join.
   - `PRIVATE`: only via invite.
 - **Invite target**:
   - enter a nickname
@@ -138,8 +178,8 @@ Admin assigns books to these sections for the club.
 - Create thread: club member.
 - Create post: club member.
 - Edit/delete:
-  - Author can edit/delete own post/thread (within policy).
-  - Admins can delete any content in their club (recommended).
+  - author can edit/delete own post/thread (within policy)
+  - club admins can delete content in their club (recommended)
 
 ### Shelves
 - User owns their shelves.
@@ -156,6 +196,9 @@ Admin assigns books to these sections for the club.
 
 ### 5.1 Entity Relationship Overview
 - `User` 1—* `AuthAccount`
+- `User` 1—* `InvitationCode` (createdBy, internal admin only)
+- `InvitationCode` 1—* `InvitationCodeRedemption`
+- `User` 1—* `InvitationCodeRedemption` (redeemedBy)
 - `User` 1—* `Club` (createdBy)
 - `Club` 1—* `ClubMember`
 - `Club` 1—* `ClubInvitation`
@@ -184,19 +227,37 @@ Schema and migration workflow:
 - `ClubBook` is the canonical representation of “book in a club + status section”.
 - `Thread` references both `clubBookId` and `bookId` (denormalized) for fast queries.
 - Auth sessions use NextAuth JWT cookies, so there is no `auth_sessions` table.
-- `users` stores both provider metadata and the Book by Book profile fields needed for signup completion:
-  - `nickname`
-  - `gender`
-  - `countryCode`
-  - `favoriteGenres`
-  - `signupCompletedAt`
+- `users` stores:
+  - provider metadata for public OAuth users
+  - Book by Book signup fields for public users:
+    - `nickname`
+    - `gender`
+    - `countryCode`
+    - `favoriteGenres`
+    - `signupCompletedAt`
+  - internal auth data for internal admins:
+    - `passwordHash` (nullable, only used when `provider = 'internal'`)
 - OAuth authentication and Book by Book signup are separate states:
-  - a user row may exist before signup is complete
-  - `signupCompletedAt` distinguishes authenticated-but-incomplete accounts from usable app users
+  - a public user row may exist before signup is complete
+  - `signupCompletedAt` distinguishes authenticated-but-incomplete public accounts from usable public app users
+- Internal admins are modeled as `provider = 'internal'` with:
+  - `providerUserId = normalized email`
+  - email/password login
+  - manual creation in Supabase UI
 - `nickname` is immutable, unique, lowercase, and URL-safe.
 - `favoriteGenres` is stored as a validated flat list even though the UI groups Fiction and Non-Fiction separately.
+- `invitation_codes` stores:
+  - `purpose`
+  - `codeHash`
+  - `label`
+  - `isActive`
+  - optional `expiresAt`
+  - optional `maxUses`
+  - `createdById`
+- `invitation_code_redemptions` records each successful code use and supports usage counting and audit history.
+- Signup code validation and redemption must be transactional so exhausted or inactive codes cannot be raced.
 - Private club invitations target `invitedUserId`; the invite UI resolves nickname to that user on the server.
-- Raw beta invitation codes are never stored in the database.
+- Signup invitation codes and private club invites are separate domains with separate persistence and rules.
 - Personal shelves are independent of clubs by design.
 - Public shelf URLs use nickname + shelfId, but internal authorization still keys ownership by userId.
 
@@ -206,7 +267,7 @@ Schema and migration workflow:
 
 Primary actions:
 1. Search: query by title/author/ISBN via Google Books volumes endpoint.
-2. Fetch volume: retrieve by googleVolumeId.
+2. Fetch volume: retrieve by `googleVolumeId`.
 
 Store in DB:
 - On selection (“Add book”), upsert into `Book` by `googleVolumeId`.
@@ -221,44 +282,61 @@ Store in DB:
 - `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`
 - `AUTH_SECRET` (Auth.js / NextAuth secret)
 - `DATABASE_URL`
-- `BETA_INVITATION_CODE`
 
-## 7) Auth Architecture (Flexible Social Login)
+## 7) Auth Architecture (Flexible Social Login + Internal Admin Auth)
 
-### 7.1 Provider Support
-- Only Google login in v1 / beta.
+### 7.1 Public User Auth
+- Only Google login in v1 / beta for public users.
 - Must be extensible to add providers later (GitHub, Apple, Instagram, etc.).
 
-### 7.2 Implementation (Auth.js / NextAuth)
-- Use a provider-based `auth_accounts` table to support multiple identities per user over time.
-- OAuth sign-in authenticates the external identity and creates or resolves the app user row.
+### 7.2 Internal Admin Auth
+- Internal admins sign in with email + password at `/admin/signin`.
+- Internal admins are not created through public signup.
+- Internal admins are created manually in Supabase UI.
+- Internal admin users use `provider = 'internal'`.
+
+### 7.3 Implementation (Auth.js / NextAuth)
+- Use:
+  - Google provider for public users
+  - Credentials provider for internal admin login
+- Keep `auth_accounts` as the long-term home for OAuth-linked identities.
+- Internal credentials auth can resolve directly from `users` and does not require OAuth provider-account linking.
+- OAuth sign-in authenticates the external identity and creates or resolves the public app user row.
 - Book by Book signup is completed separately through `/signup`, which writes nickname/profile fields and sets `signupCompletedAt`.
 - Persist app user identity independently from provider email:
-  - provider `email` stays nullable and non-authoritative
-  - nickname becomes the app’s public identity
+  - provider `email` stays nullable and non-authoritative for public identity
+  - nickname becomes the public app identity
+  - internal email identifies internal admins only
 - Use JWT session strategy (encrypted JWT in cookie), not database-backed `auth_sessions`.
-- Future providers should only require:
-  - adding provider config
-  - linking provider accounts correctly
-  - reusing the same Book by Book app identity once signup is complete
+- Session/user resolution should distinguish:
+  - incomplete public user
+  - completed public user
+  - internal admin
 
-### 7.3 Auth Rules
-- `/` is public.
-- `/signin` is public.
-- `/auth/error` is public.
-- `/signup` requires an authenticated session but allows incomplete users.
-- All other app routes require both:
-  - an authenticated session
+### 7.4 Auth Rules
+- Public routes:
+  - `/`
+  - `/signin`
+  - `/auth/error`
+  - `/admin/signin`
+- `/signup` requires an authenticated non-internal public session and allows incomplete users.
+- `/admin/*` requires an authenticated internal admin session.
+- Public product routes require:
+  - an authenticated public session
   - a completed Book by Book signup
-- Callback URLs should be preserved from sign-in through signup completion so users return to their intended destination after onboarding.
+- Callback URLs and safe internal redirects should be preserved through sign-in and signup completion.
+- Internal admins should land in the admin panel, not the reader-facing app.
 
 ## 8) Application Routes (Next.js App Router)
 
 ### 8.1 Pages (UI)
 - `/` — landing (public)
-- `/signin` — auth entry (Google button)
+- `/signin` — public auth entry (Google button)
 - `/auth/error` — auth failure state
-- `/signup` — completed-signup onboarding form for authenticated but incomplete users
+- `/signup` — completed-signup onboarding form for authenticated but incomplete public users
+- `/admin/signin` — internal admin sign-in
+- `/admin` — admin landing (can redirect to invitation-code management in Milestone 5)
+- `/admin/invitation-codes` — internal invitation-code management
 - `/books/search` — search Google Books + add to shelves/clubs
 - `/books/[googleVolumeId]` — book details (from DB or fetched+cached; store book data in our DB after any user searches for it or tries to add it to a club/shelf)
 - `/clubs` — discover public clubs + user’s clubs
@@ -291,7 +369,9 @@ Prefer Server Actions for mutations; use route handlers for Google Books proxyin
   - Upserts into `Book`.
 
 Mutations (Server Actions recommended):
-- `completeSignup({ nickname, gender, countryCode, favoriteGenres, betaInvitationCode, callbackUrl? })`
+- `completeSignup({ nickname, gender, countryCode, favoriteGenres, invitationCode, callbackUrl? })`
+- `createInvitationCode({ purpose, label, expiresAt?, maxUses? })`
+- `updateInvitationCodeStatus(codeId, { isActive })`
 - `createClub({ name, description, visibility })`
 - `updateClub(clubId, { ... })`
 - `inviteToClub(clubId, { nickname })`
@@ -309,6 +389,9 @@ Mutations (Server Actions recommended):
 - `upsertReview(bookId, { rating, title, body, containsSpoilers })`
 - `deleteReview(bookId)`
 
+Internal admin sign-in contract:
+- `signIn("credentials", { email, password, callbackUrl })` via NextAuth Credentials provider for `provider = 'internal'`
+
 ## 9) UI/UX Spec (shadcn/ui)
 
 ### 9.1 Design System
@@ -319,14 +402,39 @@ Use shadcn/ui primitives:
 
 ### 9.2 Key Screens
 Signup (`/signup`)
-- Authenticated-only onboarding surface.
+- Authenticated-only onboarding surface for incomplete public users.
 - Collect:
   - nickname
   - gender
   - country
   - favorite genres (grouped multi-select)
-  - beta invitation code
+  - invitation code
 - Preserve callback destination and redirect there after successful completion.
+
+Admin Sign-In (`/admin/signin`)
+- Internal-only auth entry.
+- Collect:
+  - email
+  - password
+- Redirect successful sign-in to `/admin/invitation-codes`.
+
+Admin Invitation Codes (`/admin/invitation-codes`)
+- List codes with:
+  - purpose
+  - label
+  - active/inactive state
+  - usage count
+  - optional expiry
+  - optional max uses
+  - creator
+- Create new code with:
+  - purpose
+  - label
+  - optional expiry
+  - optional max uses
+- Show the raw code once after creation.
+- Allow activation/deactivation.
+- Show redemption history or usage details sufficient to explain exhausted or inactive state.
 
 Club Home (`/clubs/[clubId]`)
 - Header: club name, visibility badge, join/leave buttons (as applicable), settings/manage affordances for admins.
@@ -336,7 +444,7 @@ Club Home (`/clubs/[clubId]`)
 - Each book card:
   - thumbnail, title, authors
   - “Open” button to book-in-club page
-  - Admin controls: move status, remove, reorder
+  - admin controls: move status, remove, reorder
 
 Book-in-Club (`/clubs/[clubId]/books/[clubBookId]`)
 - Book header with metadata
@@ -356,7 +464,7 @@ Personal Shelves (`/me/shelves`)
 Public Shelf (`/users/[nickname]/shelves/[shelfId]`)
 - Read-only shelf view for signed-in readers
 - Owner shown by nickname
-- Keep shelfId in URL for stable lookup
+- Keep `shelfId` in URL for stable lookup
 
 Reviews
 - Book page shows:
@@ -398,8 +506,8 @@ Thread Page
 
 Navigation
 - Mobile:
-  - Consider a bottom nav with 3–4 destinations: Clubs, Search, Shelves, Profile.
-  - Or a hamburger menu using Sheet.
+  - Reader app can use a bottom nav with 3–4 destinations: Clubs, Search, Shelves, Profile.
+  - Admin UI can use a simplified top nav or list layout because Milestone 5 admin scope is narrow.
 - Desktop:
   - Top nav with persistent links.
 
@@ -430,18 +538,32 @@ Navigation
   - allowed values:
     - Fiction: `Fantasy`, `Sci-Fi`, `Mystery & Crime`, `Thriller & Suspense`, `Romance`, `Historical Fiction`, `Horror`, `Literary Fiction`
     - Non-Fiction: `Biography & Autobiography`, `Memoir`, `History`, `True Crime`, `Personal Development`, `Science`, `Philosophy`, `Travel`, `Business & Economics`, `Cooking & Food`, `Essays & Journalism`
+- Invitation code at signup:
+  - required at signup completion
+  - must match an active `BETA_SIGNUP` code
+  - must respect expiry and max-uses rules when those are configured
+- Internal admin sign-in:
+  - valid email required
+  - password required
+  - credentials verified against stored password hash
+- Invitation code creation:
+  - `purpose` required
+  - `label` required
+  - `expiresAt` optional and, if present, must be a future timestamp
+  - `maxUses` optional and, if present, must be a positive integer
 - Club name: 2–60 chars
 - Thread title: 2–120 chars
 - Post body: 1–10,000 chars
 - Review rating: integer 1..5 (optional)
 - Shelf name: 1–60 chars
-- Invitation expiry: default 7 days
-- Beta invitation code:
-  - required at signup completion
-  - must match `BETA_INVITATION_CODE`
+- Private club invitation expiry: default 7 days
 
 ### 11.2 Database Constraints
-- `User.nickname` unique
+- `User(provider, providerUserId)` unique
+- `User.nickname` unique when present
+- `User(provider, email)` unique for non-null emails
+- `InvitationCode.codeHash` unique
+- `InvitationCodeRedemption(codeId, userId)` unique
 - `Book.googleVolumeId` unique
 - `ClubMember(clubId, userId)` unique
 - Pending `ClubInvitation(clubId, invitedUserId)` unique
@@ -450,19 +572,26 @@ Navigation
 - `Review(userId, bookId)` unique
 
 ## 12) Security Requirements
-- All core mutations require an authenticated, signed-up user except `completeSignup`.
-- `completeSignup` requires an authenticated session and must reject already-completed users.
-- Beta invitation code must be validated server-side against `BETA_INVITATION_CODE`.
-- Never store or log the raw beta invitation code.
+- All reader-facing mutations require an authenticated, signed-up public user except `completeSignup`.
+- `completeSignup` requires an authenticated public session and must reject:
+  - already-completed users
+  - internal admins
+  - invalid/inactive/exhausted/expired invitation codes
+- Invitation-code management requires an authenticated internal admin.
+- Internal admin passwords must be stored as strong password hashes, never plaintext.
+- Raw invitation codes must never be stored and should only be shown at creation time.
+- Never store or log raw invitation codes or raw passwords.
+- Invitation code redemption must be validated and recorded transactionally.
 - Nickname uniqueness and normalization must be enforced on the server, not only in the client.
-- Invitation token must be:
+- Private club invitation tokens must be:
   - cryptographically random (for example 32+ bytes)
   - stored hashed
 - Protect Google Books API key by proxying requests server-side.
 - Prevent IDOR:
   - always scope club queries by membership and role checks
   - for shelves, always resolve ownership internally by userId after nickname lookup
-- Provider email must not be used as the authoritative identity for authorization or invite acceptance.
+- Provider email must not be used as the authoritative public identity for authorization or invite acceptance.
+- Public users cannot access `/admin/*`, and internal admins cannot use the public onboarding path.
 
 ## 13) MVP Milestones
 
@@ -471,8 +600,8 @@ Navigation
   - Google OAuth login via NextAuth
   - JWT cookie session strategy (`auth_sessions` table removed)
   - Route/API protection via `proxy.ts`
-  - Custom themed auth pages (`/signin`, `/auth/error`)
-  - Foundation profile menu + profile page (`/me`)
+  - custom themed auth pages (`/signin`, `/auth/error`)
+  - foundation profile menu + profile page (`/me`)
 - Books foundation
   - Google Books API integration via API key
   - Search page (`/books/search`) with:
@@ -485,7 +614,7 @@ Navigation
     - API endpoint (`POST /api/books/import`)
     - upsert into local `books` table cache
   - Book detail page (`/books/[googleVolumeId]`) with loader and formatted description rendering
-  - In-memory search cache with TTL + cleanup bounds
+  - in-memory search cache with TTL + cleanup bounds
 - Quality checks
   - `pnpm lint`, `pnpm build`
   - Playwright e2e coverage for search UX and toggle behavior
@@ -509,25 +638,28 @@ Navigation
 - Book detail shows review aggregates and recent reviews.
 - Profile reviewed list.
 
-### Milestone 5 — Beta Onboarding + Nickname Identity
+### Milestone 5 — Beta Onboarding + Internal Admin Auth + Invitation Code Management
 - Require completed signup after OAuth with:
   - nickname
   - gender
   - country
   - favorite genres
-  - beta invitation code
-- Redirect incomplete users to `/signup` before app access.
+  - invitation code
+- Replace the shared env-code model with DB-backed invitation codes.
+- Add internal admin auth with `provider = 'internal'` and email/password login.
+- Add internal admin UI for invitation-code creation, activation/deactivation, and usage visibility.
+- Redirect incomplete public users to `/signup` before reader-app access.
 - Use nickname-first display identity across profile, clubs, shelves, threads, and reviews.
 - Change public shelf sharing from userId route segments to nickname route segments.
 - Change private club invites from email-targeted flow to nickname-targeted flow resolved to `invitedUserId`.
-- Add quality coverage for onboarding, auth gating, nickname routing, and nickname-based invites.
+- Add quality coverage for onboarding, public/admin route gating, invitation-code redemption, nickname routing, and nickname-based invites.
 
 ## 14) Implementation Notes (Practical Defaults)
 
 ### 14.1 Club Creation Default
-When a user creates a club:
-- Create `Club`
-- Create `ClubMember` for creator with role `OWNER`
+When a signed-up public user creates a club:
+- create `Club`
+- create `ClubMember` for creator with role `OWNER`
 - `ADMIN` role can be added by owner; admins can manage members and books but cannot delete club or change visibility
 
 ### 14.2 Public vs Private Join Logic
@@ -545,9 +677,16 @@ Use `sortOrder`:
 - On add: set `sortOrder = max + 1` in that section.
 - On reorder: update affected rows.
 
-### 14.5 Onboarding and Invite Defaults
-- OAuth sign-in may create or resolve the user row before signup is complete.
-- Incomplete authenticated users are redirected to `/signup` and keep a safe callback URL.
-- Completed users hitting `/signup` should be redirected to the callback URL or `/books/search`.
-- Milestone 5 does not include nickname changes after signup.
-- Milestone 5 private invites can only target existing signed-up users with a nickname.
+### 14.5 Onboarding and Internal Admin Defaults
+- OAuth sign-in may create or resolve the public user row before signup is complete.
+- Incomplete authenticated public users are redirected to `/signup` and keep a safe callback URL.
+- Completed public users hitting `/signup` should be redirected to the callback URL or `/books/search`.
+- Internal admins are manually created in Supabase UI.
+- Internal admins use:
+  - `provider = 'internal'`
+  - `providerUserId = normalized email`
+  - password-hash verification
+- Internal admins do not use public signup or public product routes in Milestone 5.
+- Invitation codes are modeled for future reuse through `purpose`, optional expiry, and optional max uses, but only `BETA_SIGNUP` is redeemed in Milestone 5.
+- Raw invitation codes are shown once at creation and then only the hash remains persisted.
+- Milestone 5 private club invites can only target existing signed-up public users with a nickname.

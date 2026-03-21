@@ -1,24 +1,32 @@
 # Task 05: Quality Gates and Regression Coverage
 
 ## Goal
-Add the validation and regression coverage needed to ship Milestone 5 safely.
+Add the validation and regression coverage needed to ship the revised Milestone 5 safely.
 
 ## Scope
 - Extend unit coverage for:
   - nickname validation and normalization
-  - beta invitation code validation
-  - signup completion guards and callback handling
+  - internal email/password auth validation and password verification paths
+  - route-gating helpers for incomplete public users, completed public users, and internal admins
+  - invitation-code hashing, validation, and status evaluation
   - nickname-first display helpers
   - nickname-based shelf path generation
-  - invite parsing and nickname-resolution helpers
+  - private-club invite parsing and nickname-resolution helpers
 - Extend integration coverage for:
   - signup completion persistence and `signup_completed_at` updates
-  - incomplete-user gating on protected reads and mutations
+  - successful invitation-code redemption and rejection of inactive/expired/exhausted/wrong-purpose codes
+  - successful and failed internal admin login
+  - invitation-code creation, activation/deactivation, and usage accounting
+  - incomplete-user gating on reader-facing reads and mutations
   - nickname-based public shelf access
-  - private invite creation, deduplication, and acceptance by `invitedUserId`
+  - private-club invite creation, deduplication, and acceptance by `invitedUserId`
 - Extend Playwright coverage for:
-  - sign-in to signup-completion redirect behavior
-  - signup completion and callback resume
+  - Google sign-in to `/signup` redirect behavior
+  - signup completion and callback resume with a valid code
+  - invalid/expired/exhausted signup code handling
+  - internal admin sign-in to invitation-code management
+  - public-user blocking from `/admin/*`
+  - internal-admin blocking from `/signup`
   - `/me` nickname-led profile display
   - nickname-based public shelf URLs
   - nickname-based private invite creation and acceptance
@@ -31,16 +39,16 @@ Add the validation and regression coverage needed to ship Milestone 5 safely.
   - required Playwright runs
 
 ## Implementation Notes
-- Reuse the existing deterministic e2e auth and reset helpers instead of inventing a second onboarding harness.
-- Seed test users with completed-signup fields by default so existing milestone flows continue to work, then add targeted incomplete-user fixtures for Milestone 5 coverage.
-- Keep explicit regression assertions that existing club, thread, shelf, and review workflows stay reachable after signup gating is added.
-- Playwright should prove both the onboarding detour and the post-signup callback return path.
+- Reuse the existing deterministic e2e auth and reset helpers instead of inventing separate public and admin harnesses from scratch.
+- Seed test users with completed-signup fields by default so existing milestone flows continue to work, then add targeted incomplete-public-user and internal-admin fixtures for Milestone 5 coverage.
+- Keep explicit regression assertions that existing club, thread, shelf, and review workflows stay reachable after public/admin route gating is added.
+- Playwright should prove both the onboarding detour and the admin-panel entry path.
 - Task 05 depends on Tasks 01 through 04 shipping first; it is the milestone hardening pass, not a substitute for foundation or route work.
 
 ## Acceptance Criteria
-- Milestone 5 ships with automated coverage for onboarding validation, auth gating, nickname routing, and nickname-based invite targeting.
-- Existing milestone flows continue to pass after nickname identity replaces provider name/email in user-facing surfaces.
-- Incomplete users are covered explicitly in tests rather than being treated as an untested edge case.
+- Milestone 5 ships with automated coverage for onboarding validation, public/admin auth gating, invitation-code management, invitation-code redemption, nickname routing, and nickname-based private-club invite targeting.
+- Existing milestone flows continue to pass after nickname identity replaces provider name/email in reader-facing surfaces.
+- Incomplete public users and internal admins are covered explicitly in tests rather than treated as untested edge cases.
 - Lint, build, unit, integration, and required Playwright runs pass before the milestone is considered complete.
 
 ## Expected Touchpoints
