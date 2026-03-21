@@ -43,7 +43,7 @@ test("incomplete readers are redirected to signup and resume their callback afte
 
   await fillSignupForm(page, {
     nickname: "beta-reader",
-    gender: "PREFER_NOT_TO_SAY",
+    gender: "NON_BINARY",
     countryCode: "KR",
     invitationCode: rawCode,
   });
@@ -54,10 +54,11 @@ test("incomplete readers are redirected to signup and resume their callback afte
   await page.goto(E2E_ROUTE_PATHS.me);
   await expect(page.getByRole("heading", { name: "Profile" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "beta-reader" })).toBeVisible();
-  await expect(page.getByText("Connected email: incomplete@book-by-book.test")).toBeVisible();
-  await expect(page.getByText("Prefer Not To Say")).toBeVisible();
+  await expect(page.getByText("incomplete@book-by-book.test")).toBeVisible();
+  await expect(page.getByText("Non Binary")).toBeVisible();
   await expect(page.getByText(/Korea/i)).toBeVisible();
   await expect(page.getByText("Fantasy")).toBeVisible();
+  await expect(page.getByText("User ID")).toHaveCount(0);
 });
 
 test("signup rejects invalid invitation codes", async ({ page }) => {
@@ -130,7 +131,9 @@ test("internal admins can sign in and manage invitation-code activation", async 
   await expect(
     page.getByRole("heading", { name: "Invitation code control room" }),
   ).toBeVisible();
-  await expect(page.getByText(E2E_INTERNAL_ADMIN.email)).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "Open profile menu" }),
+  ).toBeVisible();
 
   await page.getByLabel("Label").fill("QA Cohort");
   await page.getByLabel("Max uses").fill("2");
@@ -148,6 +151,15 @@ test("internal admins can sign in and manage invitation-code activation", async 
 
   await page.goto(E2E_ROUTE_PATHS.signup);
   await expect(page).toHaveURL(/\/admin\/invitation-codes$/);
+
+  await page.getByRole("button", { name: "Open profile menu" }).click();
+  const profileMenu = page.getByRole("menu");
+  await expect(profileMenu.getByText(E2E_INTERNAL_ADMIN.email)).toBeVisible();
+  await expect(
+    page.getByRole("menuitem", { name: "Invitation codes" }),
+  ).toBeVisible();
+  await page.getByRole("menuitem", { name: "Sign out" }).click();
+  await expect(page).toHaveURL(/\/admin\/signin(?:\?|$)/);
 });
 
 test("internal admin sign-in throttles repeated failed attempts", async ({

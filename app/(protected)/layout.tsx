@@ -8,6 +8,13 @@ import { requireCurrentUser } from "@/lib/auth/server";
 import { getPublicUserIdentityLabel } from "@/lib/auth/users";
 import { createMyShelvesHref } from "@/lib/shelves/view-paths";
 
+const NAV_LINK_CLASS_NAME = buttonStyles({
+  variant: "ghost",
+  size: "sm",
+  className:
+    "h-10 rounded-full border border-transparent px-4 text-sm hover:border-(--border) hover:bg-(--surface-strong)",
+});
+
 export default async function ProtectedLayout({ children }: Props.Layout) {
   const currentUser = await requireCurrentUser();
   const displayName = getPublicUserIdentityLabel(currentUser);
@@ -16,8 +23,8 @@ export default async function ProtectedLayout({ children }: Props.Layout) {
     <ReactQueryProvider>
       <div className="min-h-screen">
         <header className="relative z-40 overflow-visible border-b border-(--border) bg-(--surface-strong)/90 backdrop-blur">
-          <div className="mx-auto flex w-full max-w-6xl flex-wrap items-center justify-between gap-3 px-4 py-4 sm:px-6 lg:px-8">
-            <div className="flex items-center gap-2">
+          <div className="mx-auto flex w-full max-w-6xl flex-wrap items-center justify-between gap-4 px-4 py-4 sm:px-6 lg:px-8">
+            <div className="flex items-center gap-3">
               <Link
                 href="/books/search"
                 className="text-4xl leading-none text-foreground"
@@ -27,34 +34,27 @@ export default async function ProtectedLayout({ children }: Props.Layout) {
               </Link>
             </div>
 
-            <nav className="relative z-50 flex items-center gap-2">
-              <Link
-                href="/books/search"
-                className={buttonStyles({ variant: "ghost", size: "sm" })}
-              >
-                <Search aria-hidden className="h-4 w-4 shrink-0" />
-                Search
-              </Link>
-              <Link
-                href="/clubs"
-                className={buttonStyles({ variant: "ghost", size: "sm" })}
-              >
-                <LibraryBig aria-hidden className="h-4 w-4 shrink-0" />
-                Clubs
-              </Link>
-              <Link
-                href={createMyShelvesHref()}
-                className={buttonStyles({ variant: "ghost", size: "sm" })}
-              >
-                <BookMarked aria-hidden className="h-4 w-4 shrink-0" />
-                Shelves
-              </Link>
+            <div className="relative z-50 flex flex-wrap items-center justify-end gap-2">
+              <nav className="flex items-center gap-1 rounded-full border border-(--border) bg-(--surface)/80 p-1 shadow-sm">
+                <Link href="/books/search" className={NAV_LINK_CLASS_NAME}>
+                  <Search aria-hidden className="h-4 w-4 shrink-0" />
+                  Search
+                </Link>
+                <Link href="/clubs" className={NAV_LINK_CLASS_NAME}>
+                  <LibraryBig aria-hidden className="h-4 w-4 shrink-0" />
+                  Clubs
+                </Link>
+                <Link href={createMyShelvesHref()} className={NAV_LINK_CLASS_NAME}>
+                  <BookMarked aria-hidden className="h-4 w-4 shrink-0" />
+                  Shelves
+                </Link>
+              </nav>
               <ProfileMenu
                 name={displayName}
                 email={currentUser.email}
                 imageUrl={currentUser.imageUrl}
               />
-            </nav>
+            </div>
           </div>
         </header>
 

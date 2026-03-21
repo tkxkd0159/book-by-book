@@ -63,7 +63,7 @@ export default async function AdminInvitationCodesPage({
               invitationCodes.map((invitationCode) => (
                 <article
                   key={invitationCode.id}
-                  className="rounded-2xl border border-(--border) bg-(--surface) p-5"
+                  className="flex h-full flex-col rounded-2xl border border-(--border) bg-(--surface) p-5"
                 >
                   <div className="flex flex-wrap items-start justify-between gap-4">
                     <div className="space-y-2">
@@ -83,18 +83,6 @@ export default async function AdminInvitationCodesPage({
                           : ""}
                       </p>
                     </div>
-
-                    <form action={updateInvitationCodeStatusAction}>
-                      <input type="hidden" name="codeId" value={invitationCode.id} />
-                      <input
-                        type="hidden"
-                        name="isActive"
-                        value={invitationCode.isActive ? "false" : "true"}
-                      />
-                      <Button type="submit" variant="secondary">
-                        {invitationCode.isActive ? "Deactivate" : "Activate"}
-                      </Button>
-                    </form>
                   </div>
 
                   <dl className="mt-4 grid gap-4 text-sm text-(--muted) md:grid-cols-4">
@@ -144,6 +132,20 @@ export default async function AdminInvitationCodesPage({
                         ))}
                       </ul>
                     )}
+                  </div>
+
+                  <div className="mt-auto flex justify-end border-t border-(--border) pt-4">
+                    <form action={updateInvitationCodeStatusAction}>
+                      <input type="hidden" name="codeId" value={invitationCode.id} />
+                      <input
+                        type="hidden"
+                        name="isActive"
+                        value={invitationCode.isActive ? "false" : "true"}
+                      />
+                      <Button type="submit" variant="secondary">
+                        {invitationCode.isActive ? "Deactivate" : "Activate"}
+                      </Button>
+                    </form>
                   </div>
                 </article>
               ))

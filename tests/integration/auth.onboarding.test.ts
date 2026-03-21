@@ -154,6 +154,60 @@ describe("signup completion integration", () => {
     });
   });
 
+  it("allows only one user to claim a nickname", async () => {
+    const codeId = await createBetaInvitationCode("beta-code-shared-nickname");
+    const firstUserId = await createIncompletePublicUser();
+    const secondUserId = await createIncompletePublicUser();
+
+    const results = await Promise.allSettled([
+      completeSignup({
+        userId: firstUserId,
+        nickname: "shared-reader",
+        gender: "WOMAN",
+        countryCode: "US",
+        favoriteGenres: ["FANTASY"],
+        invitationCode: "beta-code-shared-nickname",
+      }),
+      completeSignup({
+        userId: secondUserId,
+        nickname: "shared-reader",
+        gender: "NON_BINARY",
+        countryCode: "CA",
+        favoriteGenres: ["SCIENCE"],
+        invitationCode: "beta-code-shared-nickname",
+      }),
+    ]);
+
+    expect(results.filter((result) => result.status === "fulfilled")).toHaveLength(1);
+    expect(results.filter((result) => result.status === "rejected")).toHaveLength(1);
+
+    const rejectedResult = results.find((result) => result.status === "rejected");
+    if (!rejectedResult || rejectedResult.status !== "rejected") {
+      throw new Error("Expected one rejected signup result.");
+    }
+
+    expect(rejectedResult.reason).toMatchObject({
+      code: "CONFLICT",
+      message: "This nickname is already taken.",
+    });
+
+    const [nicknameClaimCount] = await sql<{ count: number }[]>`
+      select count(*)::int as count
+      from bookapp.users
+      where id = any(${sql.array([firstUserId, secondUserId])}::uuid[])
+        and nickname = 'shared-reader'
+        and signup_completed_at is not null
+    `;
+    expect(nicknameClaimCount?.count).toBe(1);
+
+    const [redemptionCount] = await sql<{ count: number }[]>`
+      select count(*)::int as count
+      from bookapp.invitation_code_redemptions
+      where code_id = ${codeId}::uuid
+    `;
+    expect(redemptionCount?.count).toBe(1);
+  });
+
   it("allows only one successful concurrent signup submission for the same user", async () => {
     const userId = await createIncompletePublicUser();
     const codeId = await createBetaInvitationCode("beta-code-double-submit");

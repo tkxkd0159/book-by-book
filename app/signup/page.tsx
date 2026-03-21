@@ -54,9 +54,9 @@ export default async function SignupPage({ searchParams }: Props.Page) {
   const countryOptions = listSupportedCountryOptions();
 
   return (
-    <main className="mx-auto flex min-h-screen w-full max-w-5xl items-center px-4 py-14 sm:px-6 lg:px-8">
-      <Card className="w-full border-2 bg-(--surface-strong)">
-        <CardHeader className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+    <main className="mx-auto flex min-h-screen w-full max-w-6xl items-center px-4 py-16 sm:px-6 sm:py-20 lg:px-8">
+      <Card className="w-full overflow-hidden border-2 bg-(--surface-strong)">
+        <CardHeader className="flex flex-col gap-6 border-b border-(--border)/70 bg-[radial-gradient(circle_at_top_left,rgba(15,97,82,0.12),transparent_48%),linear-gradient(135deg,rgba(255,246,222,0.8),rgba(214,236,230,0.42))] p-6 sm:flex-row sm:items-start sm:justify-between sm:p-8">
           <div className="space-y-2">
             <CardTitle className="text-3xl">
               Finish your Book by Book signup
@@ -71,8 +71,8 @@ export default async function SignupPage({ searchParams }: Props.Page) {
             Use a different account
           </SignOutButton>
         </CardHeader>
-        <CardContent className="grid gap-8 lg:grid-cols-[minmax(0,1.5fr)_minmax(20rem,1fr)]">
-          <form action={completeSignupAction} className="space-y-6">
+        <CardContent className="grid gap-10 p-6 pt-6 sm:p-8 sm:pt-8 lg:grid-cols-[minmax(0,1.55fr)_minmax(22rem,1fr)]">
+          <form action={completeSignupAction} className="space-y-8">
             <input type="hidden" name="callbackUrl" value={callbackUrl} />
 
             {errorMessage ? (
@@ -81,7 +81,7 @@ export default async function SignupPage({ searchParams }: Props.Page) {
               </p>
             ) : null}
 
-            <div className="grid gap-5 sm:grid-cols-2">
+            <div className="grid gap-6 sm:grid-cols-2">
               <label className="space-y-2 text-sm font-medium text-foreground">
                 <span>Nickname</span>
                 <Input
@@ -146,14 +146,14 @@ export default async function SignupPage({ searchParams }: Props.Page) {
               <legend className="text-sm font-medium text-foreground">
                 Favorite genres
               </legend>
-              <p className="text-sm text-(--muted)">
+              <p className="mt-2 text-sm text-(--muted)">
                 Pick at least one. These shape your beta profile from day one.
               </p>
-              <div className="grid gap-4 lg:grid-cols-2">
+              <div className="grid gap-4 pt-1 lg:grid-cols-2">
                 {FAVORITE_GENRE_GROUPS.map((group) => (
                   <div
                     key={group.label}
-                    className="rounded-xl border border-(--border) bg-(--surface) p-4"
+                    className="rounded-2xl border border-(--border) bg-(--surface) p-5"
                   >
                     <h2 className="text-sm font-semibold text-foreground">
                       {group.label}
@@ -190,7 +190,7 @@ export default async function SignupPage({ searchParams }: Props.Page) {
               />
             </label>
 
-            <div className="flex flex-wrap items-center gap-3">
+            <div className="flex flex-wrap items-center gap-4 rounded-2xl border border-(--border) bg-(--surface) p-4">
               <button type="submit" className={buttonStyles({ size: "lg" })}>
                 Complete signup
               </button>
@@ -200,22 +200,22 @@ export default async function SignupPage({ searchParams }: Props.Page) {
             </div>
           </form>
 
-          <aside className="space-y-4 rounded-2xl border border-(--border) bg-(--surface) p-5">
-            <div>
-              <p className="text-sm font-semibold text-foreground">
+          <aside className="space-y-5 rounded-3xl border border-(--border) bg-(--surface) p-6">
+            <div className="space-y-2">
+              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-(--muted)">
                 Connected account
               </p>
-              <p className="mt-2 text-sm text-(--muted)">
+              <p className="text-sm text-(--muted)">
                 {currentUser.email ?? "No provider email returned"}
               </p>
               {currentUser.name ? (
-                <p className="mt-1 text-sm text-(--muted)">
+                <p className="text-sm text-(--muted)">
                   Provider name: {currentUser.name}
                 </p>
               ) : null}
             </div>
 
-            <div className="rounded-xl border border-(--border) bg-(--surface-strong) p-4">
+            <div className="rounded-2xl border border-(--border) bg-(--surface-strong) p-5">
               <p className="text-sm font-semibold text-foreground">
                 What changes after this step
               </p>
