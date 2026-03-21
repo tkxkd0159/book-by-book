@@ -336,6 +336,7 @@ export async function searchGoogleBooks(
     maxResults: String(pageSize),
     printType: "books",
     projection: "lite",
+    langRestrict: "en",
   });
 
   const payload =
