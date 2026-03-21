@@ -1,4 +1,4 @@
-import type { FavoriteGenre, UserGender } from "@/types/db";
+import type { FavoriteGenreKey, UserGender } from "@/types/db";
 
 export const TEST_USER_KEYS = ["owner", "member", "stranger", "incomplete"] as const;
 
@@ -7,7 +7,7 @@ export type TestUserKey = (typeof TEST_USER_KEYS)[number];
 export const TEST_USERS = {
   owner: {
     email: "owner@book-by-book.test",
-    favoriteGenres: ["Fantasy", "Science"] as FavoriteGenre[],
+    favoriteGenres: ["FANTASY", "SCIENCE"] as FavoriteGenreKey[],
     gender: "MAN" as UserGender,
     key: "owner",
     name: "Owner Reader",
@@ -16,7 +16,7 @@ export const TEST_USERS = {
   },
   member: {
     email: "member@book-by-book.test",
-    favoriteGenres: ["Memoir", "Travel"] as FavoriteGenre[],
+    favoriteGenres: ["MEMOIR", "TRAVEL"] as FavoriteGenreKey[],
     gender: "WOMAN" as UserGender,
     key: "member",
     name: "Member Reader",
@@ -25,7 +25,7 @@ export const TEST_USERS = {
   },
   stranger: {
     email: "stranger@book-by-book.test",
-    favoriteGenres: ["History", "Philosophy"] as FavoriteGenre[],
+    favoriteGenres: ["HISTORY", "PHILOSOPHY"] as FavoriteGenreKey[],
     gender: "NON_BINARY" as UserGender,
     key: "stranger",
     name: "Stranger Reader",
@@ -34,7 +34,7 @@ export const TEST_USERS = {
   },
   incomplete: {
     email: "incomplete@book-by-book.test",
-    favoriteGenres: [] as FavoriteGenre[],
+    favoriteGenres: [] as FavoriteGenreKey[],
     gender: null,
     key: "incomplete",
     name: "Incomplete Reader",
@@ -45,7 +45,7 @@ export const TEST_USERS = {
   TestUserKey,
   {
     email: string;
-    favoriteGenres: FavoriteGenre[];
+    favoriteGenres: FavoriteGenreKey[];
     gender: UserGender | null;
     key: TestUserKey;
     name: string;

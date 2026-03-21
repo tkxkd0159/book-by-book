@@ -11,7 +11,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { getCountryName } from "@/lib/auth/signup";
+import { getCountryName, getFavoriteGenreLabel } from "@/lib/auth/signup";
 import { getPublicUserIdentityLabel } from "@/lib/auth/users";
 import { createMyReviewedHref } from "@/lib/reviews/view-paths";
 import { createMyShelvesHref } from "@/lib/shelves/view-paths";
@@ -100,7 +100,9 @@ export default async function MePage() {
           </CardHeader>
           <CardContent className="flex flex-wrap gap-2">
             {user.favoriteGenres.length > 0 ? (
-              user.favoriteGenres.map((genre) => <Badge key={genre}>{genre}</Badge>)
+              user.favoriteGenres.map((genre) => (
+                <Badge key={genre}>{getFavoriteGenreLabel(genre)}</Badge>
+              ))
             ) : (
               <p className="text-sm text-(--muted)">No favorite genres saved.</p>
             )}

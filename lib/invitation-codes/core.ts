@@ -13,7 +13,10 @@ export const INVITATION_CODE_STATUS_ORDER = [
   "EXHAUSTED",
 ] as const satisfies readonly InvitationCodeStatus[];
 
-export const DEFAULT_INVITATION_CODE_LENGTH = 12;
+export const DEFAULT_INVITATION_CODE_GROUP_SIZE = 5;
+export const DEFAULT_INVITATION_CODE_GROUP_COUNT = 4;
+export const DEFAULT_INVITATION_CODE_LENGTH =
+  DEFAULT_INVITATION_CODE_GROUP_SIZE * DEFAULT_INVITATION_CODE_GROUP_COUNT;
 
 const INVITATION_CODE_PURPOSE_SET = new Set<InvitationCodePurpose>(
   INVITATION_CODE_PURPOSES,
@@ -61,7 +64,10 @@ export function generateInvitationCode(length = DEFAULT_INVITATION_CODE_LENGTH) 
   return code;
 }
 
-export function formatInvitationCodeForDisplay(rawCode: string, groupSize = 4) {
+export function formatInvitationCodeForDisplay(
+  rawCode: string,
+  groupSize = DEFAULT_INVITATION_CODE_GROUP_SIZE,
+) {
   const normalized = normalizeInvitationCode(rawCode);
 
   if (!normalized) {

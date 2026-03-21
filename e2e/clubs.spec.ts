@@ -64,6 +64,13 @@ async function openManageTab(
   await page.getByRole("link", { name: tabName, exact: true }).click();
 }
 
+async function joinClubFromBoard(page: Page) {
+  await page.getByRole("button", { name: "Join club" }).click();
+  await expect(page.getByRole("button", { name: "Leave club" })).toBeVisible({
+    timeout: 15_000,
+  });
+}
+
 test("user can create a public club and another user can join it", async ({
   page,
 }) => {
@@ -211,8 +218,7 @@ test("members and non-members cannot access the manage page", async ({
   await signInAs(page, "member", "/clubs");
   await page.goto(clubBoardPath);
 
-  await page.getByRole("button", { name: "Join club" }).click();
-  await expect(page.getByText("You joined the club.")).toBeVisible();
+  await joinClubFromBoard(page);
   await expect(page.getByRole("link", { name: E2E_TAB_LABELS.manage })).toHaveCount(0);
 
   const response = await page.goto(manageUrl);
@@ -262,8 +268,7 @@ test("member can leave a public club and see it in discovery again", async ({
   const clubBoardPath = clubBoardPathFromUrl(page.url());
 
   await signInAs(page, "member", clubBoardPath);
-  await page.getByRole("button", { name: "Join club" }).click();
-  await expect(page.getByText("You joined the club.")).toBeVisible();
+  await joinClubFromBoard(page);
   await expect(page.getByRole("button", { name: "Leave club" })).toBeVisible();
 
   await page.getByRole("button", { name: "Leave club" }).click();
@@ -288,8 +293,7 @@ test("owner can promote a member, transfer ownership, and then leave", async ({
   await expect(page.getByRole("button", { name: "Leave club" })).toHaveCount(0);
 
   await signInAs(page, "member", clubBoardPath);
-  await page.getByRole("button", { name: "Join club" }).click();
-  await expect(page.getByText("You joined the club.")).toBeVisible();
+  await joinClubFromBoard(page);
 
   await signInAs(page, "owner", clubBoardPath);
   await openManagePage(page);
@@ -339,12 +343,10 @@ test("owner and admins can both use Add admin from the manage page", async ({
   const clubBoardPath = clubBoardPathFromUrl(page.url());
 
   await signInAs(page, "member", clubBoardPath);
-  await page.getByRole("button", { name: "Join club" }).click();
-  await expect(page.getByText("You joined the club.")).toBeVisible();
+  await joinClubFromBoard(page);
 
   await signInAs(page, "stranger", clubBoardPath);
-  await page.getByRole("button", { name: "Join club" }).click();
-  await expect(page.getByText("You joined the club.")).toBeVisible();
+  await joinClubFromBoard(page);
 
   await signInAs(page, "owner", clubBoardPath);
   await openManagePage(page);

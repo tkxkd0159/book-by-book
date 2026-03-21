@@ -2,6 +2,10 @@ import type { User } from "next-auth";
 
 import { AuthFlowError } from "@/lib/auth/errors";
 import {
+  getAdminSignInFailureMessage,
+  recordFailedAdminSignInAttempt,
+} from "@/lib/rate-limit/admin-signin";
+import {
   normalizeInternalAdminEmail,
   parseInternalAdminPassword,
   verifyInternalAdminPassword,
@@ -15,16 +19,36 @@ type InternalAdminCredentialsInput = {
 
 export async function authenticateInternalAdmin(
   credentials: InternalAdminCredentialsInput,
+  options?: {
+    headers?:
+      | Headers
+      | Record<string, string | string[] | undefined>
+      | undefined
+      | null;
+  },
 ) {
-  const email = normalizeInternalAdminEmail(credentials.email);
-  const password = parseInternalAdminPassword(credentials.password);
+  let email: string;
+  let password: string;
+
+  try {
+    email = normalizeInternalAdminEmail(credentials.email);
+    password = parseInternalAdminPassword(credentials.password);
+  } catch {
+    throw new AuthFlowError("UNAUTHORIZED", getAdminSignInFailureMessage());
+  }
+
   const adminUser = await findInternalAdminByEmail(email);
 
   if (
     !adminUser ||
     !(await verifyInternalAdminPassword(password, adminUser.passwordHash))
   ) {
-    throw new AuthFlowError("UNAUTHORIZED", "Invalid email or password.");
+    await recordFailedAdminSignInAttempt({
+      email,
+      headers: options?.headers,
+    });
+
+    throw new AuthFlowError("UNAUTHORIZED", getAdminSignInFailureMessage());
   }
 
   return adminUser;
@@ -32,12 +56,17 @@ export async function authenticateInternalAdmin(
 
 export async function authorizeInternalAdminCredentials(
   credentials: Record<string, unknown> | undefined,
+  request?: {
+    headers?: Record<string, string | string[] | undefined>;
+  },
 ): Promise<User | null> {
   try {
     const adminUser = await authenticateInternalAdmin({
       email: typeof credentials?.email === "string" ? credentials.email : null,
       password:
         typeof credentials?.password === "string" ? credentials.password : null,
+    }, {
+      headers: request?.headers,
     });
 
     return {
@@ -48,7 +77,7 @@ export async function authorizeInternalAdminCredentials(
     };
   } catch (error) {
     if (error instanceof AuthFlowError) {
-      return null;
+      throw new Error(error.message);
     }
 
     throw error;

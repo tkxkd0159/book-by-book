@@ -20,15 +20,19 @@ Add the internal-only auth path and admin surface needed to manage invitation co
 - Internal admins are manually created in Supabase UI; Milestone 5 does not add in-app admin-user creation.
 - Internal credentials auth must not create users; it only resolves existing `provider = 'internal'` users and verifies the stored password hash.
 - Internal users should land on `/admin/invitation-codes` after successful sign-in.
+- Failed `/admin/signin` attempts must be throttled with shared rate-limit infrastructure:
+  - email+IP default 5 failures per 900 seconds
+  - IP-only default 20 failures per 900 seconds
 - Invitation-code management is future-ready through `purpose`, optional expiry, and optional max uses, but only `BETA_SIGNUP` redemption is implemented in Milestone 5.
 - The admin route contract can stay compact; usage details may be inline on `/admin/invitation-codes` instead of requiring a second admin detail route.
 - In Milestone 5, code creation UI can expose `purpose` as a fixed single-option control or a read-only value so implementation does not need a multi-purpose admin UX yet.
 - Admins can activate/deactivate codes, but editing a code’s raw value, expiry, or max uses after creation is out of scope in Milestone 5.
 - The list surface should show derived status, not just raw `isActive`, so exhausted and expired codes are immediately understandable.
+- Raw invitation codes should be generated as readable high-entropy uppercase codes in `XXXXX-XXXXX-XXXXX-XXXXX` format.
 
 ## Acceptance Criteria
 - Internal admins can authenticate successfully with email/password through `/admin/signin`.
-- Invalid credentials fail cleanly without creating or mutating users.
+- Invalid credentials and throttled attempts fail cleanly without creating or mutating users.
 - `/admin/invitation-codes` lets internal admins create, activate/deactivate, and inspect codes and usage data.
 - Raw codes are only shown at creation time and are not persisted in plaintext.
 - Public users are blocked from `/admin/*`, and internal admins are redirected away from `/signup`.

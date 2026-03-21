@@ -26,10 +26,10 @@ describe("signup validation helpers", () => {
 
   it("deduplicates and validates favorite genres", () => {
     expect(
-      parseFavoriteGenres(["Fantasy", "Fantasy", "Science"]),
-    ).toStrictEqual(["Fantasy", "Science"]);
-    expect(coerceFavoriteGenres(["Fantasy", "Unknown"])).toStrictEqual([
-      "Fantasy",
+      parseFavoriteGenres(["FANTASY", "FANTASY", "SCIENCE"]),
+    ).toStrictEqual(["FANTASY", "SCIENCE"]);
+    expect(coerceFavoriteGenres(["FANTASY", "Unknown"])).toStrictEqual([
+      "FANTASY",
     ]);
     expect(() => parseFavoriteGenres([])).toThrow(
       "Choose at least one favorite genre.",
