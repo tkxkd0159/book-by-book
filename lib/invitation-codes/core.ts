@@ -38,7 +38,10 @@ function readString(value: FormDataEntryValue | string | null | undefined) {
 export function normalizeInvitationCode(
   value: FormDataEntryValue | string | null | undefined,
 ) {
-  return readString(value).trim().toUpperCase().replace(/[\s-]+/g, "");
+  return readString(value)
+    .trim()
+    .toUpperCase()
+    .replace(/[\s-]+/g, "");
 }
 
 export function hashInvitationCode(
@@ -53,12 +56,29 @@ export function hashInvitationCode(
   return createHash("sha256").update(normalized).digest("hex");
 }
 
-export function generateInvitationCode(length = DEFAULT_INVITATION_CODE_LENGTH) {
-  const bytes = randomBytes(length);
+export function generateInvitationCode(
+  length = DEFAULT_INVITATION_CODE_LENGTH,
+): string {
   let code = "";
+  const alphabetLength = INVITATION_CODE_ALPHABET.length;
+  // Use rejection sampling to avoid modulo bias when mapping random bytes to alphabet indices.
+  const maxValidByte = Math.floor(256 / alphabetLength) * alphabetLength - 1;
 
-  for (let index = 0; index < length; index += 1) {
-    code += INVITATION_CODE_ALPHABET[bytes[index] % INVITATION_CODE_ALPHABET.length];
+  while (code.length < length) {
+    const bytes = randomBytes(length - code.length);
+
+    for (
+      let index = 0;
+      index < bytes.length && code.length < length;
+      index += 1
+    ) {
+      const byte = bytes[index];
+      if (byte > maxValidByte) {
+        continue;
+      }
+      const alphabetIndex = byte % alphabetLength;
+      code += INVITATION_CODE_ALPHABET[alphabetIndex];
+    }
   }
 
   return code;
@@ -74,7 +94,10 @@ export function formatInvitationCodeForDisplay(
     return "";
   }
 
-  return normalized.match(new RegExp(`.{1,${groupSize}}`, "g"))?.join("-") ?? normalized;
+  return (
+    normalized.match(new RegExp(`.{1,${groupSize}}`, "g"))?.join("-") ??
+    normalized
+  );
 }
 
 export function parseInvitationCodePurpose(
