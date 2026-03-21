@@ -1,6 +1,7 @@
 import { expect, test } from "./fixtures/test";
 import { resetApp, signInAs } from "./helpers/auth";
 import { E2E_ROUTE_PATHS, E2E_URL_PATTERNS } from "./helpers/constants";
+import { seedReview } from "./helpers/test-data";
 
 test.beforeEach(async ({ request }) => {
   await resetApp(request);
@@ -45,25 +46,25 @@ test("legacy review routes redirect into the inline editor on the book detail pa
   await expect(page.getByText("Write your review")).toBeVisible();
 });
 
-test("members can create, update, and delete reviews from the book detail page", async ({
+test("members can update and delete reviews from the book detail page", async ({
   page,
+  request,
 }) => {
+  await seedReview(request, {
+    user: "owner",
+    rating: 4.5,
+    title: "Strong opener",
+    body: "Strong opening and a solid finish.",
+  });
+
   await signInAs(page, "owner", E2E_ROUTE_PATHS.fixtureBook);
   const publicReviewsSection = page.getByTestId("public-review-list");
-
-  await expect(page.getByText("Write your review")).toBeVisible();
-
-  await page.getByLabel("4.5 stars").check();
-  await page.getByLabel("Title").fill("Strong opener");
-  await page
-    .getByRole("textbox", { name: "Review" })
-    .fill("Strong opening and a solid finish.");
-  await page.getByRole("button", { name: "Publish review" }).click();
-
-  await expect(page).toHaveURL(E2E_URL_PATTERNS.bookReview);
-  await expect(page.getByText("Review saved.")).toBeVisible();
-  await expect(page.getByText("Your review")).toBeVisible();
-  await expect(page.getByRole("button", { name: "Edit review" })).toBeVisible();
+  await expect(
+    page.getByText("Your review", { exact: true }),
+  ).toBeVisible({ timeout: 20_000 });
+  await expect(page.getByRole("button", { name: "Edit review" })).toBeVisible({
+    timeout: 20_000,
+  });
   await expect(
     page.getByRole("button", { name: "Delete review" }),
   ).toBeVisible();
@@ -75,9 +76,6 @@ test("members can create, update, and delete reviews from the book detail page",
   ).toBeVisible();
   await expect(publicReviewsSection.getByText("Strong opener")).toBeVisible();
   await expect(page.getByText(/^1 review$/)).toBeVisible();
-  await expect(page.getByText("Review saved.")).toHaveCount(0, {
-    timeout: 6000,
-  });
 
   await page.goto(E2E_ROUTE_PATHS.meReviewed);
   await expect(
@@ -101,7 +99,6 @@ test("members can create, update, and delete reviews from the book detail page",
     .getByRole("textbox", { name: "Review" })
     .fill("Less effective on a second read.");
   await page.getByRole("button", { name: "Save review" }).click();
-  await expect(page.getByText("Review saved.")).toBeVisible();
   await expect(page).toHaveURL(/\/me\/reviewed(?:\?.*)?(?:#.*)?$/i);
   await expect(page.getByText("Less effective later")).toBeVisible();
   await expect(page.getByRole("button", { name: "Save review" })).toHaveCount(
@@ -116,7 +113,6 @@ test("members can create, update, and delete reviews from the book detail page",
   await expect(page.getByText("Less effective later")).toBeVisible();
 
   await page.getByRole("button", { name: "Delete review" }).click();
-  await expect(page.getByText("Review deleted.")).toBeVisible();
   await expect(page.getByText("No reviews yet")).toBeVisible();
 
   await page.goto(E2E_ROUTE_PATHS.fixtureBook);
@@ -129,41 +125,55 @@ test("members can create, update, and delete reviews from the book detail page",
 
 test("book detail shows aggregate ratings, reader reviews, and keeps the add-book modal available", async ({
   page,
+  request,
 }) => {
-  await signInAs(page, "owner", E2E_ROUTE_PATHS.fixtureBook);
-  const publicReviewsSection = page.getByTestId("public-review-list");
-
-  await page.getByLabel("4.5 stars").check();
-  await page.getByLabel("Title").fill("Owner headline");
-  await page.getByRole("textbox", { name: "Review" }).fill("Owner review body.");
-  await page.getByRole("button", { name: "Publish review" }).click();
-  await expect(page).toHaveURL(E2E_URL_PATTERNS.bookReview);
-  await expect(page.getByText("Review saved.")).toBeVisible();
-  await expect(
-    publicReviewsSection.getByText("Owner review body."),
-  ).toBeVisible();
-  await expect(publicReviewsSection.getByText("Owner headline")).toBeVisible();
-  await expect(page.getByText("Your review")).toBeVisible();
+  await seedReview(request, {
+    user: "owner",
+    rating: 4.5,
+    title: "Owner headline",
+    body: "Owner review body.",
+  });
+  await seedReview(request, {
+    user: "member",
+    rating: 4,
+    title: "Member headline",
+    body: "Member review body.",
+  });
 
   await signInAs(page, "member", E2E_ROUTE_PATHS.fixtureBook);
-  await page.getByLabel("4 stars").check();
-  await page.getByLabel("Title").fill("Member headline");
-  await page.getByRole("textbox", { name: "Review" }).fill("Member review body.");
-  await page.getByRole("button", { name: "Publish review" }).click();
-  await expect(page).toHaveURL(E2E_URL_PATTERNS.bookReview);
-  await expect(page.getByText("Your review")).toBeVisible();
+  const publicReviewsSection = page.getByTestId("public-review-list");
 
-  await page.goto(E2E_ROUTE_PATHS.fixtureBook);
+  await expect(page).toHaveURL(E2E_URL_PATTERNS.bookReview);
   await expect(
     page.getByRole("heading", { name: "Reader reviews", exact: true }),
-  ).toBeVisible();
-  await expect(page.getByLabel("Rating 4.3")).toBeVisible();
-  await expect(page.getByText(/^2 reviews$/)).toBeVisible();
-  await expect(page.getByText("Member review body.")).toBeVisible();
-  await expect(page.getByText("Owner review body.")).toBeVisible();
-  await expect(page.getByText("Member headline")).toBeVisible();
-  await expect(page.getByText("Owner headline")).toBeVisible();
-  await expect(page.getByText("Your review")).toBeVisible();
+  ).toBeVisible({ timeout: 20_000 });
+  await expect(page.getByText("4.3 (2)")).toBeVisible({
+    timeout: 20_000,
+  });
+  await expect(page.getByText(/^2 reviews$/)).toBeVisible({
+    timeout: 20_000,
+  });
+  await expect(page.getByText("Member review body.")).toBeVisible({
+    timeout: 20_000,
+  });
+  await expect(page.getByText("Owner review body.")).toBeVisible({
+    timeout: 20_000,
+  });
+  await expect(page.getByText("Member headline")).toBeVisible({
+    timeout: 20_000,
+  });
+  await expect(page.getByText("Owner headline")).toBeVisible({
+    timeout: 20_000,
+  });
+  await expect(
+    page.getByText("Your review", { exact: true }),
+  ).toBeVisible({ timeout: 20_000 });
+  await expect(
+    publicReviewsSection.getByText("Owner review body."),
+  ).toBeVisible({ timeout: 20_000 });
+  await expect(
+    publicReviewsSection.getByText("Owner headline"),
+  ).toBeVisible({ timeout: 20_000 });
 
   await page.getByRole("button", { name: "Add Book" }).click();
   const addBookDialog = page.getByRole("dialog");

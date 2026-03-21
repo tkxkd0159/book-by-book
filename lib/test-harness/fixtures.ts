@@ -1,13 +1,16 @@
+import { E2E_USER_PROVIDER } from "@/lib/test-harness/auth";
 import sql from "@/lib/db";
-import { E2E_USER_PROVIDER } from "@/lib/auth/e2e";
 import {
   TEST_BOOK_FIXTURE,
+  TEST_BOOK_VOLUME_ID,
+} from "@/lib/test-harness/google-books-fixtures";
+import {
   TEST_FIXTURE_LOCK_ID,
   TEST_USERS,
   type TestUserKey,
-} from "@/lib/test/constants";
+} from "@/lib/test-harness/constants";
 
-export { TEST_BOOK_VOLUME_ID, type TestUserKey } from "@/lib/test/constants";
+export { TEST_BOOK_VOLUME_ID, type TestUserKey };
 
 async function insertTestUsers(query: typeof sql) {
   for (const user of Object.values(TEST_USERS)) {
@@ -96,7 +99,7 @@ export async function resetTestDatabase() {
         ${TEST_BOOK_FIXTURE.thumbnailUrl},
         ${TEST_BOOK_FIXTURE.infoLink},
         ${TEST_BOOK_FIXTURE.canonicalLink},
-        ${TEST_BOOK_FIXTURE.rawGoogleJson}::jsonb
+        ${JSON.stringify(TEST_BOOK_FIXTURE.rawGoogleJson)}::jsonb
       )
     `;
   });

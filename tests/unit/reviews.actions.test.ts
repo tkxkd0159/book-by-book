@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { createSignedBookImportToken } from "@/lib/books/import-token";
 
@@ -48,10 +48,22 @@ vi.mock("@/lib/reviews/repository", async () => {
 });
 
 describe("review actions", () => {
+  const originalAuthSecret = process.env.AUTH_SECRET;
+
   beforeEach(() => {
     vi.resetModules();
     vi.clearAllMocks();
+    process.env.AUTH_SECRET = "test-auth-secret";
     requireCurrentUserMock.mockResolvedValue({ id: "user-123" });
+  });
+
+  afterEach(() => {
+    if (originalAuthSecret) {
+      process.env.AUTH_SECRET = originalAuthSecret;
+      return;
+    }
+
+    delete process.env.AUTH_SECRET;
   });
 
   it("upserts a review and reuses a signed detail snapshot when available", async () => {

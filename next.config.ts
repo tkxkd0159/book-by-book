@@ -1,5 +1,9 @@
 import type { NextConfig } from "next";
 
+import { env } from "./lib/env";
+
+env.validateForBuildOrThrow();
+
 const nextConfig: NextConfig = {
   experimental: {
     authInterrupts: true,

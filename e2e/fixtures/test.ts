@@ -3,6 +3,7 @@ import { once } from "node:events";
 
 import { expect, test as base } from "@playwright/test";
 
+import { startGoogleBooksStubServer } from "../helpers/google-books-stub";
 import {
   E2E_SERVER_ENV,
   createDatabaseClone,
@@ -42,6 +43,7 @@ export const test = base.extend<Record<never, never>, { workerApp: WorkerApp }>(
         templateDatabase: runtimeState.templateDatabase,
       });
 
+      const googleBooksStubServer = await startGoogleBooksStubServer();
       const logs: string[] = [];
       const server = spawn(
         "pnpm",
@@ -52,6 +54,7 @@ export const test = base.extend<Record<never, never>, { workerApp: WorkerApp }>(
             ...process.env,
             ...E2E_SERVER_ENV,
             DATABASE_URL: databaseUrl,
+            GOOGLE_BOOKS_API_BASE_URL: googleBooksStubServer.baseUrl,
             NEXTAUTH_URL: baseUrl,
           },
           stdio: ["ignore", "pipe", "pipe"],
@@ -91,6 +94,7 @@ export const test = base.extend<Record<never, never>, { workerApp: WorkerApp }>(
           adminDatabaseUrl: runtimeState.adminDatabaseUrl,
           databaseName,
         }).catch(() => undefined);
+        await googleBooksStubServer.close().catch(() => undefined);
       }
     },
     { scope: "worker" },
