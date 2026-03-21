@@ -1,16 +1,34 @@
 import type { NextAuthOptions } from "next-auth";
+import CredentialsProvider from "next-auth/providers/credentials";
 import GoogleProvider from "next-auth/providers/google";
 
 import { env } from "@/lib/env";
+import { INTERNAL_AUTH_PROVIDER } from "@/lib/auth/identity";
+import { authorizeInternalAdminCredentials } from "@/lib/auth/internal-auth";
 import { resolveAuthSecret } from "@/lib/auth/secret";
 import {
+  findUserById,
   findUserByProviderAccount,
   upsertGoogleOAuthUser,
 } from "@/lib/auth/users";
+import type { AuthUser } from "@/types/db";
 
 const SESSION_MAX_AGE_SECONDS = 14 * 24 * 60 * 60;
 const googleOAuthEnv = env.googleOAuth;
 const runtimeEnv = env.runtime;
+
+function applyDbUserToToken(
+  token: Record<string, unknown>,
+  user: AuthUser,
+) {
+  token.userId = user.id;
+  token.provider = user.provider;
+  token.nickname = user.nickname;
+  token.isInternalAdmin = user.isInternalAdmin;
+  token.isSignupComplete = user.isSignupComplete;
+  token.sessionIdentity = user.sessionIdentity;
+  return token;
+}
 
 export const authOptions: NextAuthOptions = {
   debug: runtimeEnv.isDevelopment,
@@ -30,6 +48,15 @@ export const authOptions: NextAuthOptions = {
     GoogleProvider({
       clientId: googleOAuthEnv.clientId,
       clientSecret: googleOAuthEnv.clientSecret,
+    }),
+    CredentialsProvider({
+      id: INTERNAL_AUTH_PROVIDER,
+      name: "Internal",
+      credentials: {
+        email: { label: "Email", type: "email" },
+        password: { label: "Password", type: "password" },
+      },
+      authorize: authorizeInternalAdminCredentials,
     }),
   ],
   callbacks: {
@@ -67,6 +94,8 @@ export const authOptions: NextAuthOptions = {
                 typeof account.id_token === "string" ? account.id_token : null,
             });
             break;
+          case INTERNAL_AUTH_PROVIDER:
+            break;
           default:
             break;
         }
@@ -77,14 +106,32 @@ export const authOptions: NextAuthOptions = {
 
       return true;
     },
-    async jwt({ token, account }) {
+    async jwt({ token, account, user }) {
+      if (user?.id) {
+        const dbUser = await findUserById(user.id);
+        if (dbUser) {
+          return applyDbUserToToken(token, dbUser);
+        }
+      }
+
       if (account?.provider && account.providerAccountId) {
         const dbUser = await findUserByProviderAccount(
           account.provider,
           account.providerAccountId,
         );
         if (dbUser) {
-          token.userId = dbUser.id;
+          return applyDbUserToToken(token, dbUser);
+        }
+      }
+
+      if (
+        typeof token.userId === "string" &&
+        (typeof token.provider !== "string" ||
+          typeof token.sessionIdentity !== "string")
+      ) {
+        const dbUser = await findUserById(token.userId);
+        if (dbUser) {
+          return applyDbUserToToken(token, dbUser);
         }
       }
 
@@ -93,6 +140,16 @@ export const authOptions: NextAuthOptions = {
     async session({ session, token }) {
       if (session.user && typeof token.userId === "string") {
         session.user.id = token.userId;
+        session.user.provider =
+          typeof token.provider === "string" ? token.provider : undefined;
+        session.user.nickname =
+          typeof token.nickname === "string" ? token.nickname : null;
+        session.user.isInternalAdmin = token.isInternalAdmin === true;
+        session.user.isSignupComplete = token.isSignupComplete === true;
+        session.user.sessionIdentity =
+          typeof token.sessionIdentity === "string"
+            ? token.sessionIdentity
+            : undefined;
       }
 
       return session;

@@ -162,11 +162,12 @@ test("signed-in readers can open public shelves, private shelves stay forbidden,
   await page.goto(publicShelfHref!);
 
   await expect(page).toHaveURL(E2E_URL_PATTERNS.publicShelf);
+  await expect(page).toHaveURL(/\/users\/owner-reader\/shelves\/[0-9a-f-]+(?:\?|$)/i);
   await expect(
     page.getByRole("heading", { name: "Shared Shelf" }),
   ).toBeVisible();
   await expect(
-    page.getByText("Owner Reader's notes and titles, in read-only mode."),
+    page.getByText("owner-reader's notes and titles, in read-only mode."),
   ).toBeVisible();
   await expect(page.getByRole("button", { name: "Delete shelf" })).toHaveCount(
     0,
@@ -176,7 +177,7 @@ test("signed-in readers can open public shelves, private shelves stay forbidden,
 
   const wrongOwnerHref = publicShelfHref!.replace(
     /\/users\/[^/]+\//,
-    "/users/00000000-0000-0000-0000-000000000000/",
+    "/users/missing-reader/",
   );
   const missingOwnerResponse = await page.goto(wrongOwnerHref);
   expect(missingOwnerResponse?.status()).toBe(404);

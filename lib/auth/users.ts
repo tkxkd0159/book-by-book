@@ -1,5 +1,17 @@
 import sql from "@/lib/db";
-import type { AuthUser } from "@/types/db";
+import {
+  getUserDisplayName,
+  INTERNAL_AUTH_PROVIDER,
+  isInternalAuthProvider,
+  resolveAppSessionIdentity,
+} from "@/lib/auth/identity";
+import { normalizeInternalAdminEmail } from "@/lib/auth/internal";
+import {
+  coerceFavoriteGenres,
+  coerceUserGender,
+  normalizeNickname,
+} from "@/lib/auth/signup";
+import type { AuthUser, InternalAdminAuthUser } from "@/types/db";
 
 type UserRow = {
   id: string;
@@ -8,6 +20,12 @@ type UserRow = {
   email: string | null;
   name: string | null;
   imageUrl: string | null;
+  nickname: string | null;
+  gender: string | null;
+  countryCode: string | null;
+  favoriteGenres: string[] | null;
+  signupCompletedAt: Date | null;
+  passwordHash: string | null;
 };
 
 type UpsertGoogleOAuthUserInput = {
@@ -23,6 +41,47 @@ type UpsertGoogleOAuthUserInput = {
   idToken: string | null;
 };
 
+function mapAuthUser(row: UserRow): AuthUser {
+  const sessionIdentity = resolveAppSessionIdentity(row);
+
+  return {
+    id: row.id,
+    provider: row.provider,
+    providerUserId: row.providerUserId,
+    email: row.email,
+    name: row.name,
+    imageUrl: row.imageUrl,
+    nickname: row.nickname,
+    gender: coerceUserGender(row.gender),
+    countryCode: row.countryCode,
+    favoriteGenres: coerceFavoriteGenres(row.favoriteGenres),
+    signupCompletedAt: row.signupCompletedAt,
+    isInternalAdmin: isInternalAuthProvider(row.provider),
+    isSignupComplete: sessionIdentity === "PUBLIC",
+    sessionIdentity,
+  };
+}
+
+function mapInternalAdminAuthUser(row: UserRow): InternalAdminAuthUser {
+  return {
+    id: row.id,
+    provider: row.provider,
+    providerUserId: row.providerUserId,
+    email: row.email,
+    name: row.name,
+    imageUrl: row.imageUrl,
+    nickname: row.nickname,
+    gender: coerceUserGender(row.gender),
+    countryCode: row.countryCode,
+    favoriteGenres: coerceFavoriteGenres(row.favoriteGenres),
+    signupCompletedAt: row.signupCompletedAt,
+    passwordHash: row.passwordHash,
+    isInternalAdmin: true,
+    isSignupComplete: false,
+    sessionIdentity: "INTERNAL_ADMIN",
+  };
+}
+
 export async function findUserByEmail(email: string): Promise<AuthUser | null> {
   const [user] = await sql<UserRow[]>`
     select
@@ -31,14 +90,20 @@ export async function findUserByEmail(email: string): Promise<AuthUser | null> {
       provider_user_id as "providerUserId",
       email::text as email,
       name,
-      image_url as "imageUrl"
+      image_url as "imageUrl",
+      nickname,
+      gender,
+      country_code as "countryCode",
+      favorite_genres as "favoriteGenres",
+      signup_completed_at as "signupCompletedAt",
+      password_hash as "passwordHash"
     from bookapp.users
     where email = ${email}
     order by updated_at desc
     limit 1
   `;
 
-  return user ?? null;
+  return user ? mapAuthUser(user) : null;
 }
 
 export async function findUserById(id: string): Promise<AuthUser | null> {
@@ -49,13 +114,19 @@ export async function findUserById(id: string): Promise<AuthUser | null> {
       provider_user_id as "providerUserId",
       email::text as email,
       name,
-      image_url as "imageUrl"
+      image_url as "imageUrl",
+      nickname,
+      gender,
+      country_code as "countryCode",
+      favorite_genres as "favoriteGenres",
+      signup_completed_at as "signupCompletedAt",
+      password_hash as "passwordHash"
     from bookapp.users
     where id = ${id}::uuid
     limit 1
   `;
 
-  return user ?? null;
+  return user ? mapAuthUser(user) : null;
 }
 
 export async function findUserByProviderAccount(
@@ -69,7 +140,13 @@ export async function findUserByProviderAccount(
       users.provider_user_id as "providerUserId",
       users.email::text as email,
       users.name,
-      users.image_url as "imageUrl"
+      users.image_url as "imageUrl",
+      users.nickname,
+      users.gender,
+      users.country_code as "countryCode",
+      users.favorite_genres as "favoriteGenres",
+      users.signup_completed_at as "signupCompletedAt",
+      users.password_hash as "passwordHash"
     from bookapp.users
     join bookapp.auth_accounts on auth_accounts.user_id = users.id
     where auth_accounts.provider = ${provider}
@@ -77,7 +154,7 @@ export async function findUserByProviderAccount(
     limit 1
   `;
 
-  return user ?? null;
+  return user ? mapAuthUser(user) : null;
 }
 
 export async function findUserByProviderIdentity(
@@ -91,14 +168,84 @@ export async function findUserByProviderIdentity(
       provider_user_id as "providerUserId",
       email::text as email,
       name,
-      image_url as "imageUrl"
+      image_url as "imageUrl",
+      nickname,
+      gender,
+      country_code as "countryCode",
+      favorite_genres as "favoriteGenres",
+      signup_completed_at as "signupCompletedAt",
+      password_hash as "passwordHash"
     from bookapp.users
     where provider = ${provider}
       and provider_user_id = ${providerUserId}
     limit 1
   `;
 
-  return user ?? null;
+  return user ? mapAuthUser(user) : null;
+}
+
+export async function findPublicUserByNickname(
+  nickname: string,
+): Promise<AuthUser | null> {
+  const normalizedNickname = normalizeNickname(nickname);
+  if (!normalizedNickname) {
+    return null;
+  }
+
+  const [user] = await sql<UserRow[]>`
+    select
+      id::text as id,
+      provider,
+      provider_user_id as "providerUserId",
+      email::text as email,
+      name,
+      image_url as "imageUrl",
+      nickname,
+      gender,
+      country_code as "countryCode",
+      favorite_genres as "favoriteGenres",
+      signup_completed_at as "signupCompletedAt",
+      password_hash as "passwordHash"
+    from bookapp.users
+    where provider <> ${INTERNAL_AUTH_PROVIDER}
+      and nickname = ${normalizedNickname}
+      and signup_completed_at is not null
+    limit 1
+  `;
+
+  return user ? mapAuthUser(user) : null;
+}
+
+export async function findInternalAdminByEmail(
+  email: string,
+): Promise<InternalAdminAuthUser | null> {
+  const normalizedEmail = normalizeInternalAdminEmail(email);
+
+  const [user] = await sql<UserRow[]>`
+    select
+      id::text as id,
+      provider,
+      provider_user_id as "providerUserId",
+      email::text as email,
+      name,
+      image_url as "imageUrl",
+      nickname,
+      gender,
+      country_code as "countryCode",
+      favorite_genres as "favoriteGenres",
+      signup_completed_at as "signupCompletedAt",
+      password_hash as "passwordHash"
+    from bookapp.users
+    where provider = ${INTERNAL_AUTH_PROVIDER}
+      and provider_user_id = ${normalizedEmail}
+    limit 1
+  `;
+
+  return user ? mapInternalAdminAuthUser(user) : null;
+}
+
+export function getPublicUserIdentityLabel(user: AuthUser) {
+  return getUserDisplayName(user);
 }
 
 export async function upsertGoogleOAuthUser(
@@ -119,7 +266,13 @@ export async function upsertGoogleOAuthUser(
       provider_user_id as "providerUserId",
       email::text as email,
       name,
-      image_url as "imageUrl"
+      image_url as "imageUrl",
+      nickname,
+      gender,
+      country_code as "countryCode",
+      favorite_genres as "favoriteGenres",
+      signup_completed_at as "signupCompletedAt",
+      password_hash as "passwordHash"
   `;
 
   await sql`
@@ -159,5 +312,5 @@ export async function upsertGoogleOAuthUser(
       updated_at = now()
   `;
 
-  return user;
+  return mapAuthUser(user);
 }

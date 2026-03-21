@@ -66,6 +66,7 @@ describe("shelves repository integration", () => {
 
     const detail = await findOwnedShelfDetail(shelf.id, owner.id);
     expect(detail?.owner.id).toBe(owner.id);
+    expect(detail?.owner.name).toBe(owner.nickname);
     expect(detail?.name).toBe("Weekend Re-reads");
 
     await deleteShelf({
@@ -103,6 +104,7 @@ describe("shelves repository integration", () => {
     });
 
     expect(publicDetail.owner.id).toBe(owner.id);
+    expect(publicDetail.owner.name).toBe(owner.nickname);
     expect(publicDetail.itemCount).toBe(1);
     expect(publicDetail.items[0]?.book.googleVolumeId).toBe(TEST_BOOK_VOLUME_ID);
 

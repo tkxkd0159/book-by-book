@@ -118,11 +118,12 @@ describe("club repository integration", () => {
     const invitationResult = await createClubInvitation({
       clubId: privateClub.id,
       invitedById: owner.id,
-      invitedEmail: member.email ?? "",
+      invitedNickname: member.nickname ?? "",
     });
 
     const lookup = await findInvitationByToken(invitationResult.rawToken);
-    expect(lookup?.invitedEmail).toBe(member.email);
+    expect(lookup?.invitedNickname).toBe(member.nickname);
+    expect(lookup?.invitedUserId).toBe(member.id);
     expect(lookup?.effectiveStatus).toBe("PENDING");
 
     const accepted = await acceptClubInvitation({
@@ -194,7 +195,7 @@ describe("club repository integration", () => {
     const invitationResult = await createClubInvitation({
       clubId: privateClub.id,
       invitedById: owner.id,
-      invitedEmail: member.email ?? "",
+      invitedNickname: member.nickname ?? "",
     });
 
     await expect(
@@ -204,7 +205,7 @@ describe("club repository integration", () => {
       }),
     ).rejects.toMatchObject({
       code: "FORBIDDEN",
-      message: "This invitation is for a different account.",
+      message: "This invitation is for a different reader.",
     });
 
     const strangerClubs = await listUserClubs(stranger.id);
@@ -212,7 +213,7 @@ describe("club repository integration", () => {
 
     const invitationLookup = await findInvitationByToken(invitationResult.rawToken);
     expect(invitationLookup?.effectiveStatus).toBe("PENDING");
-    expect(invitationLookup?.invitedUserId).toBeNull();
+    expect(invitationLookup?.invitedUserId).toBe(member.id);
   });
 
   it("hides private clubs from public discovery for non-members", async () => {

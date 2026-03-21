@@ -37,6 +37,14 @@ type SeedThreadInput = {
   body?: string;
 };
 
+type SeedInvitationCodeInput = {
+  label: string;
+  expiresAt?: string | null;
+  isActive?: boolean;
+  maxUses?: number | null;
+  redeemByUsers?: E2ETestUser[];
+};
+
 export async function seedClubBook(
   request: APIRequestContext,
   input: SeedClubBookInput,
@@ -126,6 +134,32 @@ export async function seedThread(
   expect(response.ok()).toBeTruthy();
   const body = (await response.json()) as { threadId: string };
   expect(body.threadId).toBeTruthy();
+
+  return body;
+}
+
+export async function seedInvitationCode(
+  request: APIRequestContext,
+  input: SeedInvitationCodeInput,
+) {
+  const response = await request.post(E2E_TEST_ROUTE_PATHS.invitationCodes, {
+    data: {
+      kind: "create",
+      label: input.label,
+      ...(input.expiresAt !== undefined ? { expiresAt: input.expiresAt } : {}),
+      ...(input.isActive !== undefined ? { isActive: input.isActive } : {}),
+      ...(input.maxUses !== undefined ? { maxUses: input.maxUses } : {}),
+      ...(input.redeemByUsers ? { redeemByUsers: input.redeemByUsers } : {}),
+    },
+  });
+
+  expect(response.ok()).toBeTruthy();
+  const body = (await response.json()) as {
+    codeId: string;
+    rawCode: string;
+  };
+  expect(body.codeId).toBeTruthy();
+  expect(body.rawCode).toBeTruthy();
 
   return body;
 }

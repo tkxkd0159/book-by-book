@@ -1,21 +1,28 @@
-import { forbidden, notFound } from "next/navigation";
 import Link from "next/link";
+import { forbidden, notFound } from "next/navigation";
 
 import { ShelfDetail } from "@/components/shelves/shelf-detail";
 import { buttonStyles } from "@/components/ui/button";
 import { requireCurrentUser } from "@/lib/auth/server";
+import { findPublicUserByNickname } from "@/lib/auth/users";
 import { loadPublicShelfRouteAccess } from "@/lib/shelves/access";
 import { createMyShelvesHref } from "@/lib/shelves/view-paths";
 
 type PublicShelfPageProps = {
-  params: Promise<{ userId: string; shelfId: string }>;
+  params: Promise<{ nickname: string; shelfId: string }>;
 };
 
 export default async function PublicShelfPage({ params }: PublicShelfPageProps) {
   const [currentUser, paramsData] = await Promise.all([requireCurrentUser(), params]);
+  const owner = await findPublicUserByNickname(paramsData.nickname);
+
+  if (!owner) {
+    notFound();
+  }
+
   const access = await loadPublicShelfRouteAccess({
     viewerUserId: currentUser.id,
-    ownerUserId: paramsData.userId,
+    ownerUserId: owner.id,
     shelfId: paramsData.shelfId,
   });
 

@@ -5,10 +5,12 @@ import ProfileMenu from "@/components/auth/profile-menu";
 import { ReactQueryProvider } from "@/components/providers/react-query-provider";
 import { buttonStyles } from "@/components/ui/button";
 import { requireCurrentUser } from "@/lib/auth/server";
+import { getPublicUserIdentityLabel } from "@/lib/auth/users";
 import { createMyShelvesHref } from "@/lib/shelves/view-paths";
 
 export default async function ProtectedLayout({ children }: Props.Layout) {
   const currentUser = await requireCurrentUser();
+  const displayName = getPublicUserIdentityLabel(currentUser);
 
   return (
     <ReactQueryProvider>
@@ -48,7 +50,7 @@ export default async function ProtectedLayout({ children }: Props.Layout) {
                 Shelves
               </Link>
               <ProfileMenu
-                name={currentUser.name}
+                name={displayName}
                 email={currentUser.email}
                 imageUrl={currentUser.imageUrl}
               />

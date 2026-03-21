@@ -2,6 +2,7 @@ import Link from "next/link";
 import { ArrowRight } from "lucide-react";
 
 import { UserAvatar } from "@/components/auth/user-avatar";
+import { Badge } from "@/components/ui/badge";
 import { requireCurrentUser } from "@/lib/auth/server";
 import {
   Card,
@@ -10,6 +11,8 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { getCountryName } from "@/lib/auth/signup";
+import { getPublicUserIdentityLabel } from "@/lib/auth/users";
 import { createMyReviewedHref } from "@/lib/reviews/view-paths";
 import { createMyShelvesHref } from "@/lib/shelves/view-paths";
 
@@ -18,8 +21,22 @@ function fallbackText(value: string | null | undefined, fallback: string) {
   return normalized && normalized.length > 0 ? normalized : fallback;
 }
 
+function formatGenderLabel(value: string | null) {
+  if (!value) {
+    return "Unavailable";
+  }
+
+  return value
+    .toLowerCase()
+    .split("_")
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(" ");
+}
+
 export default async function MePage() {
   const user = await requireCurrentUser();
+  const displayName = getPublicUserIdentityLabel(user);
+  const countryName = getCountryName(user.countryCode);
 
   return (
     <div className="space-y-6">
@@ -33,7 +50,7 @@ export default async function MePage() {
       <Card className="border-2">
         <CardContent className="flex flex-col gap-6 p-6 sm:flex-row sm:items-center sm:p-8">
           <UserAvatar
-            name={user.name}
+            name={displayName}
             email={user.email}
             imageUrl={user.imageUrl}
             alt="Profile avatar"
@@ -41,17 +58,55 @@ export default async function MePage() {
           />
 
           <div className="space-y-2">
-            <h2 className="text-2xl font-semibold">
-              {fallbackText(user.name, "Book by Book Member")}
-            </h2>
-            <p className="text-(--muted)">
-              {fallbackText(user.email, "No email found")}
-            </p>
+            <h2 className="text-2xl font-semibold">{displayName}</h2>
+            <p className="text-(--muted)">Nickname: {user.nickname}</p>
+            {user.email ? (
+              <p className="text-sm text-(--muted)">Connected email: {user.email}</p>
+            ) : null}
           </div>
         </CardContent>
       </Card>
 
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-lg">Gender</CardTitle>
+            <CardDescription>Collected during signup</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <p className="text-sm font-medium">{formatGenderLabel(user.gender)}</p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-lg">Country</CardTitle>
+            <CardDescription>Reader location</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-1">
+            <p className="text-sm font-medium">
+              {countryName ?? fallbackText(user.countryCode, "Unavailable")}
+            </p>
+            {user.countryCode ? (
+              <p className="text-xs text-(--muted)">{user.countryCode}</p>
+            ) : null}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-lg">Favorite genres</CardTitle>
+            <CardDescription>Used for onboarding and recommendations later</CardDescription>
+          </CardHeader>
+          <CardContent className="flex flex-wrap gap-2">
+            {user.favoriteGenres.length > 0 ? (
+              user.favoriteGenres.map((genre) => <Badge key={genre}>{genre}</Badge>)
+            ) : (
+              <p className="text-sm text-(--muted)">No favorite genres saved.</p>
+            )}
+          </CardContent>
+        </Card>
+
         <Card>
           <CardHeader>
             <CardTitle className="text-lg">User ID</CardTitle>

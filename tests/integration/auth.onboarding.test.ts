@@ -1,0 +1,156 @@
+import { randomUUID } from "node:crypto";
+
+import { beforeEach, describe, expect, it } from "vitest";
+
+import sql from "@/lib/db";
+import { completeSignup } from "@/lib/auth/onboarding";
+import { findUserById, findUserByProviderIdentity } from "@/lib/auth/users";
+import { hashInvitationCode } from "@/lib/invitation-codes/core";
+import { E2E_USER_PROVIDER } from "@/lib/test-harness/auth";
+import { resetTestDatabase } from "@/lib/test-harness/fixtures";
+
+beforeEach(async () => {
+  await resetTestDatabase();
+});
+
+async function getOwnerUserId() {
+  const owner = await findUserByProviderIdentity(E2E_USER_PROVIDER, "owner");
+  if (!owner) {
+    throw new Error("Expected seeded owner fixture.");
+  }
+
+  return owner.id;
+}
+
+async function createBetaInvitationCode(rawCode: string) {
+  const createdById = await getOwnerUserId();
+  const [row] = await sql<{ id: string }[]>`
+    insert into bookapp.invitation_codes (
+      purpose,
+      code_hash,
+      label,
+      is_active,
+      created_by_id
+    )
+    values (
+      'BETA_SIGNUP',
+      ${hashInvitationCode(rawCode)},
+      ${`Beta ${randomUUID()}`},
+      true,
+      ${createdById}::uuid
+    )
+    returning id::text as id
+  `;
+
+  return row.id;
+}
+
+async function createIncompletePublicUser() {
+  const [user] = await sql<{ id: string }[]>`
+    insert into bookapp.users (
+      provider,
+      provider_user_id,
+      email,
+      name
+    )
+    values (
+      'google',
+      ${`google-${randomUUID()}`},
+      ${`signup-${randomUUID()}@book-by-book.test`},
+      'Incomplete Reader'
+    )
+    returning id::text as id
+  `;
+
+  return user.id;
+}
+
+describe("signup completion integration", () => {
+  it("completes signup and records a beta invitation-code redemption", async () => {
+    const userId = await createIncompletePublicUser();
+    const codeId = await createBetaInvitationCode("beta-code-1234");
+
+    const completedUser = await completeSignup({
+      userId,
+      nickname: "onboarded-reader",
+      gender: "WOMAN",
+      countryCode: "KR",
+      favoriteGenres: ["Fantasy", "Travel"],
+      invitationCode: "beta-code-1234",
+    });
+
+    expect(completedUser).toMatchObject({
+      id: userId,
+      nickname: "onboarded-reader",
+      gender: "WOMAN",
+      countryCode: "KR",
+      favoriteGenres: ["Fantasy", "Travel"],
+      isSignupComplete: true,
+      sessionIdentity: "PUBLIC",
+    });
+
+    const storedUser = await findUserById(userId);
+    expect(storedUser?.signupCompletedAt).toBeInstanceOf(Date);
+
+    const [redemptionCount] = await sql<{ count: number }[]>`
+      select count(*)::int as count
+      from bookapp.invitation_code_redemptions
+      where code_id = ${codeId}::uuid
+        and user_id = ${userId}::uuid
+    `;
+    expect(redemptionCount?.count).toBe(1);
+  });
+
+  it("rejects invalid invitation codes", async () => {
+    const userId = await createIncompletePublicUser();
+
+    await expect(
+      completeSignup({
+        userId,
+        nickname: "missing-code",
+        gender: "MAN",
+        countryCode: "US",
+        favoriteGenres: ["Science"],
+        invitationCode: "does-not-exist",
+      }),
+    ).rejects.toMatchObject({
+      code: "VALIDATION",
+      message: "Enter a valid beta invitation code.",
+    });
+  });
+
+  it("rejects exhausted invitation codes", async () => {
+    const codeId = await createBetaInvitationCode("beta-code-9999");
+    const firstUserId = await createIncompletePublicUser();
+    const secondUserId = await createIncompletePublicUser();
+
+    await sql`
+      update bookapp.invitation_codes
+      set max_uses = 1
+      where id = ${codeId}::uuid
+    `;
+
+    await completeSignup({
+      userId: firstUserId,
+      nickname: "first-reader",
+      gender: "MAN",
+      countryCode: "US",
+      favoriteGenres: ["Fantasy"],
+      invitationCode: "beta-code-9999",
+    });
+
+    await expect(
+      completeSignup({
+        userId: secondUserId,
+        nickname: "second-reader",
+        gender: "NON_BINARY",
+        countryCode: "CA",
+        favoriteGenres: ["History"],
+        invitationCode: "beta-code-9999",
+      }),
+    ).rejects.toMatchObject({
+      code: "FORBIDDEN",
+      message: "This invitation code has no uses remaining.",
+    });
+  });
+});

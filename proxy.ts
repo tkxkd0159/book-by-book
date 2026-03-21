@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getToken } from "next-auth/jwt";
 
+import { AUTH_REQUEST_PATH_HEADER } from "@/lib/auth/redirects";
 import { resolveAuthSecret } from "@/lib/auth/secret";
 import {
   E2E_AUTH_COOKIE_NAME,
@@ -38,6 +39,20 @@ function isAuthApiPath(pathname: string) {
   return hasPathPrefix(pathname, AUTH_API_PATH);
 }
 
+function createPassThroughResponse(request: NextRequest) {
+  const requestHeaders = new Headers(request.headers);
+  requestHeaders.set(
+    AUTH_REQUEST_PATH_HEADER,
+    `${request.nextUrl.pathname}${request.nextUrl.search}`,
+  );
+
+  return NextResponse.next({
+    request: {
+      headers: requestHeaders,
+    },
+  });
+}
+
 function createSignInRedirect(request: NextRequest) {
   const signInUrl = new URL("/signin", request.url);
   const callbackUrl = `${request.nextUrl.pathname}${request.nextUrl.search}`;
@@ -62,20 +77,20 @@ export async function proxy(request: NextRequest) {
   const e2eBypassEnabled = isE2EBypassEnabled();
 
   if (e2eBypassEnabled && E2E_PUBLIC_API_PATHS.has(pathname)) {
-    return NextResponse.next();
+    return createPassThroughResponse(request);
   }
 
   const token = await readOptimisticToken(request);
 
   if (isPublicPath(pathname) || isAuthApiPath(pathname) || !isProtectedPath) {
-    return NextResponse.next();
+    return createPassThroughResponse(request);
   }
 
   if (
     (e2eBypassEnabled && request.cookies.get(E2E_AUTH_COOKIE_NAME)?.value) ||
     Boolean(token)
   ) {
-    return NextResponse.next();
+    return createPassThroughResponse(request);
   }
 
   return createSignInRedirect(request);

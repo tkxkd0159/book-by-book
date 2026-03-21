@@ -4,7 +4,7 @@ import { ClubError } from "@/lib/clubs/errors";
 
 const CLUB_NAME_MAX_LENGTH = 80;
 const CLUB_DESCRIPTION_MAX_LENGTH = 400;
-const INVITATION_EMAIL_MAX_LENGTH = 320;
+const INVITATION_NICKNAME_MAX_LENGTH = 20;
 
 function readString(value: FormDataEntryValue | string | null | undefined) {
   return typeof value === "string" ? value : "";
@@ -77,20 +77,23 @@ export function parseClubBookStatus(
   throw new ClubError("VALIDATION", "Choose a valid club section.");
 }
 
-export function parseInvitationEmail(
+export function parseInvitationNickname(
   value: FormDataEntryValue | string | null | undefined,
 ) {
   const normalized = readString(value).trim().toLowerCase();
   if (!normalized) {
-    throw new ClubError("VALIDATION", "Invite email is required.");
+    throw new ClubError("VALIDATION", "Nickname is required.");
   }
 
-  if (normalized.length > INVITATION_EMAIL_MAX_LENGTH) {
-    throw new ClubError("VALIDATION", "Invite email is too long.");
+  if (normalized.length > INVITATION_NICKNAME_MAX_LENGTH) {
+    throw new ClubError("VALIDATION", "Nickname is too long.");
   }
 
-  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalized)) {
-    throw new ClubError("VALIDATION", "Enter a valid email address.");
+  if (!/^[a-z0-9_-]{3,20}$/.test(normalized)) {
+    throw new ClubError(
+      "VALIDATION",
+      "Enter a valid nickname using lowercase letters, numbers, underscores, or hyphens.",
+    );
   }
 
   return normalized;

@@ -178,7 +178,7 @@ async function findShelfDetailRow(
         shelves.is_public as "isPublic",
         shelves.created_at as "createdAt",
         shelves.updated_at as "updatedAt",
-        users.name as "ownerName",
+        coalesce(users.nickname, users.name) as "ownerName",
         users.image_url as "ownerImageUrl"
       from bookapp.shelves
       inner join bookapp.users on users.id = shelves.user_id
@@ -199,7 +199,7 @@ async function findShelfDetailRow(
       shelves.is_public as "isPublic",
       shelves.created_at as "createdAt",
       shelves.updated_at as "updatedAt",
-      users.name as "ownerName",
+      coalesce(users.nickname, users.name) as "ownerName",
       users.image_url as "ownerImageUrl"
     from bookapp.shelves
     inner join bookapp.users on users.id = shelves.user_id

@@ -311,7 +311,7 @@ test("members can create one-depth replies while authors retain edit and delete 
   expect(topLevelCommentId).toBeTruthy();
   const topLevelReplySectionId = `${topLevelCommentId}-replies`;
   await expect(topLevelComment.getByTestId("thread-post-meta")).toContainText(
-    "Member Reader",
+    "member-reader",
   );
 
   await topLevelComment.getByRole("button", { name: "Edit post" }).click();
@@ -326,10 +326,10 @@ test("members can create one-depth replies while authors retain edit and delete 
   );
 
   await updatedTopLevelComment
-    .getByRole("button", { name: "Reply to Member Reader" })
+    .getByRole("button", { name: "Reply to member-reader" })
     .click();
   const firstReplyComposer = updatedTopLevelComment.getByRole("textbox", {
-    name: "Reply to Member Reader",
+    name: "Reply to member-reader",
   });
   await firstReplyComposer.fill("Nested reply one.");
   await firstReplyComposer
@@ -386,11 +386,11 @@ test("members can create one-depth replies while authors retain edit and delete 
   await expect(page.locator(`#${firstReplyCommentId}`)).toBeHidden();
 
   await updatedTopLevelComment
-    .getByRole("button", { name: "Reply to Member Reader" })
+    .getByRole("button", { name: "Reply to member-reader" })
     .click();
   await expect(updatedTopLevelComment.getByRole("button", { name: "Hide 1 reply" })).toBeVisible();
   await expect(updatedTopLevelComment.getByRole("textbox", {
-    name: "Reply to Member Reader",
+    name: "Reply to member-reader",
   })).toBeVisible();
   await expect(page.locator(`#${firstReplyCommentId}`)).toBeVisible();
 
@@ -406,10 +406,10 @@ test("members can create one-depth replies while authors retain edit and delete 
   );
 
   await updatedTopLevelComment
-    .getByRole("button", { name: "Reply to Member Reader" })
+    .getByRole("button", { name: "Reply to member-reader" })
     .click();
   const secondReplyComposer = updatedTopLevelComment.getByRole("textbox", {
-    name: "Reply to Member Reader",
+    name: "Reply to member-reader",
   });
   await secondReplyComposer.fill("Still here reply.");
   await secondReplyComposer

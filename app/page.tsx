@@ -9,12 +9,13 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { getAuthenticatedUserDestination } from "@/lib/auth/redirects";
 import { getCurrentUser } from "@/lib/auth/server";
 
 export default async function Page() {
   const currentUser = await getCurrentUser();
   if (currentUser) {
-    redirect("/clubs");
+    redirect(getAuthenticatedUserDestination(currentUser));
   }
 
   return (

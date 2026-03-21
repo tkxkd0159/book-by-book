@@ -100,8 +100,8 @@ test("user can create a public club and another user can join it", async ({
   await openMembersTab(page);
   await expect(page).toHaveURL(E2E_URL_PATTERNS.clubMembers);
   await expect(page.getByRole("heading", { name: E2E_TAB_LABELS.members })).toBeVisible();
-  await expect(page.getByText("Owner Reader")).toBeVisible();
-  await expect(page.getByText("Member Reader")).toBeVisible();
+  await expect(page.getByText("owner-reader")).toBeVisible();
+  await expect(page.getByText("member-reader")).toBeVisible();
   await expect(page.getByRole("button", { name: "Add admin" })).toHaveCount(0);
   await expect(page.getByRole("button", { name: "Kick out" })).toHaveCount(0);
   await expect(page.getByRole("button", { name: "Delete club" })).toHaveCount(0);
@@ -167,9 +167,10 @@ test("private invite can be created and accepted by the matching user", async ({
   await expect(page.getByRole("heading", { name: E2E_TAB_LABELS.members })).toHaveCount(0);
   await expect(page.getByRole("heading", { name: "Private invites" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Danger zone" })).toBeVisible();
-  await page.getByLabel("Email").fill("member@book-by-book.test");
+  await page.getByLabel("Nickname").fill("member-reader");
   await page.getByRole("button", { name: "Create invite" }).click();
   await expect(page).toHaveURL(/\/clubs\/[0-9a-f-]+\/manage\/invite\?message=/i);
+  await expect(page.getByText("member-reader")).toBeVisible();
 
   const inviteField = page.getByLabel("Most recent invite link");
   await expect(inviteField).toBeVisible();
@@ -179,6 +180,7 @@ test("private invite can be created and accepted by the matching user", async ({
   await page.goto(inviteLink);
 
   await expect(page.getByRole("heading", { name: "Club invitation" })).toBeVisible();
+  await expect(page.getByText("Signed in as member-reader.")).toBeVisible();
   await page.getByRole("button", { name: "Accept invitation" }).click();
 
   await expect(page).toHaveURL(CLUB_DETAIL_URL_PATTERN);
@@ -294,16 +296,16 @@ test("owner can promote a member, transfer ownership, and then leave", async ({
   await expect(page).toHaveURL(/\/clubs\/[0-9a-f-]+\/manage\/members(?:\?|$)/i);
   await expect(page.getByRole("link", { name: E2E_TAB_LABELS.invite, exact: true })).toHaveCount(0);
   await expect(page.getByRole("heading", { name: "Danger zone" })).toBeVisible();
-  await page.getByRole("button", { name: "Add admin for Member Reader" }).click();
+  await page.getByRole("button", { name: "Add admin for member-reader" }).click();
   await expect(page).toHaveURL(/\/clubs\/[0-9a-f-]+\/manage\/members\?message=/i);
   await expect(page.getByText("Member role updated.")).toBeVisible();
   await page.getByRole("link", { name: /^Admins 1$/ }).click();
   await expect(page).toHaveURL(/\/clubs\/[0-9a-f-]+\/manage\/members\?role=ADMIN/i);
-  await expect(page.getByText("Member Reader")).toBeVisible();
-  await expect(page.getByText("Owner Reader")).toHaveCount(0);
+  await expect(page.getByText("member-reader")).toBeVisible();
+  await expect(page.getByText("owner-reader")).toHaveCount(0);
 
   await page
-    .getByRole("button", { name: "Hand over owner to Member Reader" })
+    .getByRole("button", { name: "Hand over owner to member-reader" })
     .click();
   await expect(page.getByText("Ownership transferred.")).toBeVisible();
   await expect(page.getByRole("heading", { name: "Danger zone" })).toHaveCount(0);
@@ -348,7 +350,7 @@ test("owner and admins can both use Add admin from the manage page", async ({
   await openManagePage(page);
   await expect(page.getByRole("link", { name: E2E_TAB_LABELS.invite, exact: true })).toHaveCount(0);
   await expect(page.getByRole("heading", { name: "Danger zone" })).toBeVisible();
-  await page.getByRole("button", { name: "Add admin for Member Reader" }).click();
+  await page.getByRole("button", { name: "Add admin for member-reader" }).click();
   await expect(page.getByText("Member role updated.")).toBeVisible();
 
   await signInAs(page, "member", clubBoardPath);
@@ -362,12 +364,12 @@ test("owner and admins can both use Add admin from the manage page", async ({
   await expect(page).toHaveURL(/\/clubs\/[0-9a-f-]+\/manage\/members(?:\?|$)/i);
   await page.getByRole("link", { name: /^Members 1$/ }).click();
   await expect(page).toHaveURL(/\/clubs\/[0-9a-f-]+\/manage\/members\?role=MEMBER/i);
-  await page.getByRole("button", { name: "Add admin for Stranger Reader" }).click();
+  await page.getByRole("button", { name: "Add admin for stranger-reader" }).click();
   await expect(page).toHaveURL(/\/clubs\/[0-9a-f-]+\/manage\/members\?role=MEMBER&message=/i);
   await expect(page.getByText("Member role updated.")).toBeVisible();
   await page.getByRole("link", { name: /^Admins 2$/ }).click();
   await expect(page).toHaveURL(/\/clubs\/[0-9a-f-]+\/manage\/members\?role=ADMIN/i);
-  await expect(page.getByText("Stranger Reader")).toBeVisible();
+  await expect(page.getByText("stranger-reader")).toBeVisible();
 });
 
 test("owner can delete a club from the manage page after confirming", async ({

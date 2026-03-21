@@ -1,10 +1,53 @@
-type AuthUser = {
+type UserGender = "MAN" | "WOMAN" | "NON_BINARY" | "PREFER_NOT_TO_SAY";
+
+type FavoriteGenre =
+  | "Fantasy"
+  | "Sci-Fi"
+  | "Mystery & Crime"
+  | "Thriller & suspense"
+  | "Romance"
+  | "Historical Fiction"
+  | "Horror"
+  | "Literary Fiction"
+  | "Biography & Autobiography"
+  | "Memoir"
+  | "History"
+  | "True Crime"
+  | "Personal Development"
+  | "Science"
+  | "Philosophy"
+  | "Travel"
+  | "Business & Economics"
+  | "Cooking & Food"
+  | "Essays & Journalism";
+
+type AppSessionIdentity = "PUBLIC_INCOMPLETE" | "PUBLIC" | "INTERNAL_ADMIN";
+
+type UserRecord = {
   id: string;
   provider: string;
   providerUserId: string;
   email: string | null;
   name: string | null;
   imageUrl: string | null;
+  nickname: string | null;
+  gender: UserGender | null;
+  countryCode: string | null;
+  favoriteGenres: FavoriteGenre[];
+  signupCompletedAt: Date | null;
+  passwordHash: string | null;
+};
+
+type AuthUser = Omit<UserRecord, "passwordHash"> & {
+  isInternalAdmin: boolean;
+  isSignupComplete: boolean;
+  sessionIdentity: AppSessionIdentity;
+};
+
+type InternalAdminAuthUser = UserRecord & {
+  isInternalAdmin: true;
+  isSignupComplete: false;
+  sessionIdentity: "INTERNAL_ADMIN";
 };
 
 type BookRecord = {
@@ -36,6 +79,30 @@ type ClubMemberRole = "OWNER" | "ADMIN" | "MEMBER";
 
 type ClubInvitationStatus = "PENDING" | "ACCEPTED" | "REVOKED" | "EXPIRED";
 
+type InvitationCodePurpose = "BETA_SIGNUP";
+
+type InvitationCodeStatus = "ACTIVE" | "INACTIVE" | "EXPIRED" | "EXHAUSTED";
+
+type InvitationCodeRecord = {
+  id: string;
+  purpose: InvitationCodePurpose;
+  codeHash: string;
+  label: string;
+  isActive: boolean;
+  expiresAt: Date | null;
+  maxUses: number | null;
+  createdById: string;
+  createdAt: Date;
+  updatedAt: Date;
+};
+
+type InvitationCodeRedemptionRecord = {
+  id: string;
+  codeId: string;
+  userId: string;
+  createdAt: Date;
+};
+
 type ClubBookStatus = "WANT_TO_READ" | "READING" | "READ";
 
 type ClubRecord = {
@@ -61,7 +128,6 @@ type ClubInvitationRecord = {
   clubId: string;
   invitedById: string;
   invitedUserId: string | null;
-  invitedEmail: string | null;
   status: ClubInvitationStatus;
   tokenHash: string;
   expiresAt: Date;
@@ -144,6 +210,7 @@ type ThreadPostRecord = {
 };
 
 export type {
+  AppSessionIdentity,
   AuthUser,
   BookRecord,
   ClubBookRecord,
@@ -154,10 +221,18 @@ export type {
   ClubMemberRole,
   ClubRecord,
   ClubVisibility,
+  FavoriteGenre,
+  InternalAdminAuthUser,
+  InvitationCodePurpose,
+  InvitationCodeRecord,
+  InvitationCodeRedemptionRecord,
+  InvitationCodeStatus,
   ReviewRating,
   ReviewRecord,
   ShelfItemRecord,
   ShelfRecord,
   ThreadPostRecord,
   ThreadRecord,
+  UserGender,
+  UserRecord,
 };
