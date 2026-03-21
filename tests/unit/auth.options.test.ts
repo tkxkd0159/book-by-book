@@ -65,24 +65,15 @@ describe("authOptions jwt callback", () => {
     });
   });
 
-  it("does not cast a non-uuid token user id through findUserById", async () => {
-    const { authOptions } = await import("@/lib/auth/options");
-
-    const token = await authOptions.callbacks!.jwt!({
-      token: {
-        userId: "google-provider-sub",
-      },
-      trigger: "update",
-    } as never);
-
-    expect(findUserByIdMock).not.toHaveBeenCalled();
-    expect(token).toEqual({
-      userId: "google-provider-sub",
-    });
-  });
-
-  it("still resolves DB-backed users by uuid when available", async () => {
-    const dbUser = createAuthUser();
+  it("uses the DB user id for internal credential sign-in", async () => {
+    const dbUser = {
+      ...createAuthUser(),
+      provider: "internal",
+      providerUserId: "admin@book-by-book.test",
+      isInternalAdmin: true,
+      isSignupComplete: false,
+      sessionIdentity: "INTERNAL_ADMIN" as const,
+    };
     findUserByIdMock.mockResolvedValue(dbUser);
 
     const { authOptions } = await import("@/lib/auth/options");
@@ -92,7 +83,32 @@ describe("authOptions jwt callback", () => {
       user: {
         id: dbUser.id,
       },
+      account: {
+        provider: "internal",
+      },
       trigger: "signIn",
+    } as never);
+
+    expect(findUserByIdMock).toHaveBeenCalledWith(dbUser.id);
+    expect(findUserByProviderAccountMock).not.toHaveBeenCalled();
+    expect(token).toMatchObject({
+      userId: dbUser.id,
+      provider: "internal",
+      sessionIdentity: "INTERNAL_ADMIN",
+    });
+  });
+
+  it("refreshes missing token metadata from the DB on later requests", async () => {
+    const dbUser = createAuthUser();
+    findUserByIdMock.mockResolvedValue(dbUser);
+
+    const { authOptions } = await import("@/lib/auth/options");
+
+    const token = await authOptions.callbacks!.jwt!({
+      token: {
+        userId: dbUser.id,
+      },
+      trigger: "update",
     } as never);
 
     expect(findUserByIdMock).toHaveBeenCalledWith(dbUser.id);

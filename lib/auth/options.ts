@@ -16,8 +16,6 @@ import type { AuthUser } from "@/types/db";
 const SESSION_MAX_AGE_SECONDS = 14 * 24 * 60 * 60;
 const googleOAuthEnv = env.googleOAuth;
 const runtimeEnv = env.runtime;
-const UUID_PATTERN =
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 function applyDbUserToToken(token: Record<string, unknown>, user: AuthUser) {
   token.userId = user.id;
@@ -27,10 +25,6 @@ function applyDbUserToToken(token: Record<string, unknown>, user: AuthUser) {
   token.isSignupComplete = user.isSignupComplete;
   token.sessionIdentity = user.sessionIdentity;
   return token;
-}
-
-function isUuid(value: string) {
-  return UUID_PATTERN.test(value);
 }
 
 export const authOptions: NextAuthOptions = {
@@ -119,7 +113,11 @@ export const authOptions: NextAuthOptions = {
       return true;
     },
     async jwt({ token, account, user }) {
-      if (account?.provider && account.providerAccountId) {
+      if (
+        account?.provider &&
+        account.provider !== INTERNAL_AUTH_PROVIDER &&
+        account.providerAccountId
+      ) {
         const dbUser = await findUserByProviderAccount(
           account.provider,
           account.providerAccountId,
@@ -129,7 +127,10 @@ export const authOptions: NextAuthOptions = {
         }
       }
 
-      if (typeof user?.id === "string" && isUuid(user.id)) {
+      if (
+        account?.provider === INTERNAL_AUTH_PROVIDER &&
+        typeof user?.id === "string"
+      ) {
         const dbUser = await findUserById(user.id);
         if (dbUser) {
           return applyDbUserToToken(token, dbUser);
@@ -137,8 +138,8 @@ export const authOptions: NextAuthOptions = {
       }
 
       if (
+        !account &&
         typeof token.userId === "string" &&
-        isUuid(token.userId) &&
         (typeof token.provider !== "string" ||
           typeof token.sessionIdentity !== "string")
       ) {
