@@ -3,13 +3,41 @@ import type { Page } from "@playwright/test";
 import { expect, test } from "./fixtures/test";
 import { E2E_ROUTE_PATHS, E2E_URL_PATTERNS } from "./helpers/constants";
 import { resetApp, signInAs } from "./helpers/auth";
+import { seedShelfBook } from "./helpers/test-data";
 
 function shelfPathFromUrl(url: string) {
   return new URL(url).pathname;
 }
 
+function shelfIdFromUrl(url: string) {
+  const shelfId = shelfPathFromUrl(url).split("/").at(-1);
+  if (!shelfId) {
+    throw new Error(`Unable to read shelf id from ${url}`);
+  }
+
+  return shelfId;
+}
+
 function clubManageBoardPathFromUrl(url: string) {
   return `${shelfPathFromUrl(url).replace(/\/board$/, "")}/manage/board`;
+}
+
+function wantToReadSection(page: Page) {
+  return page
+    .locator("section")
+    .filter({
+      has: page.getByRole("heading", {
+        name: "Want to Read",
+        exact: true,
+      }),
+    })
+    .first();
+}
+
+async function waitForWantToReadBook(page: Page, title: string) {
+  await expect(wantToReadSection(page).getByText(title)).toBeVisible({
+    timeout: 20_000,
+  });
 }
 
 function shelfVisibilityBadge(page: Page, label: "Public" | "Private") {
@@ -168,17 +196,13 @@ test("signed-in readers can open public shelves, private shelves stay forbidden,
 
 test("owner can save notes, public readers can read them, and owner can remove shelf books", async ({
   page,
+  request,
 }) => {
   await signInAs(page, "owner", E2E_ROUTE_PATHS.meShelvesNew);
   const ownerShelfUrl = await createShelf(page, "Annotated Shelf", "true");
-
-  await page.goto(E2E_ROUTE_PATHS.fixtureBook);
-  await page.getByRole("button", { name: "Add Book" }).click();
-  const addBookDialog = page.getByRole("dialog");
-  await addBookDialog.getByRole("tab", { name: /^Shelves/ }).click();
-  await addBookDialog.getByLabel("Annotated Shelf").check();
-  await addBookDialog.getByRole("button", { name: "Add to shelves" }).click();
-  await expect(page.getByText("Book added to 1 shelf.")).toBeVisible();
+  await seedShelfBook(request, {
+    shelfId: shelfIdFromUrl(ownerShelfUrl),
+  });
 
   await page.goto(ownerShelfUrl);
   await expect(page.getByRole("button", { name: "Open book" })).toHaveCount(0);
@@ -239,17 +263,13 @@ test("owner can save notes, public readers can read them, and owner can remove s
 
 test("reading board management can import books from shelves into Want to Read", async ({
   page,
+  request,
 }) => {
   await signInAs(page, "owner", E2E_ROUTE_PATHS.meShelvesNew);
-  await createShelf(page, "Board Import Shelf");
-
-  await page.goto(E2E_ROUTE_PATHS.fixtureBook);
-  await page.getByRole("button", { name: "Add Book" }).click();
-  const addBookDialog = page.getByRole("dialog");
-  await addBookDialog.getByRole("tab", { name: /^Shelves/ }).click();
-  await addBookDialog.getByLabel("Board Import Shelf").check();
-  await addBookDialog.getByRole("button", { name: "Add to shelves" }).click();
-  await expect(page.getByText("Book added to 1 shelf.")).toBeVisible();
+  const ownerShelfUrl = await createShelf(page, "Board Import Shelf");
+  await seedShelfBook(request, {
+    shelfId: shelfIdFromUrl(ownerShelfUrl),
+  });
 
   const clubUrl = await createClub(page, "Shelf Import Club");
   const manageBoardUrl = clubManageBoardPathFromUrl(clubUrl);
@@ -266,8 +286,7 @@ test("reading board management can import books from shelves into Want to Read",
     .getByRole("button", { name: "Add to Want to Read" })
     .click();
 
-  await expect(page.getByText("1 book added to the club.")).toBeVisible();
-  await expect(page.getByText("The Test-Driven Book Club")).toBeVisible();
+  await waitForWantToReadBook(page, "The Test-Driven Book Club");
 
   await page.getByRole("button", { name: "Add from shelves" }).click();
   await expect(

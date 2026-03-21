@@ -124,7 +124,7 @@ export function createWorkerServerPort(
   parallelIndex: number,
 ) {
   const hash = createHash("sha1").update(projectName).digest();
-  const projectSlot = hash.readUInt16BE(0) % 100;
+  const projectSlot = hash.readUInt16BE(0) % 1000;
   return DEFAULT_SERVER_PORT_BASE + projectSlot * 10 + parallelIndex;
 }
 

@@ -31,7 +31,10 @@ export const TEST_FIXTURE_LOCK_ID = 20_260_316;
 
 export const E2E_TEST_ROUTE_PATHS = {
   auth: "/api/test/auth",
+  clubBooks: "/api/test/club-books",
   reset: "/api/test/reset",
+  reviews: "/api/test/reviews",
+  shelves: "/api/test/shelves",
   threads: "/api/test/threads",
 } as const;
 

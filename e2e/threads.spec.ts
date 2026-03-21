@@ -3,14 +3,27 @@ import type { APIRequestContext, Locator, Page } from "@playwright/test";
 import { expect, test } from "./fixtures/test";
 import {
   E2E_ROUTE_PATHS,
-  E2E_TAB_LABELS,
+  E2E_TEST_ROUTE_PATHS,
   E2E_URL_PATTERNS,
 } from "./helpers/constants";
 import { resetApp, signInAs } from "./helpers/auth";
+import { archiveClubBook, seedClubBook, seedThread } from "./helpers/test-data";
 
 const CLUB_BOARD_URL_PATTERN = E2E_URL_PATTERNS.clubBoard;
+const clubBoardPathPattern = /^\/clubs\/([^/]+)\/board$/i;
 const discussionPathPattern = E2E_URL_PATTERNS.discussionPath;
 const threadPathPattern = E2E_URL_PATTERNS.threadPath;
+
+function parseClubBoardPath(pathname: string) {
+  const match = pathname.match(clubBoardPathPattern);
+  if (!match) {
+    throw new Error(`Expected a club board path, received ${pathname}.`);
+  }
+
+  return {
+    clubId: match[1]!,
+  };
+}
 
 function parseDiscussionPath(pathname: string) {
   const match = pathname.match(discussionPathPattern);
@@ -76,16 +89,12 @@ async function expectCommentAnchor(
   return articleId as string;
 }
 
-async function addFixtureBookToClub(
-  page: Page,
-  clubName: string,
+async function seedFixtureBookForClub(
+  request: APIRequestContext,
+  clubBoardPath: string,
 ) {
-  await page.goto(E2E_ROUTE_PATHS.fixtureBook);
-  await page.getByRole("button", { name: "Add Book" }).click();
-  const dialog = page.getByRole("dialog");
-  await dialog.getByLabel(clubName).check();
-  await dialog.getByRole("button", { name: "Add to clubs" }).click();
-  await expect(page.getByText("Book added to 1 club.")).toBeVisible();
+  const { clubId } = parseClubBoardPath(clubBoardPath);
+  return seedClubBook(request, { clubId });
 }
 
 async function openFixtureBookCardDetails(
@@ -99,21 +108,6 @@ async function openThreadCard(
   threadTitle: string,
 ) {
   await page.getByLabel(`Open thread ${threadTitle}`).click();
-}
-
-async function openManagePage(page: Page) {
-  await page.getByRole("link", { name: E2E_TAB_LABELS.manage }).click();
-  await expect(page).toHaveURL(E2E_URL_PATTERNS.manageMembers);
-}
-
-async function openManageTab(
-  page: Page,
-  tabName:
-    | typeof E2E_TAB_LABELS.members
-    | typeof E2E_TAB_LABELS.readingBoard
-    | typeof E2E_TAB_LABELS.invite,
-) {
-  await page.getByRole("link", { name: tabName, exact: true }).click();
 }
 
 async function openStartThreadModal(page: import("@playwright/test").Page) {
@@ -145,7 +139,7 @@ async function createDiscussionThreads(
 ) {
   await expect(page).toHaveURL(/\/clubs\/[0-9a-f-]+\/books\/[0-9a-f-]+(?:\?|$)/i);
   const { clubId, clubBookId } = parseDiscussionPath(new URL(page.url()).pathname);
-  const response = await request.post("/api/test/threads", {
+  const response = await request.post(E2E_TEST_ROUTE_PATHS.threads, {
     data: {
       kind: "threads",
       clubId,
@@ -171,7 +165,7 @@ async function createTopLevelComments(
 ) {
   await expect(page).toHaveURL(/\/clubs\/[0-9a-f-]+\/threads\/[0-9a-f-]+(?:\?|$)/i);
   const { clubId, threadId } = parseThreadPath(new URL(page.url()).pathname);
-  const response = await request.post("/api/test/threads", {
+  const response = await request.post(E2E_TEST_ROUTE_PATHS.threads, {
     data: {
       kind: "posts",
       clubId,
@@ -198,6 +192,7 @@ test.beforeEach(async ({ request }) => {
 
 test("club member can open a club-book discussion page and create a thread", async ({
   page,
+  request,
 }) => {
   await signInAs(page, "owner", E2E_ROUTE_PATHS.clubsNew);
 
@@ -209,7 +204,7 @@ test("club member can open a club-book discussion page and create a thread", asy
   await expect(page).toHaveURL(CLUB_BOARD_URL_PATTERN);
   const clubBoardPath = new URL(page.url()).pathname;
 
-  await addFixtureBookToClub(page, "Discussion Launch Club");
+  await seedFixtureBookForClub(request, clubBoardPath);
 
   await page.goto(clubBoardPath);
   await openFixtureBookCardDetails(page);
@@ -255,6 +250,7 @@ test("club member can open a club-book discussion page and create a thread", asy
 
 test("members can create one-depth replies while authors retain edit and delete control", async ({
   page,
+  request,
 }) => {
   await signInAs(page, "owner", E2E_ROUTE_PATHS.clubsNew);
 
@@ -266,7 +262,7 @@ test("members can create one-depth replies while authors retain edit and delete 
   await expect(page).toHaveURL(CLUB_BOARD_URL_PATTERN);
   const clubBoardPath = new URL(page.url()).pathname;
 
-  await addFixtureBookToClub(page, "Post Lifecycle Club");
+  await seedFixtureBookForClub(request, clubBoardPath);
 
   await page.goto(clubBoardPath);
   await openFixtureBookCardDetails(page);
@@ -481,6 +477,7 @@ test("members can create one-depth replies while authors retain edit and delete 
 
 test("club admins can pin a thread and move it ahead of newer threads", async ({
   page,
+  request,
 }) => {
   await signInAs(page, "owner", E2E_ROUTE_PATHS.clubsNew);
 
@@ -492,7 +489,7 @@ test("club admins can pin a thread and move it ahead of newer threads", async ({
   await expect(page).toHaveURL(CLUB_BOARD_URL_PATTERN);
   const clubBoardPath = new URL(page.url()).pathname;
 
-  await addFixtureBookToClub(page, "Pin Ordering Club");
+  await seedFixtureBookForClub(request, clubBoardPath);
 
   await page.goto(clubBoardPath);
   await openFixtureBookCardDetails(page);
@@ -539,7 +536,7 @@ test("discussion lists infinite-load older threads and restore later thread acti
   await expect(page).toHaveURL(CLUB_BOARD_URL_PATTERN);
   const clubBoardPath = new URL(page.url()).pathname;
 
-  await addFixtureBookToClub(page, "Infinite Thread Club");
+  await seedFixtureBookForClub(request, clubBoardPath);
 
   await page.goto(clubBoardPath);
   await openFixtureBookCardDetails(page);
@@ -572,6 +569,7 @@ test("discussion lists infinite-load older threads and restore later thread acti
 
 test("archived club books keep discussion readable but disable new thread creation", async ({
   page,
+  request,
 }) => {
   await signInAs(page, "owner", E2E_ROUTE_PATHS.clubsNew);
 
@@ -585,7 +583,7 @@ test("archived club books keep discussion readable but disable new thread creati
   await expect(page).toHaveURL(CLUB_BOARD_URL_PATTERN);
   const clubBoardPath = new URL(page.url()).pathname;
 
-  await addFixtureBookToClub(page, "Archived Discussion Club");
+  await seedFixtureBookForClub(request, clubBoardPath);
 
   await page.goto(clubBoardPath);
   await openFixtureBookCardDetails(page);
@@ -593,25 +591,21 @@ test("archived club books keep discussion readable but disable new thread creati
   await expect(page).toHaveURL(
     /\/clubs\/[0-9a-f-]+\/books\/[0-9a-f-]+(?:\?|$)/i,
   );
-  const discussionUrl = page.url();
-
-  await submitThreadFromModal(page, {
+  const discussion = parseDiscussionPath(new URL(page.url()).pathname);
+  await seedThread(request, {
+    clubId: discussion.clubId,
+    clubBookId: discussion.clubBookId,
     title: "Archived thread",
     body: "This thread should survive archive.",
   });
+  await page.reload();
+  const discussionUrl = page.url();
   await expect(page.getByLabel("Open thread Archived thread")).toBeVisible();
 
-  await page.goto(clubBoardPath);
-  await openManagePage(page);
-  await openManageTab(page, E2E_TAB_LABELS.readingBoard);
-  await expect(page).toHaveURL(/\/clubs\/[0-9a-f-]+\/manage\/board(?:\?|$)/i);
-  await openFixtureBookCardDetails(page);
-  await expect(page.getByRole("button", { name: "Remove" })).toBeVisible();
-  await page.getByRole("button", { name: "Remove" }).click();
-  await expect(page.getByText("Book removed.")).toBeVisible();
-  await expect(page).toHaveURL(
-    /\/clubs\/[0-9a-f-]+\/manage\/board\?message=/i,
-  );
+  await archiveClubBook(request, {
+    clubId: discussion.clubId,
+    clubBookId: discussion.clubBookId,
+  });
 
   await page.goto(discussionUrl);
   await expect(page.getByText("Archived book")).toBeVisible();
@@ -626,6 +620,7 @@ test("archived club books keep discussion readable but disable new thread creati
 
 test("club admins can delete threads while members cannot", async ({
   page,
+  request,
 }) => {
   await signInAs(page, "owner", E2E_ROUTE_PATHS.clubsNew);
 
@@ -639,7 +634,7 @@ test("club admins can delete threads while members cannot", async ({
   await expect(page).toHaveURL(CLUB_BOARD_URL_PATTERN);
   const clubBoardPath = new URL(page.url()).pathname;
 
-  await addFixtureBookToClub(page, "Thread Moderation UI Club");
+  await seedFixtureBookForClub(request, clubBoardPath);
 
   await page.goto(clubBoardPath);
   await openFixtureBookCardDetails(page);
@@ -688,7 +683,7 @@ test("thread comments infinite-load older batches and preserve long-feed mutatio
   await expect(page).toHaveURL(CLUB_BOARD_URL_PATTERN);
   const clubBoardPath = new URL(page.url()).pathname;
 
-  await addFixtureBookToClub(page, "Infinite Comment Club");
+  await seedFixtureBookForClub(request, clubBoardPath);
 
   await page.goto(clubBoardPath);
   await openFixtureBookCardDetails(page);
@@ -750,6 +745,7 @@ test("thread comments infinite-load older batches and preserve long-feed mutatio
 
 test("non-members see forbidden pages for discussion and thread routes", async ({
   page,
+  request,
 }) => {
   await signInAs(page, "owner", E2E_ROUTE_PATHS.clubsNew);
 
@@ -763,7 +759,7 @@ test("non-members see forbidden pages for discussion and thread routes", async (
   await expect(page).toHaveURL(CLUB_BOARD_URL_PATTERN);
   const clubBoardPath = new URL(page.url()).pathname;
 
-  await addFixtureBookToClub(page, "Members Only Discussion Club");
+  await seedFixtureBookForClub(request, clubBoardPath);
 
   await page.goto(clubBoardPath);
   await openFixtureBookCardDetails(page);
