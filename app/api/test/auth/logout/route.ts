@@ -5,12 +5,7 @@ import {
   E2E_AUTH_COOKIE_NAME,
   E2E_DEFAULT_RETURN_TO,
   TEST_ROUTE_ERROR_MESSAGES,
-  isTestUserKey,
 } from "@/lib/test-harness/constants";
-import {
-  getTestUser,
-  seedTestUsers,
-} from "@/lib/test-harness/fixtures";
 
 export const runtime = "nodejs";
 
@@ -22,24 +17,16 @@ export async function GET(request: NextRequest) {
     );
   }
 
-  const userKey = request.nextUrl.searchParams.get("user") ?? "";
   const returnTo =
     request.nextUrl.searchParams.get("returnTo") ?? E2E_DEFAULT_RETURN_TO;
 
-  if (!isTestUserKey(userKey)) {
-    return NextResponse.json(
-      { error: TEST_ROUTE_ERROR_MESSAGES.unknownTestUser },
-      { status: 400 },
-    );
-  }
-
-  await seedTestUsers();
-
   const response = NextResponse.redirect(new URL(returnTo, request.url));
-  response.cookies.set(E2E_AUTH_COOKIE_NAME, getTestUser(userKey).key, {
+  response.cookies.set(E2E_AUTH_COOKIE_NAME, "", {
+    expires: new Date(0),
     httpOnly: false,
-    sameSite: "lax",
+    maxAge: 0,
     path: "/",
+    sameSite: "lax",
   });
   return response;
 }

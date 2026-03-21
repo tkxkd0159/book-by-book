@@ -3,8 +3,8 @@ import { getToken } from "next-auth/jwt";
 
 import { env } from "@/lib/env";
 import { AUTH_REQUEST_PATH_HEADER } from "@/lib/auth/redirects";
+import { E2E_AUTH_COOKIE_NAME } from "@/lib/test-harness/constants";
 import {
-  E2E_AUTH_COOKIE_NAME,
   isE2EBypassEnabled,
 } from "@/lib/test-harness/auth";
 

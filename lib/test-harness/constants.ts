@@ -1,5 +1,6 @@
 import type { FavoriteGenreKey, UserGender } from "@/types/db";
 
+export const E2E_AUTH_COOKIE_NAME = "bbb_e2e_user";
 export const TEST_USER_KEYS = ["owner", "member", "stranger", "incomplete"] as const;
 
 export type TestUserKey = (typeof TEST_USER_KEYS)[number];
@@ -66,6 +67,7 @@ export const E2E_TEST_ROUTE_PATHS = {
   auth: "/api/test/auth",
   clubBooks: "/api/test/club-books",
   invitationCodes: "/api/test/invitation-codes",
+  logout: "/api/test/auth/logout",
   reset: "/api/test/reset",
   reviews: "/api/test/reviews",
   shelves: "/api/test/shelves",

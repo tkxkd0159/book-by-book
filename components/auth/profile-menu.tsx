@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useEffect, useRef, useState, useTransition } from "react";
 import { LogOut, Shield, User } from "lucide-react";
 
-import { signOut } from "next-auth/react";
+import { signOutClientSession } from "@/components/auth/client-sign-out";
 import { UserAvatar } from "@/components/auth/user-avatar";
 
 type ProfileMenuLink = {
@@ -128,7 +128,7 @@ export default function ProfileMenu({
             onClick={() => {
               setIsOpen(false);
               startTransition(() => {
-                void signOut({ callbackUrl: signOutCallbackUrl });
+                void signOutClientSession(signOutCallbackUrl);
               });
             }}
           >

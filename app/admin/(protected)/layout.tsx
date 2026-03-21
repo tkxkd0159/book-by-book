@@ -1,16 +1,20 @@
-import { Shield } from "lucide-react";
 import Link from "next/link";
 
+import {
+  HeaderNav,
+  type HeaderNavItem,
+} from "@/components/navigation/header-nav";
 import ProfileMenu from "@/components/auth/profile-menu";
-import { buttonStyles } from "@/components/ui/button";
 import { requireInternalAdminUser } from "@/lib/auth/server";
 
-const NAV_LINK_CLASS_NAME = buttonStyles({
-  variant: "ghost",
-  size: "sm",
-  className:
-    "h-10 rounded-full border border-transparent px-4 text-sm hover:border-(--border) hover:bg-(--surface-strong)",
-});
+const NAV_ITEMS: readonly HeaderNavItem[] = [
+  {
+    href: "/admin/invitation-codes",
+    icon: "shield",
+    label: "Invitation codes",
+    matchPrefix: "/admin",
+  },
+];
 
 export default async function AdminProtectedLayout({ children }: Props.Layout) {
   const currentUser = await requireInternalAdminUser();
@@ -19,8 +23,8 @@ export default async function AdminProtectedLayout({ children }: Props.Layout) {
   return (
     <div className="min-h-screen bg-[linear-gradient(180deg,#faf5eb_0%,#f5efe4_100%)]">
       <header className="border-b border-(--border) bg-(--surface-strong)/90 backdrop-blur">
-        <div className="mx-auto flex w-full max-w-6xl flex-wrap items-center justify-between gap-4 px-4 py-4 sm:px-6 lg:px-8">
-          <div className="flex items-center gap-4">
+        <div className="mx-auto flex w-full max-w-6xl flex-wrap items-center justify-between gap-5 px-4 py-4 sm:px-6 lg:px-8">
+          <div className="flex items-center gap-8">
             <Link
               href="/admin/invitation-codes"
               className="text-4xl leading-none text-foreground"
@@ -28,23 +32,13 @@ export default async function AdminProtectedLayout({ children }: Props.Layout) {
             >
               Book by Book
             </Link>
-            <div className="space-y-1">
-              <p className="text-xs font-semibold uppercase tracking-[0.24em] text-(--muted)">
-                Admin
-              </p>
-              <h1 className="text-lg font-semibold text-foreground">
-                Invitation code control room
-              </h1>
-            </div>
+            <p className="text-sm font-semibold uppercase tracking-[0.22em] text-(--muted)">
+              Admin Panel
+            </p>
+            <HeaderNav items={NAV_ITEMS} />
           </div>
 
           <div className="flex flex-wrap items-center justify-end gap-2">
-            <nav className="flex items-center gap-1 rounded-full border border-(--border) bg-(--surface)/80 p-1 shadow-sm">
-              <Link href="/admin/invitation-codes" className={NAV_LINK_CLASS_NAME}>
-                <Shield aria-hidden className="h-4 w-4 shrink-0" />
-                Invitation codes
-              </Link>
-            </nav>
             <ProfileMenu
               name={displayName}
               email={currentUser.email}
