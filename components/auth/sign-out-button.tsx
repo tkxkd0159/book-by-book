@@ -2,8 +2,7 @@
 
 import { useTransition } from "react";
 
-import { signOut } from "next-auth/react";
-
+import { signOutClientSession } from "@/components/auth/client-sign-out";
 import { Button, type ButtonProps } from "@/components/ui/button";
 
 type SignOutButtonProps = Omit<ButtonProps, "onClick" | "type"> & {
@@ -23,7 +22,7 @@ export function SignOutButton({
       disabled={isPending || props.disabled}
       onClick={() => {
         startTransition(() => {
-          void signOut({ callbackUrl });
+          void signOutClientSession(callbackUrl);
         });
       }}
     >

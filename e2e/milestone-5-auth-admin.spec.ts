@@ -4,6 +4,7 @@ import { expect, test } from "./fixtures/test";
 
 import { resetApp, signInAs, signInAsInternalAdmin } from "./helpers/auth";
 import {
+  E2E_AUTH_COOKIE_NAME,
   E2E_INTERNAL_ADMIN,
   E2E_ROUTE_PATHS,
 } from "./helpers/constants";
@@ -43,7 +44,7 @@ test("incomplete readers are redirected to signup and resume their callback afte
 
   await fillSignupForm(page, {
     nickname: "beta-reader",
-    gender: "PREFER_NOT_TO_SAY",
+    gender: "NON_BINARY",
     countryCode: "KR",
     invitationCode: rawCode,
   });
@@ -52,12 +53,13 @@ test("incomplete readers are redirected to signup and resume their callback afte
   await expect(page).toHaveURL(/\/books\/search$/);
 
   await page.goto(E2E_ROUTE_PATHS.me);
-  await expect(page.getByRole("heading", { name: "Profile" })).toBeVisible();
+  await expect(page.getByText("Reader profile")).toBeVisible();
   await expect(page.getByRole("heading", { name: "beta-reader" })).toBeVisible();
-  await expect(page.getByText("Connected email: incomplete@book-by-book.test")).toBeVisible();
-  await expect(page.getByText("Prefer Not To Say")).toBeVisible();
+  await expect(page.getByText("incomplete@book-by-book.test")).toBeVisible();
+  await expect(page.getByText("Non Binary")).toBeVisible();
   await expect(page.getByText(/Korea/i)).toBeVisible();
   await expect(page.getByText("Fantasy")).toBeVisible();
+  await expect(page.getByText("User ID")).toHaveCount(0);
 });
 
 test("signup rejects invalid invitation codes", async ({ page }) => {
@@ -118,7 +120,35 @@ test("public readers are blocked from admin routes", async ({ page }) => {
   const response = await page.goto(E2E_ROUTE_PATHS.adminInvitationCodes);
 
   expect(response?.status()).toBe(403);
-  await expect(page.getByRole("heading", { name: "Forbidden" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Admins only" })).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "Log in as admin" }),
+  ).toBeVisible();
+  await page.getByRole("button", { name: "Log in as admin" }).click();
+  await expect
+    .poll(async () => {
+      const cookies = await page.context().cookies();
+      return cookies.some((cookie) => cookie.name === E2E_AUTH_COOKIE_NAME);
+    })
+    .toBe(false);
+  await expect(page).toHaveURL(/\/admin\/signin\?callbackUrl=%2Fadmin%2Finvitation-codes$/);
+  await expect(
+    page.getByRole("heading", { name: "Internal admin sign-in" }),
+  ).toBeVisible();
+});
+
+test("public readers see the admin-specific forbidden screen on admin sign-in", async ({
+  page,
+}) => {
+  await signInAs(page, "owner", E2E_ROUTE_PATHS.me);
+
+  const response = await page.goto(E2E_ROUTE_PATHS.adminSignIn);
+
+  expect(response?.status()).toBe(403);
+  await expect(page.getByRole("heading", { name: "Admins only" })).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "Log in as admin" }),
+  ).toBeVisible();
 });
 
 test("internal admins can sign in and manage invitation-code activation", async ({
@@ -127,10 +157,13 @@ test("internal admins can sign in and manage invitation-code activation", async 
   await signInAsInternalAdmin(page);
 
   await expect(page).toHaveURL(/\/admin\/invitation-codes$/);
+  await expect(page.getByText("Admin Panel")).toBeVisible();
   await expect(
-    page.getByRole("heading", { name: "Invitation code control room" }),
+    page.getByRole("heading", { name: "Invitation codes" }),
   ).toBeVisible();
-  await expect(page.getByText(E2E_INTERNAL_ADMIN.email)).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "Open profile menu" }),
+  ).toBeVisible();
 
   await page.getByLabel("Label").fill("QA Cohort");
   await page.getByLabel("Max uses").fill("2");
@@ -148,6 +181,15 @@ test("internal admins can sign in and manage invitation-code activation", async 
 
   await page.goto(E2E_ROUTE_PATHS.signup);
   await expect(page).toHaveURL(/\/admin\/invitation-codes$/);
+
+  await page.getByRole("button", { name: "Open profile menu" }).click();
+  const profileMenu = page.getByRole("menu");
+  await expect(profileMenu.getByText(E2E_INTERNAL_ADMIN.email)).toBeVisible();
+  await expect(
+    page.getByRole("menuitem", { name: "Invitation codes" }),
+  ).toBeVisible();
+  await page.getByRole("menuitem", { name: "Sign out" }).click();
+  await expect(page).toHaveURL(/\/admin\/signin(?:\?|$)/);
 });
 
 test("internal admin sign-in throttles repeated failed attempts", async ({

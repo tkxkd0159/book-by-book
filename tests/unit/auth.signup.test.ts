@@ -19,6 +19,7 @@ describe("signup validation helpers", () => {
 
   it("validates gender and country inputs", () => {
     expect(parseUserGender("woman")).toBe("WOMAN");
+    expect(parseUserGender("non_binary")).toBe("NON_BINARY");
     expect(parseCountryCode("kr")).toBe("KR");
     expect(getCountryName("KR")).toBe("South Korea");
     expect(() => parseCountryCode("zz")).toThrow("Choose a valid country.");

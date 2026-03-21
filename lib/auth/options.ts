@@ -30,6 +30,19 @@ function applyDbUserToToken(token: Record<string, unknown>, user: AuthUser) {
   return token;
 }
 
+function tokenNeedsDbRefresh(token: Record<string, unknown>) {
+  return (
+    typeof token.userId === "string" &&
+    (
+      typeof token.provider !== "string" ||
+      typeof token.isInternalAdmin !== "boolean" ||
+      typeof token.isSignupComplete !== "boolean" ||
+      typeof token.sessionIdentity !== "string" ||
+      !("nickname" in token)
+    )
+  );
+}
+
 export const authOptions: NextAuthOptions = {
   debug: runtimeEnv.isDevelopment,
   secret: env.auth.secret,
@@ -135,6 +148,16 @@ export const authOptions: NextAuthOptions = {
         typeof user?.id === "string"
       ) {
         const dbUser = await findUserById(user.id);
+        if (dbUser) {
+          return applyDbUserToToken(token, dbUser);
+        }
+      }
+
+      const tokenUserId =
+        typeof token.userId === "string" ? token.userId : null;
+
+      if (tokenUserId && tokenNeedsDbRefresh(token)) {
+        const dbUser = await findUserById(tokenUserId);
         if (dbUser) {
           return applyDbUserToToken(token, dbUser);
         }

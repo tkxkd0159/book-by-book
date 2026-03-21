@@ -3,6 +3,7 @@ import type { FavoriteGenreKey, UserGender } from "@/types/db";
 export const USER_GENDERS = [
   "MAN",
   "WOMAN",
+  "NON_BINARY",
   "PREFER_NOT_TO_SAY",
 ] as const satisfies readonly UserGender[];
 

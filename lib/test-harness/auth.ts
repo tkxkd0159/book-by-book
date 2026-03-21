@@ -3,9 +3,9 @@ import { cookies } from "next/headers";
 
 import { env } from "@/lib/env";
 import { findUserByProviderIdentity } from "@/lib/auth/users";
+import { E2E_AUTH_COOKIE_NAME } from "@/lib/test-harness/constants";
 import type { AuthUser } from "@/types/db";
 
-export const E2E_AUTH_COOKIE_NAME = "bbb_e2e_user";
 export const E2E_USER_PROVIDER = "e2e";
 
 export function isE2EBypassEnabled() {
