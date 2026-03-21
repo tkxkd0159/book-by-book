@@ -6,6 +6,7 @@ import { buttonStyles } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { FlashToast } from "@/components/ui/flash-toast";
 import { getCurrentUser } from "@/lib/auth/server";
+import { getPublicUserIdentityLabel } from "@/lib/auth/users";
 import { findInvitationByToken } from "@/lib/clubs/repository";
 
 type InvitationPageProps = {
@@ -34,11 +35,8 @@ export default async function InvitationPage({
   const invitation = await findInvitationByToken(token);
   const error = readMessage(paramsData.error);
   const isTargetMatch =
-    !!invitation &&
-    ((invitation.invitedUserId && invitation.invitedUserId === currentUser.id) ||
-      (invitation.invitedEmail &&
-        currentUser.email &&
-        invitation.invitedEmail.toLowerCase() === currentUser.email.toLowerCase()));
+    !!invitation && invitation.invitedUserId === currentUser.id;
+  const currentReaderLabel = getPublicUserIdentityLabel(currentUser);
 
   return (
     <div className="mx-auto max-w-2xl space-y-6">
@@ -47,7 +45,7 @@ export default async function InvitationPage({
       <div className="space-y-2">
         <h1 className="text-3xl font-semibold sm:text-4xl">Club invitation</h1>
         <p className="text-(--muted)">
-          Review the invite and accept it with the matching signed-in account.
+          Review the invite and accept it with the matching signed-in reader.
         </p>
       </div>
 
@@ -61,11 +59,11 @@ export default async function InvitationPage({
               <div className="flex flex-wrap gap-2">
                 <Badge>{invitation.effectiveStatus}</Badge>
                 <Badge className="bg-(--surface)/85">
-                  For {invitation.invitedEmail ?? "specific user"}
+                  For {invitation.invitedNickname ?? "specific reader"}
                 </Badge>
               </div>
               <p className="text-sm text-(--muted)">
-                Signed in as {currentUser.email ?? "unknown email"}.
+                Signed in as {currentReaderLabel}.
               </p>
 
               {invitation.effectiveStatus === "PENDING" && isTargetMatch ? (
@@ -85,7 +83,7 @@ export default async function InvitationPage({
                 <div className="space-y-3">
                   {!isTargetMatch && invitation.effectiveStatus === "PENDING" ? (
                     <p className="rounded-xl border border-[#e4cf8d] bg-[#fff8df] px-4 py-3 text-sm text-[#7a6110]">
-                      This invite was created for a different account.
+                      This invite was created for a different reader.
                     </p>
                   ) : null}
                   <Link

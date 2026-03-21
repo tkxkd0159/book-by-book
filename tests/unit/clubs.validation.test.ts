@@ -4,8 +4,8 @@ import { ClubError } from "@/lib/clubs/errors";
 import {
   parseClubBookStatus,
   parseClubName,
+  parseInvitationNickname,
   parseClubVisibility,
-  parseInvitationEmail,
   parseSafeReturnTo,
 } from "@/lib/clubs/validation";
 
@@ -27,10 +27,8 @@ describe("club validation", () => {
     expect(() => parseClubBookStatus("ARCHIVED")).toThrow(ClubError);
   });
 
-  it("normalizes invitation emails to lowercase", () => {
-    expect(parseInvitationEmail(" Reader@Example.COM ")).toBe(
-      "reader@example.com",
-    );
+  it("normalizes invitation nicknames to lowercase", () => {
+    expect(parseInvitationNickname(" Reader_Handle ")).toBe("reader_handle");
   });
 
   it("only allows internal return paths", () => {

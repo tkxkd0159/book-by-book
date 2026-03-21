@@ -179,7 +179,7 @@ export async function listRecentBookReviews(input: {
       reviews.created_at as "createdAt",
       reviews.updated_at as "updatedAt",
       reviews.deleted_at as "deletedAt",
-      users.name as "authorName",
+      coalesce(users.nickname, users.name) as "authorName",
       users.image_url as "authorImageUrl"
     from bookapp.reviews
     inner join bookapp.users on users.id = reviews.user_id

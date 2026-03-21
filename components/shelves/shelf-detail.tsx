@@ -5,6 +5,7 @@ import { OwnerShelfItemCard } from "@/components/shelves/owner-shelf-item-card";
 import type { ShelfDetail as ShelfDetailRecord } from "@/lib/shelves/repository";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
+import { getDefaultReaderDisplayName } from "@/lib/auth/identity";
 
 type ShelfDetailProps = {
   shelf: ShelfDetailRecord;
@@ -14,7 +15,7 @@ type ShelfDetailProps = {
 
 export function ShelfDetail({ shelf, mode, returnTo }: ShelfDetailProps) {
   const managementReturnTo = returnTo ?? `/me/shelves/${shelf.id}`;
-  const ownerName = shelf.owner.name ?? "Book by Book Member";
+  const ownerName = shelf.owner.name?.trim() || getDefaultReaderDisplayName();
 
   return (
     <div className="space-y-6">

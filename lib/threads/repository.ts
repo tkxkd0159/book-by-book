@@ -423,7 +423,7 @@ async function getThreadPostForMutation(
       thread_posts.created_at as "createdAt",
       thread_posts.updated_at as "updatedAt",
       thread_posts.deleted_at as "deletedAt",
-      users.name as "authorName",
+      coalesce(users.nickname, users.name) as "authorName",
       users.image_url as "authorImageUrl",
       threads.club_id::text as "clubId"
     from bookapp.thread_posts
@@ -453,7 +453,7 @@ async function getReplyTargetPost(
       thread_posts.created_at as "createdAt",
       thread_posts.updated_at as "updatedAt",
       thread_posts.deleted_at as "deletedAt",
-      users.name as "authorName",
+      coalesce(users.nickname, users.name) as "authorName",
       users.image_url as "authorImageUrl"
     from bookapp.thread_posts
     join bookapp.users on users.id = thread_posts.author_id
@@ -510,7 +510,7 @@ async function listThreadsForClubBookQuery(
         ((extract(epoch from threads.created_at) * 1000000)::bigint)::text as "cursorCreatedAtMicros",
         threads.updated_at as "updatedAt",
         threads.deleted_at as "deletedAt",
-        users.name as "authorName",
+        coalesce(users.nickname, users.name) as "authorName",
         users.image_url as "authorImageUrl",
         threads.post_count as "postCount"
       from bookapp.threads
@@ -550,7 +550,7 @@ async function listThreadsForClubBookQuery(
         ((extract(epoch from threads.created_at) * 1000000)::bigint)::text as "cursorCreatedAtMicros",
         threads.updated_at as "updatedAt",
         threads.deleted_at as "deletedAt",
-        users.name as "authorName",
+        coalesce(users.nickname, users.name) as "authorName",
         users.image_url as "authorImageUrl",
         threads.post_count as "postCount"
       from bookapp.threads
@@ -734,7 +734,7 @@ export async function findThreadDetailForMember(input: {
       threads.created_at as "createdAt",
       threads.updated_at as "updatedAt",
       threads.deleted_at as "deletedAt",
-      thread_author.name as "authorName",
+      coalesce(thread_author.nickname, thread_author.name) as "authorName",
       thread_author.image_url as "authorImageUrl",
       threads.post_count as "postCount",
       club_books.status as "clubBookStatus",
@@ -780,7 +780,7 @@ export async function findThreadDetailForMember(input: {
         ((extract(epoch from thread_posts.created_at) * 1000000)::bigint)::text as "cursorCreatedAtMicros",
         thread_posts.updated_at as "updatedAt",
         thread_posts.deleted_at as "deletedAt",
-        users.name as "authorName",
+        coalesce(users.nickname, users.name) as "authorName",
         users.image_url as "authorImageUrl"
       from bookapp.thread_posts
       join bookapp.users on users.id = thread_posts.author_id
@@ -809,7 +809,7 @@ export async function findThreadDetailForMember(input: {
         ((extract(epoch from thread_posts.created_at) * 1000000)::bigint)::text as "cursorCreatedAtMicros",
         thread_posts.updated_at as "updatedAt",
         thread_posts.deleted_at as "deletedAt",
-        users.name as "authorName",
+        coalesce(users.nickname, users.name) as "authorName",
         users.image_url as "authorImageUrl"
       from bookapp.thread_posts
       join bookapp.users on users.id = thread_posts.author_id
@@ -835,7 +835,7 @@ export async function findThreadDetailForMember(input: {
         thread_posts.created_at as "createdAt",
         thread_posts.updated_at as "updatedAt",
         thread_posts.deleted_at as "deletedAt",
-        users.name as "authorName",
+        coalesce(users.nickname, users.name) as "authorName",
         users.image_url as "authorImageUrl"
       from bookapp.thread_posts
       join bookapp.users on users.id = thread_posts.author_id
@@ -959,7 +959,7 @@ export async function createThreadPost(input: {
         updated_at as "updatedAt",
         deleted_at as "deletedAt",
         (
-          select name
+          select coalesce(nickname, name)
           from bookapp.users
           where users.id = thread_posts.author_id
         ) as "authorName",
@@ -1016,7 +1016,7 @@ export async function editThreadPost(input: {
         updated_at as "updatedAt",
         deleted_at as "deletedAt",
         (
-          select name
+          select coalesce(nickname, name)
           from bookapp.users
           where users.id = thread_posts.author_id
         ) as "authorName",
@@ -1072,7 +1072,7 @@ export async function deleteThreadPost(input: {
         updated_at as "updatedAt",
         deleted_at as "deletedAt",
         (
-          select name
+          select coalesce(nickname, name)
           from bookapp.users
           where users.id = thread_posts.author_id
         ) as "authorName",

@@ -4,13 +4,21 @@ const getAuthSessionSafeMock = vi.fn();
 const getE2ECurrentUserMock = vi.fn();
 const createE2ESessionMock = vi.fn();
 const findUserByIdMock = vi.fn();
-const findUserByEmailMock = vi.fn();
+const headersMock = vi.fn();
+const forbiddenMock = vi.fn(() => {
+  throw new Error("NEXT_FORBIDDEN");
+});
 const redirectMock = vi.fn((location: string) => {
   throw new Error(`NEXT_REDIRECT:${location}`);
 });
 
 vi.mock("next/navigation", () => ({
+  forbidden: forbiddenMock,
   redirect: redirectMock,
+}));
+
+vi.mock("next/headers", () => ({
+  headers: headersMock,
 }));
 
 vi.mock("@/lib/auth/session", () => ({
@@ -24,13 +32,13 @@ vi.mock("@/lib/test-harness/auth", () => ({
 
 vi.mock("@/lib/auth/users", () => ({
   findUserById: findUserByIdMock,
-  findUserByEmail: findUserByEmailMock,
 }));
 
 describe("auth server helpers", () => {
   beforeEach(() => {
     vi.resetModules();
     vi.clearAllMocks();
+    headersMock.mockResolvedValue(new Headers());
     getE2ECurrentUserMock.mockResolvedValue(null);
     createE2ESessionMock.mockImplementation((user) => ({
       expires: "2999-12-31T23:59:59.999Z",
@@ -47,33 +55,32 @@ describe("auth server helpers", () => {
     getAuthSessionSafeMock.mockResolvedValue({
       user: {
         id: "missing-user-id",
-        email: "ghost@example.com",
       },
     });
     findUserByIdMock.mockResolvedValue(null);
-    findUserByEmailMock.mockResolvedValue(null);
 
     const { getCurrentUser } = await import("@/lib/auth/server");
 
     await expect(getCurrentUser()).resolves.toBeNull();
     expect(findUserByIdMock).toHaveBeenCalledWith("missing-user-id");
-    expect(findUserByEmailMock).toHaveBeenCalledWith("ghost@example.com");
   });
 
   it("redirects when requireCurrentUser cannot resolve a DB-backed user", async () => {
     getAuthSessionSafeMock.mockResolvedValue({
       user: {
         id: "missing-user-id",
-        email: "ghost@example.com",
       },
     });
     findUserByIdMock.mockResolvedValue(null);
-    findUserByEmailMock.mockResolvedValue(null);
 
     const { requireCurrentUser } = await import("@/lib/auth/server");
 
-    await expect(requireCurrentUser()).rejects.toThrow("NEXT_REDIRECT:/signin");
-    expect(redirectMock).toHaveBeenCalledWith("/signin");
+    await expect(requireCurrentUser()).rejects.toThrow(
+      "NEXT_REDIRECT:/signin?callbackUrl=%2Fbooks%2Fsearch",
+    );
+    expect(redirectMock).toHaveBeenCalledWith(
+      "/signin?callbackUrl=%2Fbooks%2Fsearch",
+    );
   });
 
   it("returns the resolved DB-backed user when the session is valid", async () => {
@@ -84,12 +91,19 @@ describe("auth server helpers", () => {
       email: "reader@example.com",
       name: "Reader",
       imageUrl: null,
+      nickname: "reader",
+      gender: "MAN",
+      countryCode: "US",
+      favoriteGenres: ["Fantasy"],
+      signupCompletedAt: new Date("2026-01-01T00:00:00.000Z"),
+      isInternalAdmin: false,
+      isSignupComplete: true,
+      sessionIdentity: "PUBLIC",
     };
 
     getAuthSessionSafeMock.mockResolvedValue({
       user: {
         id: currentUser.id,
-        email: currentUser.email,
       },
     });
     findUserByIdMock.mockResolvedValue(currentUser);
@@ -98,7 +112,6 @@ describe("auth server helpers", () => {
 
     await expect(requireCurrentUser()).resolves.toEqual(currentUser);
     expect(findUserByIdMock).toHaveBeenCalledWith(currentUser.id);
-    expect(findUserByEmailMock).not.toHaveBeenCalled();
   });
 
   it("does not reuse a stale DB-backed user across repeated lookups", async () => {
@@ -109,6 +122,14 @@ describe("auth server helpers", () => {
       email: "reader@example.com",
       name: "Reader One",
       imageUrl: null,
+      nickname: "reader-one",
+      gender: "MAN",
+      countryCode: "US",
+      favoriteGenres: ["Fantasy"],
+      signupCompletedAt: new Date("2026-01-01T00:00:00.000Z"),
+      isInternalAdmin: false,
+      isSignupComplete: true,
+      sessionIdentity: "PUBLIC",
     };
     const secondUser = {
       ...firstUser,
@@ -119,7 +140,6 @@ describe("auth server helpers", () => {
     getAuthSessionSafeMock.mockResolvedValue({
       user: {
         id: firstUser.id,
-        email: firstUser.email,
       },
     });
     findUserByIdMock
@@ -131,5 +151,115 @@ describe("auth server helpers", () => {
     await expect(getCurrentUser()).resolves.toEqual(firstUser);
     await expect(getCurrentUser()).resolves.toEqual(secondUser);
     expect(findUserByIdMock).toHaveBeenCalledTimes(2);
+  });
+
+  it("redirects incomplete public users to signup with the current request callback", async () => {
+    headersMock.mockResolvedValue(
+      new Headers({
+        "x-bbb-request-path": "/clubs/private-club?tab=invite",
+      }),
+    );
+    findUserByIdMock.mockResolvedValue({
+      id: "user-123",
+      provider: "google",
+      providerUserId: "google-user-123",
+      email: "reader@example.com",
+      name: "Reader",
+      imageUrl: null,
+      nickname: null,
+      gender: null,
+      countryCode: null,
+      favoriteGenres: [],
+      signupCompletedAt: null,
+      isInternalAdmin: false,
+      isSignupComplete: false,
+      sessionIdentity: "PUBLIC_INCOMPLETE",
+    });
+    getAuthSessionSafeMock.mockResolvedValue({
+      user: {
+        id: "user-123",
+      },
+    });
+
+    const { requireCurrentUser } = await import("@/lib/auth/server");
+
+    await expect(requireCurrentUser()).rejects.toThrow(
+      "NEXT_REDIRECT:/signup?callbackUrl=%2Fclubs%2Fprivate-club%3Ftab%3Dinvite",
+    );
+  });
+
+  it("redirects internal admins away from reader app routes", async () => {
+    findUserByIdMock.mockResolvedValue({
+      id: "admin-123",
+      provider: "internal",
+      providerUserId: "admin@book-by-book.test",
+      email: "admin@book-by-book.test",
+      name: "Internal Admin",
+      imageUrl: null,
+      nickname: null,
+      gender: null,
+      countryCode: null,
+      favoriteGenres: [],
+      signupCompletedAt: null,
+      isInternalAdmin: true,
+      isSignupComplete: false,
+      sessionIdentity: "INTERNAL_ADMIN",
+    });
+    getAuthSessionSafeMock.mockResolvedValue({
+      user: {
+        id: "admin-123",
+      },
+    });
+
+    const { requireCurrentUser } = await import("@/lib/auth/server");
+
+    await expect(requireCurrentUser()).rejects.toThrow(
+      "NEXT_REDIRECT:/admin/invitation-codes",
+    );
+  });
+
+  it("redirects signed-out admin requests to the internal sign-in page", async () => {
+    headersMock.mockResolvedValue(
+      new Headers({
+        "x-bbb-request-path": "/admin/invitation-codes",
+      }),
+    );
+    getAuthSessionSafeMock.mockResolvedValue(null);
+    findUserByIdMock.mockResolvedValue(null);
+
+    const { requireInternalAdminUser } = await import("@/lib/auth/server");
+
+    await expect(requireInternalAdminUser()).rejects.toThrow(
+      "NEXT_REDIRECT:/admin/signin?callbackUrl=%2Fadmin%2Finvitation-codes",
+    );
+  });
+
+  it("forbids public users from admin-only routes", async () => {
+    findUserByIdMock.mockResolvedValue({
+      id: "user-123",
+      provider: "google",
+      providerUserId: "google-user-123",
+      email: "reader@example.com",
+      name: "Reader",
+      imageUrl: null,
+      nickname: "reader",
+      gender: "MAN",
+      countryCode: "US",
+      favoriteGenres: ["Fantasy"],
+      signupCompletedAt: new Date("2026-01-01T00:00:00.000Z"),
+      isInternalAdmin: false,
+      isSignupComplete: true,
+      sessionIdentity: "PUBLIC",
+    });
+    getAuthSessionSafeMock.mockResolvedValue({
+      user: {
+        id: "user-123",
+      },
+    });
+
+    const { requireInternalAdminUser } = await import("@/lib/auth/server");
+
+    await expect(requireInternalAdminUser()).rejects.toThrow("NEXT_FORBIDDEN");
+    expect(forbiddenMock).toHaveBeenCalled();
   });
 });

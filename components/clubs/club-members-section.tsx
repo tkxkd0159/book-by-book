@@ -14,6 +14,7 @@ import {
   canTransferClubOwnership,
 } from "@/lib/clubs/permissions";
 import { CLUB_ROLE_BADGE_VARIANTS } from "@/lib/clubs/presentation";
+import { getDefaultReaderDisplayName } from "@/lib/auth/identity";
 import type { ClubDetail, ClubMemberSummary } from "@/lib/clubs/repository";
 import type { ClubMemberRole } from "@/types/db";
 import Link from "next/link";
@@ -48,7 +49,7 @@ function formatJoinedDate(value: Date) {
 }
 
 function getMemberDisplayName(member: ClubMemberSummary) {
-  return member.name?.trim() || member.email?.trim() || "Unknown reader";
+  return member.name?.trim() || getDefaultReaderDisplayName();
 }
 
 export function ClubMembersSection({
@@ -174,9 +175,6 @@ export function ClubMembersSection({
                           {member.role}
                         </Badge>
                       </div>
-                      {member.email ? (
-                        <p className="text-sm text-(--muted)">{member.email}</p>
-                      ) : null}
                       <p className="text-sm text-(--muted)">
                         Joined {formatJoinedDate(member.joinedAt)}
                       </p>

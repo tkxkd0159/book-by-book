@@ -46,7 +46,7 @@ export default async function MyShelfDetailPage({
   return (
     <div className="space-y-6">
       <OwnerShelfPageHeader
-        currentUserId={currentUser.id}
+        currentUserNickname={currentUser.nickname}
         shelf={access.shelf}
         returnTo={returnTo}
         message={message}

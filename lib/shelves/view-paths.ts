@@ -11,8 +11,8 @@ export function createMyShelfHref(shelfId: string) {
 }
 
 export function createPublicShelfHref(input: {
-  userId: string;
+  nickname: string;
   shelfId: string;
 }) {
-  return `/users/${input.userId}/shelves/${input.shelfId}`;
+  return `/users/${encodeURIComponent(input.nickname)}/shelves/${encodeURIComponent(input.shelfId)}`;
 }

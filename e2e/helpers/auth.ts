@@ -2,6 +2,7 @@ import { expect, type APIRequestContext, type Page } from "@playwright/test";
 import {
   E2E_AUTH_COOKIE_NAME,
   E2E_DEFAULT_RETURN_TO,
+  E2E_INTERNAL_ADMIN,
   E2E_TEST_ROUTE_PATHS,
   type E2ETestUser,
 } from "./constants";
@@ -28,4 +29,16 @@ export async function signInAs(
       );
     })
     .toBe(user);
+}
+
+export async function signInAsInternalAdmin(
+  page: Page,
+  returnTo = "/admin/invitation-codes",
+) {
+  await page.goto(
+    `/admin/signin?callbackUrl=${encodeURIComponent(returnTo)}`,
+  );
+  await page.getByLabel("Email").fill(E2E_INTERNAL_ADMIN.email);
+  await page.getByLabel("Password").fill(E2E_INTERNAL_ADMIN.password);
+  await page.getByRole("button", { name: "Sign in to admin" }).click();
 }

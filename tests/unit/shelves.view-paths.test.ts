@@ -17,9 +17,9 @@ describe("shelf view paths", () => {
   it("builds signed-in public shelf paths", () => {
     expect(
       createPublicShelfHref({
-        userId: "user-123",
+        nickname: "owner-reader",
         shelfId: "shelf-123",
       }),
-    ).toBe("/users/user-123/shelves/shelf-123");
+    ).toBe("/users/owner-reader/shelves/shelf-123");
   });
 });

@@ -1,3 +1,5 @@
+import { INTERNAL_AUTH_PROVIDER } from "@/lib/auth/identity";
+import { hashInternalAdminPassword } from "@/lib/auth/internal";
 import { E2E_USER_PROVIDER } from "@/lib/test-harness/auth";
 import sql from "@/lib/db";
 import {
@@ -6,11 +8,24 @@ import {
 } from "@/lib/test-harness/google-books-fixtures";
 import {
   TEST_FIXTURE_LOCK_ID,
+  TEST_INTERNAL_ADMIN,
   TEST_USERS,
   type TestUserKey,
 } from "@/lib/test-harness/constants";
 
 export { TEST_BOOK_VOLUME_ID, type TestUserKey };
+
+const TEST_SIGNUP_COMPLETED_AT = new Date("2026-01-01T00:00:00.000Z");
+let internalAdminPasswordHashPromise: Promise<string> | null = null;
+
+function getInternalAdminPasswordHash() {
+  internalAdminPasswordHashPromise ??= hashInternalAdminPassword(
+    TEST_INTERNAL_ADMIN.password,
+    4,
+  );
+
+  return internalAdminPasswordHashPromise;
+}
 
 async function insertTestUsers(query: typeof sql) {
   for (const user of Object.values(TEST_USERS)) {
@@ -19,20 +34,57 @@ async function insertTestUsers(query: typeof sql) {
         provider,
         provider_user_id,
         email,
-        name
+        name,
+        nickname,
+        gender,
+        country_code,
+        favorite_genres,
+        signup_completed_at
       )
       values (
         ${E2E_USER_PROVIDER},
         ${user.key},
         ${user.email},
-        ${user.name}
+        ${user.name},
+        ${user.nickname},
+        ${user.gender},
+        ${user.countryCode},
+        ${sql.array([...user.favoriteGenres])},
+        ${user.nickname ? TEST_SIGNUP_COMPLETED_AT : null}
       )
       on conflict (provider, provider_user_id)
       do update set
         email = excluded.email,
-        name = excluded.name
+        name = excluded.name,
+        nickname = excluded.nickname,
+        gender = excluded.gender,
+        country_code = excluded.country_code,
+        favorite_genres = excluded.favorite_genres,
+        signup_completed_at = excluded.signup_completed_at
     `;
   }
+
+  await query`
+    insert into bookapp.users (
+      provider,
+      provider_user_id,
+      email,
+      name,
+      password_hash
+    )
+    values (
+      ${INTERNAL_AUTH_PROVIDER},
+      ${TEST_INTERNAL_ADMIN.email},
+      ${TEST_INTERNAL_ADMIN.email},
+      ${TEST_INTERNAL_ADMIN.name},
+      ${await getInternalAdminPasswordHash()}
+    )
+    on conflict (provider, provider_user_id)
+    do update set
+      email = excluded.email,
+      name = excluded.name,
+      password_hash = excluded.password_hash
+  `;
 }
 
 export async function seedTestUsers() {

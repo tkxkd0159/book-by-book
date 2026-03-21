@@ -17,7 +17,7 @@ import {
 } from "@/lib/shelves/view-paths";
 
 type OwnerShelfPageHeaderProps = {
-  currentUserId: string;
+  currentUserNickname: string | null;
   shelf: Pick<ShelfDetail, "id" | "name" | "description" | "isPublic">;
   returnTo: string;
   message: string | null;
@@ -25,7 +25,7 @@ type OwnerShelfPageHeaderProps = {
 };
 
 export function OwnerShelfPageHeader({
-  currentUserId,
+  currentUserNickname,
   shelf,
   returnTo,
   message,
@@ -80,10 +80,10 @@ export function OwnerShelfPageHeader({
             <CardTitle>Edit shelf</CardTitle>
           </CardHeader>
           <CardContent className="space-y-5">
-            {shelf.isPublic ? (
+            {shelf.isPublic && currentUserNickname ? (
               <Link
                 href={createPublicShelfHref({
-                  userId: currentUserId,
+                  nickname: currentUserNickname,
                   shelfId: shelf.id,
                 })}
                 className={buttonStyles({ variant: "secondary" })}

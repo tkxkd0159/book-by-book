@@ -80,7 +80,10 @@ function readOptionalString(value: FormDataEntryValue | null) {
     : null;
 }
 
-function revalidateShelfPaths(input: { userId: string; shelfId?: string }) {
+function revalidateShelfPaths(input: {
+  publicNickname: string | null;
+  shelfId?: string;
+}) {
   revalidatePath("/me");
   revalidatePath(createMyShelvesHref());
   revalidatePath(createNewShelfHref());
@@ -90,12 +93,14 @@ function revalidateShelfPaths(input: { userId: string; shelfId?: string }) {
   }
 
   revalidatePath(createMyShelfHref(input.shelfId));
-  revalidatePath(
-    createPublicShelfHref({
-      userId: input.userId,
-      shelfId: input.shelfId,
-    }),
-  );
+  if (input.publicNickname) {
+    revalidatePath(
+      createPublicShelfHref({
+        nickname: input.publicNickname,
+        shelfId: input.shelfId,
+      }),
+    );
+  }
 }
 
 function revalidateBookPaths(googleVolumeId: string) {
@@ -118,7 +123,7 @@ export async function createShelfAction(formData: FormData) {
     });
 
     revalidateShelfPaths({
-      userId: currentUser.id,
+      publicNickname: currentUser.nickname,
       shelfId: shelf.id,
     });
 
@@ -162,7 +167,7 @@ export async function updateShelfAction(formData: FormData) {
     });
 
     revalidateShelfPaths({
-      userId: currentUser.id,
+      publicNickname: currentUser.nickname,
       shelfId,
     });
 
@@ -185,7 +190,7 @@ export async function deleteShelfAction(formData: FormData) {
 
   try {
     revalidateShelfPaths({
-      userId: currentUser.id,
+      publicNickname: currentUser.nickname,
       shelfId,
     });
 
@@ -285,7 +290,7 @@ export async function addBookToShelvesFromVolumeAction(formData: FormData) {
           addedById: currentUser.id,
         });
         revalidateShelfPaths({
-          userId: currentUser.id,
+          publicNickname: currentUser.nickname,
           shelfId,
         });
       }),
@@ -327,7 +332,7 @@ export async function updateShelfItemNoteAction(formData: FormData) {
     });
 
     revalidateShelfPaths({
-      userId: currentUser.id,
+      publicNickname: currentUser.nickname,
       shelfId,
     });
 
@@ -357,7 +362,7 @@ export async function removeShelfItemAction(formData: FormData) {
     });
 
     revalidateShelfPaths({
-      userId: currentUser.id,
+      publicNickname: currentUser.nickname,
       shelfId,
     });
 

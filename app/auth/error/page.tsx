@@ -9,6 +9,10 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { resolveAuthErrorMessage } from "@/lib/auth/error-messages";
+import {
+  DEFAULT_PUBLIC_APP_PATH,
+  normalizeSafeCallbackUrl,
+} from "@/lib/auth/redirects";
 
 function extractSearchParam(value: string | string[] | undefined) {
   if (Array.isArray(value)) {
@@ -18,19 +22,12 @@ function extractSearchParam(value: string | string[] | undefined) {
   return value ?? "";
 }
 
-function normalizeCallbackUrl(value: string) {
-  if (!value.startsWith("/") || value.startsWith("//")) {
-    return "/books/search";
-  }
-
-  return value;
-}
-
 export default async function AuthErrorPage({ searchParams }: Props.Page) {
   const params = await searchParams;
   const errorCode = extractSearchParam(params.error);
-  const callbackUrl = normalizeCallbackUrl(
-    extractSearchParam(params.callbackUrl) || "/books/search",
+  const callbackUrl = normalizeSafeCallbackUrl(
+    extractSearchParam(params.callbackUrl) || DEFAULT_PUBLIC_APP_PATH,
+    DEFAULT_PUBLIC_APP_PATH,
   );
   const signInHref = `/signin?callbackUrl=${encodeURIComponent(callbackUrl)}`;
   const errorMessage =

@@ -1,4 +1,3 @@
-import { E2E_AUTH_COOKIE_NAME } from "../../lib/test-harness/auth";
 import {
   E2E_SEARCH_RESULT_FIXTURE,
   TEST_BOOK_VOLUME_ID,
@@ -6,17 +5,21 @@ import {
 import {
   E2E_DEFAULT_RETURN_TO,
   E2E_TEST_ROUTE_PATHS,
+  TEST_INTERNAL_ADMIN,
   TEST_USER_KEYS,
   type TestUserKey,
 } from "../../lib/test-harness/constants";
 
-export { E2E_AUTH_COOKIE_NAME, E2E_DEFAULT_RETURN_TO, E2E_TEST_ROUTE_PATHS };
+export const E2E_AUTH_COOKIE_NAME = "bbb_e2e_user";
+export { E2E_DEFAULT_RETURN_TO, E2E_TEST_ROUTE_PATHS };
 
 export type E2ETestUser = TestUserKey;
 
 export const E2E_TEST_USERS = TEST_USER_KEYS;
 
 export const E2E_ROUTE_PATHS = {
+  adminInvitationCodes: "/admin/invitation-codes",
+  adminSignIn: "/admin/signin",
   booksSearch: "/books/search",
   clubs: "/clubs",
   clubsNew: "/clubs/new",
@@ -28,7 +31,10 @@ export const E2E_ROUTE_PATHS = {
   meShelvesNew: "/me/shelves/new",
   searchResults: `/books/search?advanced=1&isbn=${E2E_SEARCH_RESULT_FIXTURE.isbn13}`,
   signIn: "/signin",
+  signup: "/signup",
 } as const;
+
+export const E2E_INTERNAL_ADMIN = TEST_INTERNAL_ADMIN;
 
 export const E2E_BOOK_FIXTURES = {
   detail: {
@@ -50,7 +56,7 @@ export const E2E_URL_PATTERNS = {
   manageMembers: /\/clubs\/[0-9a-f-]+\/manage\/members(?:\?|$)/i,
   myReview: /\/me\/reviews\/[^/?#]+(?:\?|$)/i,
   myShelfDetail: /\/me\/shelves\/[0-9a-f-]+(?:\?|$)/i,
-  publicShelf: /\/users\/[0-9a-f-]+\/shelves\/[0-9a-f-]+(?:\?|$)/i,
+  publicShelf: /\/users\/[a-z0-9_-]+\/shelves\/[0-9a-f-]+(?:\?|$)/i,
   discussionPath: /^\/clubs\/([^/]+)\/books\/([^/]+)$/i,
   threadPath: /^\/clubs\/([^/]+)\/threads\/([^/]+)$/i,
 } as const;

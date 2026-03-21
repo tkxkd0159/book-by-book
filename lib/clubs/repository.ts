@@ -53,7 +53,6 @@ type ClubInvitationRow = {
   clubId: string;
   invitedById: string;
   invitedUserId: string | null;
-  invitedEmail: string | null;
   status: ClubInvitationStatus;
   tokenHash: string;
   expiresAt: Date;
@@ -95,6 +94,7 @@ type InvitationLookupRow = ClubInvitationRow & {
   clubName: string;
   clubVisibility: ClubVisibility;
   effectiveStatus: ClubInvitationStatus;
+  invitedNickname: string | null;
 };
 
 type ManageableClubBookTargetRow = {
@@ -136,6 +136,7 @@ export type ClubInvitationWithClub = ClubInvitationRecord & {
   clubName: string;
   clubVisibility: ClubVisibility;
   effectiveStatus: ClubInvitationStatus;
+  invitedNickname: string | null;
 };
 
 export type ClubBookWithBook = ClubBookRecord & {
@@ -238,6 +239,7 @@ function mapInvitationLookup(row: InvitationLookupRow): ClubInvitationWithClub {
     clubName: row.clubName,
     clubVisibility: row.clubVisibility,
     effectiveStatus: row.effectiveStatus,
+    invitedNickname: row.invitedNickname,
   };
 }
 
@@ -616,7 +618,7 @@ export async function listClubMembers(clubId: string, viewerId: string) {
   const rows = await sql<ClubMemberSummaryRow[]>`
     select
       club_members.user_id::text as "userId",
-      users.name,
+      coalesce(users.nickname, users.name) as name,
       users.email::text as email,
       users.image_url as "imageUrl",
       club_members.role,
@@ -631,7 +633,7 @@ export async function listClubMembers(clubId: string, viewerId: string) {
         else 2
       end,
       club_members.joined_at asc,
-      coalesce(users.name, users.email::text, '') asc,
+      coalesce(users.nickname, users.name, users.email::text, '') asc,
       club_members.user_id asc
   `;
 
@@ -1246,7 +1248,7 @@ export async function listClubInvitations(clubId: string, userId: string) {
       club_invitations.club_id::text as "clubId",
       club_invitations.invited_by_id::text as "invitedById",
       club_invitations.invited_user_id::text as "invitedUserId",
-      club_invitations.invited_email::text as "invitedEmail",
+      invited_users.nickname as "invitedNickname",
       club_invitations.status,
       club_invitations.token_hash as "tokenHash",
       club_invitations.expires_at as "expiresAt",
@@ -1263,6 +1265,8 @@ export async function listClubInvitations(clubId: string, userId: string) {
       end as "effectiveStatus"
     from bookapp.club_invitations
     join bookapp.clubs on clubs.id = club_invitations.club_id
+    left join bookapp.users invited_users
+      on invited_users.id = club_invitations.invited_user_id
     where club_invitations.club_id = ${clubId}::uuid
     order by club_invitations.created_at desc
   `;
@@ -1273,7 +1277,7 @@ export async function listClubInvitations(clubId: string, userId: string) {
 export async function createClubInvitation(input: {
   clubId: string;
   invitedById: string;
-  invitedEmail: string;
+  invitedNickname: string;
 }) {
   return sql.begin(async (tx) => {
     const query = asQueryExecutor(tx);
@@ -1294,30 +1298,37 @@ export async function createClubInvitation(input: {
       throw new ClubError("NOT_FOUND", CLUB_ERROR_MESSAGES.clubNotFound);
     }
 
-    const [existingMember] = await query<{ id: string }[]>`
+    const [invitedUser] = await query<{ id: string }[]>`
       select id::text as id
       from bookapp.users
-      where email = ${input.invitedEmail}
+      where provider <> 'internal'
+        and nickname = ${input.invitedNickname}
+        and signup_completed_at is not null
       limit 1
     `;
 
-    if (existingMember) {
-      const [memberRow] = await query<ClubMemberRow[]>`
-        select
-          id::text as id,
-          club_id::text as "clubId",
-          user_id::text as "userId",
-          role,
-          joined_at as "joinedAt"
-        from bookapp.club_members
-        where club_id = ${input.clubId}::uuid
-          and user_id = ${existingMember.id}::uuid
-        limit 1
-      `;
+    if (!invitedUser) {
+      throw new ClubError(
+        "NOT_FOUND",
+        "No signed-up user matches that nickname.",
+      );
+    }
 
-      if (memberRow && isClubMember(memberRow.role)) {
-        throw new ClubError("CONFLICT", "That user is already a club member.");
-      }
+    const [memberRow] = await query<ClubMemberRow[]>`
+      select
+        id::text as id,
+        club_id::text as "clubId",
+        user_id::text as "userId",
+        role,
+        joined_at as "joinedAt"
+      from bookapp.club_members
+      where club_id = ${input.clubId}::uuid
+        and user_id = ${invitedUser.id}::uuid
+      limit 1
+    `;
+
+    if (memberRow && isClubMember(memberRow.role)) {
+      throw new ClubError("CONFLICT", "That user is already a club member.");
     }
 
     const rawToken = createInvitationToken();
@@ -1331,14 +1342,14 @@ export async function createClubInvitation(input: {
         insert into bookapp.club_invitations (
           club_id,
           invited_by_id,
-          invited_email,
+          invited_user_id,
           token_hash,
           expires_at
         )
         values (
           ${input.clubId}::uuid,
           ${input.invitedById}::uuid,
-          ${input.invitedEmail},
+          ${invitedUser.id}::uuid,
           ${tokenHash},
           ${expiresAt}
         )
@@ -1347,7 +1358,6 @@ export async function createClubInvitation(input: {
           club_id::text as "clubId",
           invited_by_id::text as "invitedById",
           invited_user_id::text as "invitedUserId",
-          invited_email::text as "invitedEmail",
           status,
           token_hash as "tokenHash",
           expires_at as "expiresAt",
@@ -1370,7 +1380,7 @@ export async function createClubInvitation(input: {
       ) {
         throw new ClubError(
           "CONFLICT",
-          "A pending invitation already exists for that email.",
+          "A pending invitation already exists for that reader.",
         );
       }
 
@@ -1411,7 +1421,6 @@ export async function revokeClubInvitation(input: {
         club_id::text as "clubId",
         invited_by_id::text as "invitedById",
         invited_user_id::text as "invitedUserId",
-        invited_email::text as "invitedEmail",
         status,
         token_hash as "tokenHash",
         expires_at as "expiresAt",
@@ -1435,7 +1444,7 @@ export async function findInvitationByToken(token: string) {
       club_invitations.club_id::text as "clubId",
       club_invitations.invited_by_id::text as "invitedById",
       club_invitations.invited_user_id::text as "invitedUserId",
-      club_invitations.invited_email::text as "invitedEmail",
+      invited_users.nickname as "invitedNickname",
       club_invitations.status,
       club_invitations.token_hash as "tokenHash",
       club_invitations.expires_at as "expiresAt",
@@ -1452,6 +1461,8 @@ export async function findInvitationByToken(token: string) {
       end as "effectiveStatus"
     from bookapp.club_invitations
     join bookapp.clubs on clubs.id = club_invitations.club_id
+    left join bookapp.users invited_users
+      on invited_users.id = club_invitations.invited_user_id
     where club_invitations.token_hash = ${hashInvitationToken(token)}
     limit 1
   `;
@@ -1472,7 +1483,7 @@ export async function acceptClubInvitation(input: {
         club_invitations.club_id::text as "clubId",
         club_invitations.invited_by_id::text as "invitedById",
         club_invitations.invited_user_id::text as "invitedUserId",
-        club_invitations.invited_email::text as "invitedEmail",
+        invited_users.nickname as "invitedNickname",
         club_invitations.status,
         club_invitations.token_hash as "tokenHash",
         club_invitations.expires_at as "expiresAt",
@@ -1489,9 +1500,11 @@ export async function acceptClubInvitation(input: {
         end as "effectiveStatus"
       from bookapp.club_invitations
       join bookapp.clubs on clubs.id = club_invitations.club_id
+      left join bookapp.users invited_users
+        on invited_users.id = club_invitations.invited_user_id
       where club_invitations.token_hash = ${hashInvitationToken(input.token)}
       limit 1
-      for update
+      for update of club_invitations
     `;
 
     if (!invitation) {
@@ -1517,16 +1530,12 @@ export async function acceptClubInvitation(input: {
       return { clubId: invitation.clubId };
     }
 
-    const matchesUser =
-      invitation.invitedUserId === input.user.id ||
-      (invitation.invitedEmail &&
-        input.user.email &&
-        invitation.invitedEmail.toLowerCase() === input.user.email.toLowerCase());
+    const matchesUser = invitation.invitedUserId === input.user.id;
 
     if (!matchesUser) {
       throw new ClubError(
         "FORBIDDEN",
-        "This invitation is for a different account.",
+        "This invitation is for a different reader.",
       );
     }
 

@@ -26,8 +26,8 @@ export function ClubInvitationsSection({
       <div className="space-y-2">
         <h2 className="text-2xl font-semibold">Private invites</h2>
         <p className="max-w-2xl text-sm text-(--muted)">
-          Create shareable links for private access and keep an eye on which
-          invitations are still active.
+          Target signed-up readers by nickname, create shareable links for
+          private access, and keep an eye on which invitations are still active.
         </p>
       </div>
 
@@ -43,11 +43,11 @@ export function ClubInvitationsSection({
             <input type="hidden" name="clubId" value={clubId} />
             <input type="hidden" name="returnTo" value={returnTo} />
             <label className="flex-1 space-y-2 text-sm font-medium">
-              <span>Email</span>
+              <span>Nickname</span>
               <Input
-                name="invitedEmail"
-                type="email"
-                placeholder="friend@example.com"
+                name="invitedNickname"
+                type="text"
+                placeholder="reader-handle"
                 required
               />
             </label>
@@ -95,7 +95,7 @@ export function ClubInvitationsSection({
                       </Badge>
                     </div>
                     <p className="font-medium">
-                      {invitation.invitedEmail ?? "No email target"}
+                      {invitation.invitedNickname ?? "Specific reader"}
                     </p>
                   </div>
 

@@ -9,6 +9,11 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { resolveAuthErrorMessage } from "@/lib/auth/error-messages";
+import {
+  DEFAULT_PUBLIC_APP_PATH,
+  getAuthenticatedUserDestination,
+  normalizeSafeCallbackUrl,
+} from "@/lib/auth/redirects";
 import { getCurrentUser } from "@/lib/auth/server";
 
 function extractSearchParam(value: string | string[] | undefined) {
@@ -19,26 +24,19 @@ function extractSearchParam(value: string | string[] | undefined) {
   return value ?? "";
 }
 
-function normalizeCallbackUrl(value: string) {
-  if (!value.startsWith("/") || value.startsWith("//")) {
-    return "/books/search";
-  }
-
-  return value;
-}
-
 export default async function SignInPage({ searchParams }: Props.Page) {
+  const params = await searchParams;
+  const callbackUrl = normalizeSafeCallbackUrl(
+    extractSearchParam(params.callbackUrl) || DEFAULT_PUBLIC_APP_PATH,
+    DEFAULT_PUBLIC_APP_PATH,
+  );
   const currentUser = await getCurrentUser();
   if (currentUser) {
-    redirect("/books/search");
+    redirect(getAuthenticatedUserDestination(currentUser, callbackUrl));
   }
 
-  const params = await searchParams;
   const errorCode = extractSearchParam(params.error);
   const errorMessage = resolveAuthErrorMessage(errorCode);
-  const callbackUrl = normalizeCallbackUrl(
-    extractSearchParam(params.callbackUrl) || "/books/search",
-  );
 
   return (
     <main className="mx-auto flex min-h-screen w-full max-w-3xl items-center px-4 py-14 sm:px-6 lg:px-8">

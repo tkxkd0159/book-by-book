@@ -51,7 +51,7 @@ import {
   parseClubName,
   parseClubVisibility,
   parseInternalId,
-  parseInvitationEmail,
+  parseInvitationNickname,
   parseSafeReturnTo,
 } from "@/lib/clubs/validation";
 import { requireCurrentUser } from "@/lib/auth/server";
@@ -331,7 +331,7 @@ export async function createInvitationAction(formData: FormData) {
     const { rawToken } = await createClubInvitation({
       clubId,
       invitedById: currentUser.id,
-      invitedEmail: parseInvitationEmail(formData.get("invitedEmail")),
+      invitedNickname: parseInvitationNickname(formData.get("invitedNickname")),
     });
 
     revalidateClubPages(clubId);
