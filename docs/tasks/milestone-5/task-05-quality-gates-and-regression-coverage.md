@@ -18,6 +18,8 @@ Add the validation and regression coverage needed to ship the revised Milestone 
   - successful and failed internal admin login
   - invitation-code creation, activation/deactivation, and usage accounting
   - incomplete-user gating on reader-facing reads and mutations
+  - signed-in public-user rejection from admin routes
+  - internal-admin redirection away from `/signup` and reader-facing routes
   - nickname-based public shelf access
   - private-club invite creation, deduplication, and acceptance by `invitedUserId`
 - Extend Playwright coverage for:
@@ -27,6 +29,7 @@ Add the validation and regression coverage needed to ship the revised Milestone 
   - internal admin sign-in to invitation-code management
   - public-user blocking from `/admin/*`
   - internal-admin blocking from `/signup`
+  - unauthenticated redirect to `/admin/signin` for admin routes
   - `/me` nickname-led profile display
   - nickname-based public shelf URLs
   - nickname-based private invite creation and acceptance
@@ -41,6 +44,7 @@ Add the validation and regression coverage needed to ship the revised Milestone 
 ## Implementation Notes
 - Reuse the existing deterministic e2e auth and reset helpers instead of inventing separate public and admin harnesses from scratch.
 - Seed test users with completed-signup fields by default so existing milestone flows continue to work, then add targeted incomplete-public-user and internal-admin fixtures for Milestone 5 coverage.
+- Seed internal-admin fixtures with a real password hash compatible with the implementation’s verification algorithm so credentials login is exercised end to end.
 - Keep explicit regression assertions that existing club, thread, shelf, and review workflows stay reachable after public/admin route gating is added.
 - Playwright should prove both the onboarding detour and the admin-panel entry path.
 - Task 05 depends on Tasks 01 through 04 shipping first; it is the milestone hardening pass, not a substitute for foundation or route work.

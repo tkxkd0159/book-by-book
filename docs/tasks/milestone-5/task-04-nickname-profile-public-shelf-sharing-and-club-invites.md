@@ -29,6 +29,7 @@ Make nickname the default reader-facing identity, switch public shelf sharing fr
 - Invitation codes and private club invites are separate domains and should not be coupled in repository or UI behavior.
 - Inviting someone who has not completed signup is out of scope; the club-invite flow should fail clearly when the nickname does not map to a signed-up public user.
 - Duplicate pending club invites should be blocked per `clubId + invitedUserId`.
+- Invite acceptance UI and copy should stop referring to email entirely and should identify the invite target by nickname or a generic targeted-user message.
 
 ## Acceptance Criteria
 - `/me` clearly shows nickname as the primary Book by Book identity and surfaces the new profile fields.
@@ -37,6 +38,7 @@ Make nickname the default reader-facing identity, switch public shelf sharing fr
 - Club admins create private invites by nickname, not email.
 - Private-club invite creation fails with a clear error when the nickname does not exist, is incomplete, or already belongs to a club member.
 - Accepting a valid private-club invite works only for the targeted signed-in public user and remains idempotent.
+- Reader-facing invite pages and member/profile surfaces no longer rely on provider email as the visible identity fallback when nickname exists.
 
 ## Expected Touchpoints
 - `app/(protected)/me/page.tsx`
