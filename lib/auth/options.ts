@@ -6,7 +6,6 @@ import { env } from "@/lib/env";
 import { isAuthFlowError } from "@/lib/auth/errors";
 import { INTERNAL_AUTH_PROVIDER } from "@/lib/auth/identity";
 import { authorizeInternalAdminCredentials } from "@/lib/auth/internal-auth";
-import { resolveAuthSecret } from "@/lib/auth/secret";
 import {
   findUserById,
   findUserByProviderAccount,
@@ -33,7 +32,7 @@ function applyDbUserToToken(
 
 export const authOptions: NextAuthOptions = {
   debug: runtimeEnv.isDevelopment,
-  secret: resolveAuthSecret(),
+  secret: env.auth.secret,
   session: {
     strategy: "jwt",
     maxAge: SESSION_MAX_AGE_SECONDS,

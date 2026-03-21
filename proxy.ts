@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getToken } from "next-auth/jwt";
 
+import { env } from "@/lib/env";
 import { AUTH_REQUEST_PATH_HEADER } from "@/lib/auth/redirects";
-import { resolveAuthSecret } from "@/lib/auth/secret";
 import {
   E2E_AUTH_COOKIE_NAME,
   isE2EBypassEnabled,
@@ -67,7 +67,7 @@ async function readOptimisticToken(request: NextRequest) {
 
   return getToken({
     req: request,
-    secret: resolveAuthSecret(),
+    secret: env.auth.secret,
   });
 }
 
