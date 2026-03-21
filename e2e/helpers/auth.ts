@@ -1,5 +1,6 @@
 import { expect, type APIRequestContext, type Page } from "@playwright/test";
 import {
+  E2E_AUTH_COOKIE_NAME,
   E2E_DEFAULT_RETURN_TO,
   E2E_TEST_ROUTE_PATHS,
   type E2ETestUser,
@@ -18,4 +19,13 @@ export async function signInAs(
   await page.goto(
     `${E2E_TEST_ROUTE_PATHS.auth}?user=${encodeURIComponent(user)}&returnTo=${encodeURIComponent(returnTo)}`,
   );
+  await expect
+    .poll(async () => {
+      const cookies = await page.context().cookies();
+      return (
+        cookies.find((cookie) => cookie.name === E2E_AUTH_COOKIE_NAME)?.value ??
+        null
+      );
+    })
+    .toBe(user);
 }

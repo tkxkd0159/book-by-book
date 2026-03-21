@@ -28,7 +28,11 @@ const QUIET_POSTGRES_OPTIONS = {
 export const E2E_POSTGRES_IMAGE = "postgres:18";
 export const E2E_TEMPLATE_DATABASE = DEFAULT_TEMPLATE_DATABASE;
 export const E2E_SERVER_ENV = {
+  AUTH_SECRET: "book-by-book-e2e-auth-secret",
   E2E_BYPASS_AUTH: "1",
+  GOOGLE_BOOKS_API_KEY: "book-by-book-e2e-google-books-api-key",
+  GOOGLE_CLIENT_ID: "book-by-book-e2e-google-client-id",
+  GOOGLE_CLIENT_SECRET: "book-by-book-e2e-google-client-secret",
   RATE_LIMIT_PROVIDER: "memory",
   RATE_LIMIT_CREATE_CLUB_LIMIT: "2",
 } as const;
@@ -40,12 +44,22 @@ export type PlaywrightRuntimeState = {
 };
 
 export async function loadEnvFiles() {
-  process.loadEnvFile?.(".env");
-  process.loadEnvFile?.(".env.local");
+  loadOptionalEnvFile(".env");
+  loadOptionalEnvFile(".env.local");
 }
 
 export function readAppUserPassword() {
   return process.env.APP_USER_PASSWORD?.trim() || DEFAULT_APP_USER_PASSWORD;
+}
+
+function loadOptionalEnvFile(pathname: string) {
+  try {
+    process.loadEnvFile?.(pathname);
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== "ENOENT") {
+      throw error;
+    }
+  }
 }
 
 export async function writeRuntimeState(state: PlaywrightRuntimeState) {
@@ -110,7 +124,7 @@ export function createWorkerServerPort(
   parallelIndex: number,
 ) {
   const hash = createHash("sha1").update(projectName).digest();
-  const projectSlot = hash.readUInt16BE(0) % 100;
+  const projectSlot = hash.readUInt16BE(0) % 1000;
   return DEFAULT_SERVER_PORT_BASE + projectSlot * 10 + parallelIndex;
 }
 

@@ -17,7 +17,7 @@ vi.mock("@/lib/auth/session", () => ({
   getAuthSessionSafe: getAuthSessionSafeMock,
 }));
 
-vi.mock("@/lib/auth/e2e", () => ({
+vi.mock("@/lib/test-harness/auth", () => ({
   getE2ECurrentUser: getE2ECurrentUserMock,
   createE2ESession: createE2ESessionMock,
 }));

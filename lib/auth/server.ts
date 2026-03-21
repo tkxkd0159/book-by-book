@@ -2,8 +2,11 @@ import type { Session } from "next-auth";
 import { redirect } from "next/navigation";
 import { cache } from "react";
 
-import { createE2ESession, getE2ECurrentUser } from "@/lib/auth/e2e";
 import { getAuthSessionSafe } from "@/lib/auth/session";
+import {
+  createE2ESession,
+  getE2ECurrentUser,
+} from "@/lib/test-harness/auth";
 import { findUserByEmail, findUserById } from "@/lib/auth/users";
 import type { AuthUser } from "@/types/db";
 

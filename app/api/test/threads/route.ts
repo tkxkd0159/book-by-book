@@ -1,14 +1,18 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 
-import { E2E_USER_PROVIDER, isE2EBypassEnabled } from "@/lib/auth/e2e";
 import { findUserByProviderIdentity } from "@/lib/auth/users";
+import { createThread, createThreadPost } from "@/lib/threads/repository";
+import { parseThreadBody, parseThreadTitle } from "@/lib/threads/validation";
+import {
+  E2E_USER_PROVIDER,
+  isE2EBypassEnabled,
+} from "@/lib/test-harness/auth";
 import {
   TEST_ROUTE_ERROR_MESSAGES,
   TEST_USER_KEYS,
-} from "@/lib/test/constants";
-import { createThread, createThreadPost } from "@/lib/threads/repository";
-import { seedTestUsers } from "@/lib/test/fixtures";
+} from "@/lib/test-harness/constants";
+import { seedTestUsers } from "@/lib/test-harness/fixtures";
 
 export const runtime = "nodejs";
 
@@ -21,6 +25,15 @@ const seedThreadsSchema = z.object({
   user: z.enum(TEST_USER_KEYS),
 });
 
+const seedSingleThreadSchema = z.object({
+  kind: z.literal("thread"),
+  clubId: z.string().min(1),
+  clubBookId: z.string().min(1),
+  title: z.string().min(1).max(160),
+  body: z.string().max(5000).default(""),
+  user: z.enum(TEST_USER_KEYS),
+});
+
 const seedPostsSchema = z.object({
   kind: z.literal("posts"),
   clubId: z.string().min(1),
@@ -30,7 +43,11 @@ const seedPostsSchema = z.object({
   user: z.enum(TEST_USER_KEYS),
 });
 
-const seedPayloadSchema = z.union([seedThreadsSchema, seedPostsSchema]);
+const seedPayloadSchema = z.union([
+  seedThreadsSchema,
+  seedSingleThreadSchema,
+  seedPostsSchema,
+]);
 
 function formatLabel(index: number) {
   return String(index).padStart(2, "0");
@@ -77,6 +94,18 @@ export async function POST(request: NextRequest) {
     }
 
     return NextResponse.json({ ok: true });
+  }
+
+  if (parsedBody.data.kind === "thread") {
+    const thread = await createThread({
+      clubId: parsedBody.data.clubId,
+      clubBookId: parsedBody.data.clubBookId,
+      authorId: user.id,
+      title: parseThreadTitle(parsedBody.data.title),
+      body: parseThreadBody(parsedBody.data.body),
+    });
+
+    return NextResponse.json({ ok: true, threadId: thread.id });
   }
 
   for (let index = 1; index <= parsedBody.data.count; index += 1) {

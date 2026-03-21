@@ -1,4 +1,7 @@
-type RateLimitProvider = "upstash" | "redis" | "memory" | "disabled";
+import {
+  env,
+  type RateLimitProvider,
+} from "@/lib/env";
 
 export type MutationRateLimitAction =
   | "create-club"
@@ -87,43 +90,28 @@ export function isMutationRateLimitError(
 }
 
 export function resolveMutationRateLimitProvider(): RateLimitProvider {
-  const rawValue = process.env.RATE_LIMIT_PROVIDER?.trim().toLowerCase();
-  if (!rawValue) {
-    return "disabled";
-  }
-
-  if (
-    rawValue === "upstash" ||
-    rawValue === "redis" ||
-    rawValue === "memory" ||
-    rawValue === "disabled"
-  ) {
-    if (rawValue === "memory" && isProductionLikeRuntime()) {
-      throw new Error(
-        "RATE_LIMIT_PROVIDER=memory is only supported in test and local development environments.",
-      );
-    }
-
-    return rawValue;
-  }
-
-  throw new Error(
-    "RATE_LIMIT_PROVIDER must be one of: upstash, redis, memory, disabled.",
-  );
+  return env.rateLimit.provider;
 }
 
 export function getMutationRateLimitPolicy(
   action: MutationRateLimitAction,
 ): MutationRateLimitPolicy {
   const defaults = DEFAULT_MUTATION_RATE_LIMIT_POLICIES[action];
-  const prefix = action.replace(/-/g, "_").toUpperCase();
+  const overrides = env.rateLimit.overrides;
 
   return {
     limit:
-      readPositiveIntegerEnv(`RATE_LIMIT_${prefix}_LIMIT`) ?? defaults.limit,
+      (action === "create-club"
+        ? overrides.createClubLimit
+        : action === "add-book"
+          ? overrides.addBookLimit
+          : overrides.startThreadLimit) ?? defaults.limit,
     windowSeconds:
-      readPositiveIntegerEnv(`RATE_LIMIT_${prefix}_WINDOW_SECONDS`) ??
-      defaults.windowSeconds,
+      (action === "create-club"
+        ? overrides.createClubWindowSeconds
+        : action === "add-book"
+          ? overrides.addBookWindowSeconds
+          : overrides.startThreadWindowSeconds) ?? defaults.windowSeconds,
   };
 }
 
@@ -197,26 +185,6 @@ function formatRetryAfter(retryAfterSeconds: number) {
   return `about ${retryAfterSeconds} second${retryAfterSeconds === 1 ? "" : "s"}`;
 }
 
-function isProductionLikeRuntime() {
-  return (
-    process.env.NODE_ENV === "production" && process.env.E2E_BYPASS_AUTH !== "1"
-  );
-}
-
-function readPositiveIntegerEnv(name: string) {
-  const value = process.env[name]?.trim();
-  if (!value) {
-    return null;
-  }
-
-  const parsed = Number.parseInt(value, 10);
-  if (!Number.isFinite(parsed) || parsed <= 0) {
-    throw new Error(`${name} must be a positive integer.`);
-  }
-
-  return parsed;
-}
-
 async function createMutationRateLimitStore(): Promise<MutationRateLimitStore> {
   const provider = resolveMutationRateLimitProvider();
 
@@ -261,10 +229,12 @@ function createMemoryMutationRateLimitStore(): MutationRateLimitStore {
 }
 
 async function createUpstashMutationRateLimitStore(): Promise<MutationRateLimitStore> {
-  const url = readRequiredEnv("UPSTASH_REDIS_REST_URL");
-  const token = readRequiredEnv("UPSTASH_REDIS_REST_TOKEN");
+  const { upstashRestToken, upstashRestUrl } = env.rateLimit;
   const { Redis } = await import("@upstash/redis");
-  const client = new Redis({ url, token });
+  const client = new Redis({
+    url: upstashRestUrl!,
+    token: upstashRestToken!,
+  });
 
   return {
     provider: "upstash",
@@ -290,9 +260,9 @@ async function createUpstashMutationRateLimitStore(): Promise<MutationRateLimitS
 }
 
 async function createNodeRedisMutationRateLimitStore(): Promise<MutationRateLimitStore> {
-  const url = readRequiredEnv("RATE_LIMIT_REDIS_URL");
+  const { redisUrl } = env.rateLimit;
   const { createClient } = await import("redis");
-  const client = createClient({ url });
+  const client = createClient({ url: redisUrl! });
 
   client.on("error", (error) => {
     console.error("[rate-limit] Redis client error", error);
@@ -324,17 +294,6 @@ async function createNodeRedisMutationRateLimitStore(): Promise<MutationRateLimi
       return count;
     },
   };
-}
-
-function readRequiredEnv(name: string) {
-  const value = process.env[name]?.trim();
-  if (!value) {
-    throw new Error(
-      `${name} is required for the configured rate-limit provider.`,
-    );
-  }
-
-  return value;
 }
 
 function getMemoryStore() {

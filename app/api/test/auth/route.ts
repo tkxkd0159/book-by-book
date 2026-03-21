@@ -1,16 +1,18 @@
 import { NextRequest, NextResponse } from "next/server";
 
-import { E2E_AUTH_COOKIE_NAME } from "@/lib/auth/constants";
-import { isE2EBypassEnabled } from "@/lib/auth/e2e";
+import {
+  E2E_AUTH_COOKIE_NAME,
+  isE2EBypassEnabled,
+} from "@/lib/test-harness/auth";
 import {
   getTestUser,
   seedTestUsers,
-} from "@/lib/test/fixtures";
+} from "@/lib/test-harness/fixtures";
 import {
   E2E_DEFAULT_RETURN_TO,
   TEST_ROUTE_ERROR_MESSAGES,
   isTestUserKey,
-} from "@/lib/test/constants";
+} from "@/lib/test-harness/constants";
 
 export const runtime = "nodejs";
 

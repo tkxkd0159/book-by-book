@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import {
   createSignedBookImportToken,
@@ -30,6 +30,21 @@ function createBookDetail(overrides: Partial<BookDetail> = {}): BookDetail {
 }
 
 describe("book import token", () => {
+  const originalAuthSecret = process.env.AUTH_SECRET;
+
+  beforeEach(() => {
+    process.env.AUTH_SECRET = "test-auth-secret";
+  });
+
+  afterEach(() => {
+    if (originalAuthSecret) {
+      process.env.AUTH_SECRET = originalAuthSecret;
+      return;
+    }
+
+    delete process.env.AUTH_SECRET;
+  });
+
   it("round-trips a signed detail payload into a normalized book", () => {
     const token = createSignedBookImportToken(createBookDetail());
     const decodedBook = readSignedBookImportToken(token, "volume-1");

@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from "vitest";
 
-import { E2E_USER_PROVIDER } from "@/lib/auth/e2e";
+import { E2E_USER_PROVIDER } from "@/lib/test-harness/auth";
 import { findUserByProviderIdentity } from "@/lib/auth/users";
 import { findBookByGoogleVolumeId } from "@/lib/books/repository";
 import {
@@ -15,7 +15,10 @@ import {
   updateShelf,
   updateShelfItemNote,
 } from "@/lib/shelves/repository";
-import { resetTestDatabase, TEST_BOOK_VOLUME_ID } from "@/lib/test/fixtures";
+import {
+  resetTestDatabase,
+  TEST_BOOK_VOLUME_ID,
+} from "@/lib/test-harness/fixtures";
 import type { AuthUser } from "@/types/db";
 
 async function getRequiredUser(key: string): Promise<AuthUser> {

@@ -32,7 +32,7 @@ async function addFixtureBookToClub(page: Page, clubName: string) {
   await page.getByRole("button", { name: "Add Book" }).click();
   const dialog = page.getByRole("dialog");
   await dialog.getByLabel(clubName).check();
-  await dialog.getByRole("button", { name: "Add Book" }).click();
+  await dialog.getByRole("button", { name: "Add to clubs" }).click();
   await expect(page.getByText("Book added to 1 club.")).toBeVisible();
 }
 
@@ -434,16 +434,18 @@ test("club admin can add, move, and remove a book in section management", async 
   await expect(page.getByRole("heading", { name: "Danger zone" })).toBeVisible();
   await openFixtureBookCardDetails(page);
   await page.locator('select[name="status"]').first().selectOption("READING");
-  await page.getByRole("button", { name: "Move" }).first().click();
-  await expect(page.getByText("Book moved.")).toBeVisible();
-  await expect(page).toHaveURL(/\/clubs\/[0-9a-f-]+\/manage\/board\?message=/i);
+  await Promise.all([
+    page.waitForURL(/\/clubs\/[0-9a-f-]+\/manage\/board\?message=/i),
+    page.getByRole("button", { name: "Move" }).first().click(),
+  ]);
 
   await expect(
     page.getByRole("heading", { name: "Reading", exact: true }),
   ).toBeVisible();
   await openFixtureBookCardDetails(page);
-  await page.getByRole("button", { name: "Remove" }).click();
-  await expect(page.getByText("Book removed.")).toBeVisible();
-  await expect(page).toHaveURL(/\/clubs\/[0-9a-f-]+\/manage\/board\?message=/i);
+  await Promise.all([
+    page.waitForURL(/\/clubs\/[0-9a-f-]+\/manage\/board\?message=/i),
+    page.getByRole("button", { name: "Remove" }).click(),
+  ]);
   await expect(page.getByText("No books in this section yet.")).toHaveCount(3);
 });

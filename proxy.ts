@@ -1,8 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getToken } from "next-auth/jwt";
 
-import { E2E_AUTH_COOKIE_NAME } from "@/lib/auth/constants";
 import { resolveAuthSecret } from "@/lib/auth/secret";
+import {
+  E2E_AUTH_COOKIE_NAME,
+  isE2EBypassEnabled,
+} from "@/lib/test-harness/auth";
 
 const PUBLIC_PAGE_PATHS = new Set(["/", "/signin", "/auth/error"]);
 const AUTH_API_PATH = "/api/auth";
@@ -17,10 +20,11 @@ function hasPathPrefix(pathname: string, prefix: string) {
 }
 
 function isPublicPath(pathname: string) {
+  const e2eBypassEnabled = isE2EBypassEnabled();
+
   return (
     PUBLIC_PAGE_PATHS.has(pathname) ||
-    (process.env.E2E_BYPASS_AUTH === "1" &&
-      E2E_PUBLIC_API_PATHS.has(pathname))
+    (e2eBypassEnabled && E2E_PUBLIC_API_PATHS.has(pathname))
   );
 }
 
@@ -42,10 +46,7 @@ function createSignInRedirect(request: NextRequest) {
 }
 
 async function readOptimisticToken(request: NextRequest) {
-  if (
-    process.env.E2E_BYPASS_AUTH === "1" &&
-    request.cookies.get(E2E_AUTH_COOKIE_NAME)?.value
-  ) {
+  if (isE2EBypassEnabled() && request.cookies.get(E2E_AUTH_COOKIE_NAME)?.value) {
     return null;
   }
 
@@ -58,8 +59,9 @@ async function readOptimisticToken(request: NextRequest) {
 export async function proxy(request: NextRequest) {
   const pathname = request.nextUrl.pathname;
   const isProtectedPath = isProtectedPagePath(pathname);
+  const e2eBypassEnabled = isE2EBypassEnabled();
 
-  if (process.env.E2E_BYPASS_AUTH === "1" && E2E_PUBLIC_API_PATHS.has(pathname)) {
+  if (e2eBypassEnabled && E2E_PUBLIC_API_PATHS.has(pathname)) {
     return NextResponse.next();
   }
 
@@ -70,8 +72,7 @@ export async function proxy(request: NextRequest) {
   }
 
   if (
-    (process.env.E2E_BYPASS_AUTH === "1" &&
-      request.cookies.get(E2E_AUTH_COOKIE_NAME)?.value) ||
+    (e2eBypassEnabled && request.cookies.get(E2E_AUTH_COOKIE_NAME)?.value) ||
     Boolean(token)
   ) {
     return NextResponse.next();

@@ -2,6 +2,7 @@ import { PostgreSqlContainer } from "@testcontainers/postgresql";
 
 import {
   E2E_POSTGRES_IMAGE,
+  E2E_SERVER_ENV,
   E2E_TEMPLATE_DATABASE,
   applySchemaToDatabase,
   createDatabaseClone,
@@ -43,9 +44,11 @@ export default async function globalSetup() {
 
     await runCommand({
       command: "pnpm",
-      args: ["exec", "next", "build"],
+      args: ["build"],
       env: {
+        ...E2E_SERVER_ENV,
         DATABASE_URL: templateDatabaseUrl,
+        NEXTAUTH_URL: "http://localhost:4100",
       },
     });
 
