@@ -4,7 +4,7 @@ import { defineConfig, devices } from "@playwright/test";
 
 const defaultWorkers = Math.max(
   1,
-  Math.min(4, Math.floor(os.availableParallelism() / 2)),
+  Math.min(6, Math.floor(os.availableParallelism() / 2)),
 );
 
 export default defineConfig({
