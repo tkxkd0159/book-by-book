@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ArrowRight, BookOpen, Mail, MapPin } from "lucide-react";
+import { ArrowRight, BookOpen, Mail, MapPin, User } from "lucide-react";
 
 import { UserAvatar } from "@/components/auth/user-avatar";
 import { Badge } from "@/components/ui/badge";
@@ -68,85 +68,88 @@ export default async function MePage() {
                 <h2 className="text-2xl font-semibold sm:text-3xl">
                   {displayName}
                 </h2>
-                <p className="text-sm text-(--muted)">Nickname: {user.nickname}</p>
               </div>
             </div>
           </div>
 
-          <div className="grid gap-3 lg:grid-cols-[minmax(0,18rem)_minmax(0,15rem)_minmax(0,1fr)]">
-            <div className="rounded-2xl border border-(--border) bg-(--surface) p-4">
-              <div className="flex items-start gap-3">
-                <div className="rounded-full bg-(--surface-strong) p-2 text-(--accent)">
+          <div className="divide-y divide-(--border)/60">
+            <div className="flex flex-col gap-3 py-3 sm:flex-row sm:items-start sm:gap-6">
+              <div className="flex items-center gap-3 sm:w-44 sm:shrink-0">
+                <span className="flex h-10 w-10 items-center justify-center rounded-full bg-(--surface) text-(--accent) shadow-sm">
                   <Mail aria-hidden className="h-4 w-4" />
-                </div>
-                <div className="min-w-0">
-                  <p className="text-xs font-semibold uppercase tracking-[0.2em] text-(--muted)">
-                    Email
-                  </p>
-                  <p className="mt-1 break-all text-sm font-medium text-foreground">
-                    {fallbackText(user.email, "Unavailable")}
-                  </p>
-                </div>
+                </span>
+                <p className="text-xs font-semibold uppercase tracking-[0.2em] text-(--muted)">
+                  Email
+                </p>
               </div>
+              <p className="min-w-0 flex-1 break-all pt-1 text-sm font-medium text-foreground">
+                {fallbackText(user.email, "Unavailable")}
+              </p>
             </div>
 
-            <div className="rounded-2xl border border-(--border) bg-(--surface) p-4">
-              <div className="flex items-start gap-3">
-                <div className="rounded-full bg-(--surface-strong) p-2 text-(--accent)">
+            <div className="flex flex-col gap-3 py-3 sm:flex-row sm:items-start sm:gap-6">
+              <div className="flex items-center gap-3 sm:w-44 sm:shrink-0">
+                <span className="flex h-10 w-10 items-center justify-center rounded-full bg-(--surface) text-(--accent) shadow-sm">
+                  <User aria-hidden className="h-4 w-4" />
+                </span>
+                <p className="text-xs font-semibold uppercase tracking-[0.2em] text-(--muted)">
+                  Gender
+                </p>
+              </div>
+              <p className="min-w-0 flex-1 pt-1 text-sm font-medium text-foreground">
+                {formatGenderLabel(user.gender)}
+              </p>
+            </div>
+
+            <div className="flex flex-col gap-3 py-3 sm:flex-row sm:items-start sm:gap-6">
+              <div className="flex items-center gap-3 sm:w-44 sm:shrink-0">
+                <span className="flex h-10 w-10 items-center justify-center rounded-full bg-(--surface) text-(--accent) shadow-sm">
                   <MapPin aria-hidden className="h-4 w-4" />
-                </div>
-                <div className="min-w-0">
-                  <p className="text-xs font-semibold uppercase tracking-[0.2em] text-(--muted)">
-                    Country
+                </span>
+                <p className="text-xs font-semibold uppercase tracking-[0.2em] text-(--muted)">
+                  Country
+                </p>
+              </div>
+              <div className="min-w-0 flex-1 pt-1">
+                <p className="text-sm font-medium text-foreground">
+                  {countryName ?? fallbackText(user.countryCode, "Unavailable")}
+                </p>
+                {user.countryCode ? (
+                  <p className="mt-1 text-xs text-(--muted)">
+                    {user.countryCode}
                   </p>
-                  <p className="mt-1 text-sm font-medium text-foreground">
-                    {countryName ?? fallbackText(user.countryCode, "Unavailable")}
-                  </p>
-                  {user.countryCode ? (
-                    <p className="mt-1 text-xs text-(--muted)">{user.countryCode}</p>
-                  ) : null}
-                </div>
+                ) : null}
               </div>
             </div>
 
-            <div className="rounded-2xl border border-(--border) bg-(--surface) p-4">
-              <div className="flex items-start gap-3">
-                <div className="rounded-full bg-(--surface-strong) p-2 text-(--accent)">
+            <div className="flex flex-col gap-3 py-3 sm:flex-row sm:items-start sm:gap-6">
+              <div className="flex items-center gap-3 sm:w-44 sm:shrink-0">
+                <span className="flex h-10 w-10 items-center justify-center rounded-full bg-(--surface) text-(--accent) shadow-sm">
                   <BookOpen aria-hidden className="h-4 w-4" />
-                </div>
-                <div className="min-w-0">
-                  <p className="text-xs font-semibold uppercase tracking-[0.2em] text-(--muted)">
-                    Favorite genres
+                </span>
+                <p className="text-xs font-semibold uppercase tracking-[0.2em] text-(--muted)">
+                  Favorite genres
+                </p>
+              </div>
+              <div className="min-w-0 flex-1 pt-1">
+                {user.favoriteGenres.length > 0 ? (
+                  <div className="flex flex-wrap gap-2">
+                    {user.favoriteGenres.map((genre) => (
+                      <Badge key={genre}>{getFavoriteGenreLabel(genre)}</Badge>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-sm text-(--muted)">
+                    No favorite genres saved.
                   </p>
-                  {user.favoriteGenres.length > 0 ? (
-                    <div className="mt-3 flex flex-wrap gap-2">
-                      {user.favoriteGenres.map((genre) => (
-                        <Badge key={genre}>{getFavoriteGenreLabel(genre)}</Badge>
-                      ))}
-                    </div>
-                  ) : (
-                    <p className="mt-1 text-sm text-(--muted)">
-                      No favorite genres saved.
-                    </p>
-                  )}
-                </div>
+                )}
               </div>
             </div>
           </div>
         </CardContent>
       </Card>
 
-      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-lg">Gender</CardTitle>
-            <CardDescription>Collected during signup</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <p className="text-sm font-medium">{formatGenderLabel(user.gender)}</p>
-          </CardContent>
-        </Card>
-
+      <div className="grid gap-4 md:grid-cols-2">
         <Card className="group relative overflow-hidden border-2 transition-all duration-200 hover:-translate-y-1 hover:shadow-[0_18px_34px_rgba(42,32,18,0.12)] focus-within:-translate-y-1 focus-within:shadow-[0_18px_34px_rgba(42,32,18,0.12)]">
           <div className="pointer-events-none absolute inset-x-0 top-0 h-1 bg-linear-to-r from-(--accent)/70 via-[#cb8b39]/50 to-(--accent)/70" />
           <Link

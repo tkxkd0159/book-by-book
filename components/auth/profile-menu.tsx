@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useRef, useState, useTransition } from "react";
-import { ChevronDown, LogOut, Shield, User } from "lucide-react";
+import { LogOut, Shield, User } from "lucide-react";
 
 import { signOut } from "next-auth/react";
 import { UserAvatar } from "@/components/auth/user-avatar";
@@ -78,7 +78,7 @@ export default function ProfileMenu({
         aria-haspopup="menu"
         aria-expanded={isOpen}
         aria-label="Open profile menu"
-        className="flex items-center gap-2 rounded-full border border-(--border) bg-(--surface) p-1 pr-3 shadow-sm outline-none transition hover:border-(--accent)/30 hover:bg-(--surface-strong) focus-visible:ring-2 focus-visible:ring-(--accent-soft)"
+        className="rounded-full outline-none transition hover:opacity-90 focus-visible:ring-2 focus-visible:ring-(--accent-soft)"
         onClick={() => setIsOpen((open) => !open)}
       >
         <UserAvatar
@@ -87,11 +87,7 @@ export default function ProfileMenu({
           imageUrl={imageUrl}
           alt="Profile avatar"
           fallbackVariant="person"
-          className="h-10 w-10 border border-(--border) bg-(--surface-strong) text-sm font-semibold text-foreground"
-        />
-        <ChevronDown
-          aria-hidden
-          className={`h-4 w-4 shrink-0 text-(--muted) transition-transform duration-200 ${isOpen ? "rotate-180" : ""}`}
+          className="h-10 w-10 border border-(--border) bg-(--surface-strong) text-sm font-semibold text-foreground shadow-sm"
         />
       </button>
 

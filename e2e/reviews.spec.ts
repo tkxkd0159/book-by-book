@@ -24,8 +24,14 @@ test("profile banner shows identity details without exposing internal identifier
   await signInAs(page, "owner", E2E_ROUTE_PATHS.me);
 
   await expect(page.getByRole("heading", { name: "owner-reader" })).toBeVisible();
+  await expect(page.getByText("Email")).toBeVisible();
   await expect(page.getByText("owner@book-by-book.test")).toBeVisible();
+  await expect(page.getByText("Gender")).toBeVisible();
+  await expect(page.getByText("Man")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Gender" })).toHaveCount(0);
+  await expect(page.getByText("Country")).toBeVisible();
   await expect(page.getByText(/United States/i)).toBeVisible();
+  await expect(page.getByText("Favorite genres")).toBeVisible();
   await expect(page.getByText("Fantasy")).toBeVisible();
   await expect(page.getByText("Science")).toBeVisible();
   await expect(page.getByText("User ID")).toHaveCount(0);
