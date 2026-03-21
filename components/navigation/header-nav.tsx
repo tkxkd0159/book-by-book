@@ -41,10 +41,10 @@ export function HeaderNav({ items }: HeaderNavProps) {
             key={item.href}
             href={item.href}
             aria-current={isActive ? "page" : undefined}
-            className={`group relative inline-flex h-10 items-center gap-2 px-1 text-sm font-medium transition ${
+            className={`group inline-flex h-10 items-center gap-2 px-1 text-sm transition ${
               isActive
-                ? "text-foreground"
-                : "text-(--muted) hover:text-foreground"
+                ? "font-bold text-foreground"
+                : "font-medium text-(--muted) hover:font-semibold hover:text-foreground"
             }`}
           >
             <Icon
@@ -56,12 +56,6 @@ export function HeaderNav({ items }: HeaderNavProps) {
               }`}
             />
             <span>{item.label}</span>
-            <span
-              aria-hidden
-              className={`absolute inset-x-1 -bottom-1 h-0.5 rounded-full bg-[#ff0084] transition-opacity ${
-                isActive ? "opacity-100" : "opacity-0 group-hover:opacity-70"
-              }`}
-            />
           </Link>
         );
       })}
