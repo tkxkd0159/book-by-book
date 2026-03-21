@@ -2,7 +2,7 @@ import { createHmac, timingSafeEqual } from "node:crypto";
 
 import { z } from "zod";
 
-import { resolveAuthSecret } from "@/lib/auth/secret";
+import { env } from "@/lib/env";
 import type { BookDetail, NormalizedBook } from "@/lib/books/types";
 
 const BOOK_IMPORT_TOKEN_VERSION = 1;
@@ -53,7 +53,7 @@ function createBookImportPayload(book: BookDetail): BookImportPayload {
 }
 
 function signBookImportPayload(encodedPayload: string) {
-  return createHmac("sha256", resolveAuthSecret())
+  return createHmac("sha256", env.auth.secret)
     .update(encodedPayload)
     .digest("base64url");
 }

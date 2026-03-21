@@ -296,7 +296,10 @@ export async function upsertGoogleOAuthUser(
   }
 
   if (!user) {
-    throw new AuthFlowError("UNAUTHORIZED", "Could not create a Google-backed user.");
+    throw new AuthFlowError(
+      "UNAUTHORIZED",
+      "Could not create a Google-backed user.",
+    );
   }
 
   await sql`

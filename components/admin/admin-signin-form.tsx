@@ -22,9 +22,14 @@ export function AdminSignInForm({ callbackUrl }: AdminSignInFormProps) {
       onSubmit={(event) => {
         event.preventDefault();
         const formData = new FormData(event.currentTarget);
-        const email = typeof formData.get("email") === "string" ? formData.get("email") : "";
+        const email =
+          typeof formData.get("email") === "string"
+            ? formData.get("email")
+            : "";
         const password =
-          typeof formData.get("password") === "string" ? formData.get("password") : "";
+          typeof formData.get("password") === "string"
+            ? formData.get("password")
+            : "";
 
         setErrorMessage(null);
         startTransition(() => {
@@ -36,7 +41,8 @@ export function AdminSignInForm({ callbackUrl }: AdminSignInFormProps) {
           }).then((result) => {
             if (!result || result.error) {
               setErrorMessage(
-                result?.error ?? "Sign-in failed. Check the details you provided are correct.",
+                result?.error ??
+                  "Sign-in failed. Check the details you provided are correct.",
               );
               return;
             }

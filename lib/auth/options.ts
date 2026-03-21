@@ -6,7 +6,6 @@ import { env } from "@/lib/env";
 import { isAuthFlowError } from "@/lib/auth/errors";
 import { INTERNAL_AUTH_PROVIDER } from "@/lib/auth/identity";
 import { authorizeInternalAdminCredentials } from "@/lib/auth/internal-auth";
-import { resolveAuthSecret } from "@/lib/auth/secret";
 import {
   findUserById,
   findUserByProviderAccount,
@@ -18,10 +17,7 @@ const SESSION_MAX_AGE_SECONDS = 14 * 24 * 60 * 60;
 const googleOAuthEnv = env.googleOAuth;
 const runtimeEnv = env.runtime;
 
-function applyDbUserToToken(
-  token: Record<string, unknown>,
-  user: AuthUser,
-) {
+function applyDbUserToToken(token: Record<string, unknown>, user: AuthUser) {
   token.userId = user.id;
   token.provider = user.provider;
   token.nickname = user.nickname;
@@ -33,7 +29,7 @@ function applyDbUserToToken(
 
 export const authOptions: NextAuthOptions = {
   debug: runtimeEnv.isDevelopment,
-  secret: resolveAuthSecret(),
+  secret: env.auth.secret,
   session: {
     strategy: "jwt",
     maxAge: SESSION_MAX_AGE_SECONDS,

@@ -47,7 +47,8 @@ type AuthEnv = {
 
 const DEFAULT_GOOGLE_BOOKS_API_BASE_URL =
   "https://www.googleapis.com/books/v1/volumes";
-const TEST_AUTH_SECRET_FALLBACK = "book-by-book:test-auth-secret";
+const AUTH_SECRET_REQUIRED_MESSAGE =
+  "AUTH_SECRET or NEXTAUTH_SECRET is required for authentication.";
 
 class EnvValidationError extends Error {
   readonly issues: string[];
@@ -122,7 +123,7 @@ export class AppEnv {
   get auth(): AuthEnv {
     return {
       nextAuthUrl: this.#readOptionalString("NEXTAUTH_URL"),
-      secret: this.resolveAuthSecret(),
+      secret: this.#readRequiredAuthSecret(),
     };
   }
 
@@ -181,24 +182,6 @@ export class AppEnv {
     };
   }
 
-  resolveAuthSecret(options?: { allowTestFallback?: boolean }) {
-    const secret =
-      this.#readOptionalString("AUTH_SECRET") ??
-      this.#readOptionalString("NEXTAUTH_SECRET");
-
-    if (secret) {
-      return secret;
-    }
-
-    if (options?.allowTestFallback && this.runtime.nodeEnv === "test") {
-      return TEST_AUTH_SECRET_FALLBACK;
-    }
-
-    throw new Error(
-      "AUTH_SECRET or NEXTAUTH_SECRET is required for authentication.",
-    );
-  }
-
   validateForBuildOrThrow() {
     const issues: string[] = [];
     const runtime = this.runtime;
@@ -225,14 +208,7 @@ export class AppEnv {
     );
     this.#collectOptionalAbsoluteUrl("GOOGLE_BOOKS_API_BASE_URL", issues);
 
-    if (
-      !this.#readOptionalString("AUTH_SECRET") &&
-      !this.#readOptionalString("NEXTAUTH_SECRET")
-    ) {
-      issues.push(
-        "AUTH_SECRET or NEXTAUTH_SECRET is required for authentication.",
-      );
-    }
+    this.#collectRequiredAuthSecret(issues);
 
     if (runtime.requiresNextAuthUrl) {
       this.#collectRequiredString(
@@ -335,6 +311,12 @@ export class AppEnv {
     }
   }
 
+  #collectRequiredAuthSecret(issues: string[]) {
+    if (!this.#readAuthSecret()) {
+      issues.push(AUTH_SECRET_REQUIRED_MESSAGE);
+    }
+  }
+
   #collectOptionalAbsoluteUrl(name: string, issues: string[]) {
     const value = this.#readOptionalString(name);
     if (!value) {
@@ -359,6 +341,15 @@ export class AppEnv {
     }
 
     return value;
+  }
+
+  #readRequiredAuthSecret() {
+    const secret = this.#readAuthSecret();
+    if (!secret) {
+      throw new Error(AUTH_SECRET_REQUIRED_MESSAGE);
+    }
+
+    return secret;
   }
 
   #readOptionalAbsoluteUrl(name: string) {
@@ -393,6 +384,13 @@ export class AppEnv {
     }
 
     return Number.parseInt(value, 10);
+  }
+
+  #readAuthSecret() {
+    return (
+      this.#readOptionalString("AUTH_SECRET") ??
+      this.#readOptionalString("NEXTAUTH_SECRET")
+    );
   }
 
   #readOptionalString(name: string) {

@@ -7,6 +7,7 @@
     "predev": "node scripts/ensure-local-postgres.mjs",
     "dev": "next dev",
     "build": "next build --webpack",
+    "hash:adminpw": "node scripts/hash-internal-admin-password.mjs",
     "prestart": "node scripts/ensure-local-postgres.mjs",
     "start": "next start",
     "lint": "eslint",

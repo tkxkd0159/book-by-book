@@ -55,11 +55,34 @@ describe("environment validation", () => {
     expect(appEnv.auth.secret).toBe("nextauth-test-secret");
   });
 
+  it("prefers AUTH_SECRET when both auth secret env vars are set", () => {
+    const appEnv = AppEnv.from(
+      createEnv({
+        AUTH_SECRET: "auth-secret",
+        NEXTAUTH_SECRET: "nextauth-secret",
+      }),
+    );
+
+    expect(appEnv.auth.secret).toBe("auth-secret");
+  });
+
+  it("throws when auth config is accessed without an auth secret", () => {
+    expect(() =>
+      AppEnv.from(
+        createEnv({
+          AUTH_SECRET: "",
+          NEXTAUTH_SECRET: "",
+        }),
+      ).auth.secret,
+    ).toThrow(/AUTH_SECRET or NEXTAUTH_SECRET is required for authentication\./);
+  });
+
   it("aggregates multiple missing required values", () => {
     expect(() =>
       AppEnv.from(
         createEnv({
           AUTH_SECRET: "",
+          NEXTAUTH_SECRET: "",
           DATABASE_URL: "",
           GOOGLE_BOOKS_API_KEY: "",
           GOOGLE_CLIENT_ID: "",
@@ -77,6 +100,7 @@ describe("environment validation", () => {
       AppEnv.from(
         createEnv({
           AUTH_SECRET: "",
+          NEXTAUTH_SECRET: "",
           DATABASE_URL: "",
           GOOGLE_BOOKS_API_KEY: "",
           GOOGLE_CLIENT_ID: "",
@@ -87,6 +111,7 @@ describe("environment validation", () => {
       AppEnv.from(
         createEnv({
           AUTH_SECRET: "",
+          NEXTAUTH_SECRET: "",
           DATABASE_URL: "",
           GOOGLE_BOOKS_API_KEY: "",
           GOOGLE_CLIENT_ID: "",
@@ -97,6 +122,7 @@ describe("environment validation", () => {
       AppEnv.from(
         createEnv({
           AUTH_SECRET: "",
+          NEXTAUTH_SECRET: "",
           DATABASE_URL: "",
           GOOGLE_BOOKS_API_KEY: "",
           GOOGLE_CLIENT_ID: "",
@@ -107,6 +133,7 @@ describe("environment validation", () => {
       AppEnv.from(
         createEnv({
           AUTH_SECRET: "",
+          NEXTAUTH_SECRET: "",
           DATABASE_URL: "",
           GOOGLE_BOOKS_API_KEY: "",
           GOOGLE_CLIENT_ID: "",
