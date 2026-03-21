@@ -14,10 +14,10 @@ This is a Next.js App Router project with TypeScript, NextAuth, PostgreSQL, Vite
   - `components/clubs/`: club cards, boards, and book-assignment forms.
   - `components/ui/`: shared primitives (`button`, `input`, `textarea`, `card`, `badge`).
 - `lib/`: business and integration logic.
-  - `lib/auth/`: NextAuth options, session helpers, user persistence, secrets, and e2e auth helpers.
+  - `lib/auth/`: NextAuth options, session helpers, user persistence, and secrets.
   - `lib/books/`: Google Books API integration, description/volume normalization, and repository access.
   - `lib/clubs/`: validation, permissions, presentation helpers, repository access, and domain errors.
-  - `lib/test/fixtures.ts`: shared test fixtures.
+  - `lib/test-harness/`: runtime-safe e2e/test harness helpers, fixtures, and deterministic Google Books mock data.
   - `lib/db.ts`: PostgreSQL connection.
 - `tests/`: Vitest coverage split into `tests/unit/` and `tests/integration/`.
 - `e2e/`: Playwright specs and helpers.
@@ -75,8 +75,7 @@ Always treat these as quality gates for substantial changes:
 
 ## Security & Configuration Tips
 - Keep secrets in `.env.local`; never commit credentials.
-- Required env for the full app flow: `DATABASE_URL`, `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_BOOKS_API_KEY`, `AUTH_SECRET` (or `NEXTAUTH_SECRET`).
-- Set `NEXTAUTH_URL` in runtime environments to avoid NextAuth callback and URL issues.
+- Required env for the full app flow: `DATABASE_URL`, `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_BOOKS_API_KEY`, `AUTH_SECRET` (or `NEXTAUTH_SECRET`), and `NEXTAUTH_URL` for production-like or e2e-authenticated runs. `GOOGLE_BOOKS_API_BASE_URL` is optional and intended for test/local upstream overrides.
 - `E2E_BYPASS_AUTH=1` is test-only; do not enable it in normal development or production.
 - `app/api/test/*` routes are intentionally public only under e2e bypass mode; preserve that constraint.
 - Do not edit `.next/`, `node_modules/`, `playwright-report/`, or `test-results/`; these are generated artifacts.

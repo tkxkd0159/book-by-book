@@ -1,5 +1,5 @@
 import {
-  getMutationRateLimitEnv,
+  env,
   type RateLimitProvider,
 } from "@/lib/env";
 
@@ -90,14 +90,14 @@ export function isMutationRateLimitError(
 }
 
 export function resolveMutationRateLimitProvider(): RateLimitProvider {
-  return getMutationRateLimitEnv().provider;
+  return env.rateLimit.provider;
 }
 
 export function getMutationRateLimitPolicy(
   action: MutationRateLimitAction,
 ): MutationRateLimitPolicy {
   const defaults = DEFAULT_MUTATION_RATE_LIMIT_POLICIES[action];
-  const overrides = getMutationRateLimitEnv().overrides;
+  const overrides = env.rateLimit.overrides;
 
   return {
     limit:
@@ -229,7 +229,7 @@ function createMemoryMutationRateLimitStore(): MutationRateLimitStore {
 }
 
 async function createUpstashMutationRateLimitStore(): Promise<MutationRateLimitStore> {
-  const { upstashRestToken, upstashRestUrl } = getMutationRateLimitEnv();
+  const { upstashRestToken, upstashRestUrl } = env.rateLimit;
   const { Redis } = await import("@upstash/redis");
   const client = new Redis({
     url: upstashRestUrl!,
@@ -260,7 +260,7 @@ async function createUpstashMutationRateLimitStore(): Promise<MutationRateLimitS
 }
 
 async function createNodeRedisMutationRateLimitStore(): Promise<MutationRateLimitStore> {
-  const { redisUrl } = getMutationRateLimitEnv();
+  const { redisUrl } = env.rateLimit;
   const { createClient } = await import("redis");
   const client = createClient({ url: redisUrl! });
 

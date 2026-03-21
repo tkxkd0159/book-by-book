@@ -44,10 +44,11 @@ export default async function globalSetup() {
 
     await runCommand({
       command: "pnpm",
-      args: ["exec", "next", "build"],
+      args: ["build"],
       env: {
         ...E2E_SERVER_ENV,
         DATABASE_URL: templateDatabaseUrl,
+        NEXTAUTH_URL: "http://localhost:4100",
       },
     });
 

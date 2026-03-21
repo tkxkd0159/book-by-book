@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it } from "vitest";
 
 import sql from "@/lib/db";
-import { E2E_USER_PROVIDER } from "@/lib/auth/e2e";
+import { E2E_USER_PROVIDER } from "@/lib/test-harness/auth";
 import { findUserByProviderIdentity } from "@/lib/auth/users";
 import {
   addBookToClub,
@@ -11,7 +11,10 @@ import {
   removeClubBook,
 } from "@/lib/clubs/repository";
 import { findBookByGoogleVolumeId } from "@/lib/books/repository";
-import { resetTestDatabase, TEST_BOOK_VOLUME_ID } from "@/tests/support/fixtures";
+import {
+  resetTestDatabase,
+  TEST_BOOK_VOLUME_ID,
+} from "@/lib/test-harness/fixtures";
 import { ThreadError } from "@/lib/threads/errors";
 import {
   createThread,

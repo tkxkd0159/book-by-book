@@ -1,6 +1,6 @@
 import {
-  afterAll,
   afterEach,
+  afterAll,
   beforeAll,
   beforeEach,
   describe,
@@ -9,11 +9,9 @@ import {
   vi,
 } from "vitest";
 
-import { E2E_SEARCH_RESULT_FIXTURE } from "@/tests/support/books/google-books-fixtures";
+import { resetTestDatabase } from "@/lib/test-harness/fixtures";
+import { E2E_SEARCH_RESULT_FIXTURE } from "@/lib/test-harness/google-books-fixtures";
 import { googleBooksMockServer } from "@/tests/support/msw/server";
-import { resetTestDatabase } from "@/tests/support/fixtures";
-
-const originalMockGoogleBooks = process.env.MOCK_GOOGLE_BOOKS;
 
 describe("books repository integration", () => {
   beforeAll(() => {
@@ -22,19 +20,11 @@ describe("books repository integration", () => {
 
   beforeEach(async () => {
     vi.resetModules();
-    process.env.MOCK_GOOGLE_BOOKS = "1";
     await resetTestDatabase();
   });
 
   afterEach(() => {
     googleBooksMockServer.resetHandlers();
-
-    if (originalMockGoogleBooks) {
-      process.env.MOCK_GOOGLE_BOOKS = originalMockGoogleBooks;
-      return;
-    }
-
-    delete process.env.MOCK_GOOGLE_BOOKS;
   });
 
   afterAll(() => {

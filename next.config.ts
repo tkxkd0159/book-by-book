@@ -1,8 +1,8 @@
 import type { NextConfig } from "next";
 
-import { validateStartupEnv } from "./lib/env";
+import { env } from "./lib/env";
 
-validateStartupEnv();
+env.validateForBuildOrThrow();
 
 const nextConfig: NextConfig = {
   experimental: {

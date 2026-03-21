@@ -1,9 +1,9 @@
 import { NextResponse } from "next/server";
 
-import { isE2EBypassEnabled } from "@/lib/auth/e2e";
 import { resetMemoryMutationRateLimitStore } from "@/lib/rate-limit/mutation";
-import { TEST_ROUTE_ERROR_MESSAGES } from "@/tests/support/constants";
-import { resetTestDatabase } from "@/tests/support/fixtures";
+import { isE2EBypassEnabled } from "@/lib/test-harness/auth";
+import { TEST_ROUTE_ERROR_MESSAGES } from "@/lib/test-harness/constants";
+import { resetTestDatabase } from "@/lib/test-harness/fixtures";
 
 export const runtime = "nodejs";
 

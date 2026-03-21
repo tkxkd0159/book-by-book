@@ -1,9 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getToken } from "next-auth/jwt";
 
-import { isE2EBypassEnabled } from "@/lib/auth/e2e";
-import { E2E_AUTH_COOKIE_NAME } from "@/lib/auth/constants";
 import { resolveAuthSecret } from "@/lib/auth/secret";
+import {
+  E2E_AUTH_COOKIE_NAME,
+  isE2EBypassEnabled,
+} from "@/lib/test-harness/auth";
 
 const PUBLIC_PAGE_PATHS = new Set(["/", "/signin", "/auth/error"]);
 const AUTH_API_PATH = "/api/auth";

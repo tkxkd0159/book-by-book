@@ -6,7 +6,7 @@ import type {
   GoogleBooksSearchRequest,
 } from "@/lib/books/google-http-client";
 import { GoogleBooksService } from "@/lib/books/google-service";
-import { E2E_SEARCH_RESULT_VOLUME } from "@/tests/support/books/google-books-fixtures";
+import { E2E_SEARCH_RESULT_VOLUME } from "@/lib/test-harness/google-books-fixtures";
 
 class RecordingGoogleBooksClient implements GoogleBooksClient {
   volumeToReturn: GoogleVolume | null = null;

@@ -26,8 +26,11 @@ import {
   removeClubBook,
   transferClubOwnership,
 } from "@/lib/clubs/repository";
-import { resetTestDatabase, TEST_BOOK_VOLUME_ID } from "@/tests/support/fixtures";
-import { E2E_USER_PROVIDER } from "@/lib/auth/e2e";
+import { E2E_USER_PROVIDER } from "@/lib/test-harness/auth";
+import {
+  resetTestDatabase,
+  TEST_BOOK_VOLUME_ID,
+} from "@/lib/test-harness/fixtures";
 import { findBookByGoogleVolumeId, upsertBook } from "@/lib/books/repository";
 import { addBookToShelf, createShelf } from "@/lib/shelves/repository";
 import type { AuthUser } from "@/types/db";

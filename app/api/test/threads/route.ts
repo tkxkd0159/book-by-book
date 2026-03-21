@@ -1,14 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 
-import { E2E_USER_PROVIDER, isE2EBypassEnabled } from "@/lib/auth/e2e";
 import { findUserByProviderIdentity } from "@/lib/auth/users";
+import { createThread, createThreadPost } from "@/lib/threads/repository";
+import {
+  E2E_USER_PROVIDER,
+  isE2EBypassEnabled,
+} from "@/lib/test-harness/auth";
 import {
   TEST_ROUTE_ERROR_MESSAGES,
   TEST_USER_KEYS,
-} from "@/tests/support/constants";
-import { createThread, createThreadPost } from "@/lib/threads/repository";
-import { seedTestUsers } from "@/tests/support/fixtures";
+} from "@/lib/test-harness/constants";
+import { seedTestUsers } from "@/lib/test-harness/fixtures";
 
 export const runtime = "nodejs";
 

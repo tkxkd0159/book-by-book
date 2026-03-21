@@ -1,14 +1,14 @@
-import { E2E_AUTH_COOKIE_NAME } from "../../lib/auth/constants";
+import { E2E_AUTH_COOKIE_NAME } from "../../lib/test-harness/auth";
 import {
   E2E_SEARCH_RESULT_FIXTURE,
   TEST_BOOK_VOLUME_ID,
-} from "../../tests/support/books/google-books-fixtures";
+} from "../../lib/test-harness/google-books-fixtures";
 import {
   E2E_DEFAULT_RETURN_TO,
   E2E_TEST_ROUTE_PATHS,
   TEST_USER_KEYS,
   type TestUserKey,
-} from "../../tests/support/constants";
+} from "../../lib/test-harness/constants";
 
 export { E2E_AUTH_COOKIE_NAME, E2E_DEFAULT_RETURN_TO, E2E_TEST_ROUTE_PATHS };
 

@@ -1,11 +1,14 @@
+import { env } from "./lib/env";
+
 export async function register() {
-  if (process.env.MOCK_GOOGLE_BOOKS !== "1") {
+  if (process.env.NEXT_RUNTIME === "edge") {
     return;
   }
 
-  const { startGoogleBooksMocking } = await import(
-    "./tests/support/msw/bootstrap"
-  );
-
-  startGoogleBooksMocking();
+  try {
+    env.validateForStartupOrThrow();
+  } catch (error) {
+    console.error(error instanceof Error ? error.message : error);
+    throw error;
+  }
 }

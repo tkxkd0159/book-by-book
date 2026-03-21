@@ -1,10 +1,10 @@
-import { getAuthSecret } from "@/lib/env";
+import { AppEnv, env } from "@/lib/env";
 
 export function resolveAuthSecret(options?: {
   env?: NodeJS.ProcessEnv;
   allowTestFallback?: boolean;
 }) {
-  return getAuthSecret(options?.env, {
+  return (options?.env ? AppEnv.from(options.env) : env).resolveAuthSecret({
     allowTestFallback: options?.allowTestFallback,
   });
 }

@@ -1,5 +1,5 @@
 import type { NormalizedBook } from "@/lib/books/types";
-import { TEST_BOOK_CATALOG } from "@/tests/support/books/google-books-fixtures";
+import { TEST_BOOK_CATALOG } from "@/lib/test-harness/google-books-fixtures";
 
 type SearchToken = {
   exclude: boolean;

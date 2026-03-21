@@ -1,16 +1,16 @@
 import type { NextAuthOptions } from "next-auth";
 import GoogleProvider from "next-auth/providers/google";
 
+import { env } from "@/lib/env";
 import { resolveAuthSecret } from "@/lib/auth/secret";
 import {
   findUserByProviderAccount,
   upsertGoogleOAuthUser,
 } from "@/lib/auth/users";
-import { getGoogleOAuthEnv, getRuntimeEnv } from "@/lib/env";
 
 const SESSION_MAX_AGE_SECONDS = 14 * 24 * 60 * 60;
-const googleOAuthEnv = getGoogleOAuthEnv();
-const runtimeEnv = getRuntimeEnv();
+const googleOAuthEnv = env.googleOAuth;
+const runtimeEnv = env.runtime;
 
 export const authOptions: NextAuthOptions = {
   debug: runtimeEnv.isDevelopment,

@@ -1,13 +1,10 @@
-import {
-  GoogleBooksRequestError,
-} from "@/lib/books/errors";
+import { GoogleBooksRequestError } from "@/lib/books/errors";
+import { env } from "@/lib/env";
 import type {
   GoogleVolume,
   GoogleVolumesResponse,
 } from "@/lib/books/google-api";
-import { getGoogleBooksEnv } from "@/lib/env";
 
-const GOOGLE_BOOKS_BASE_URL = "https://www.googleapis.com/books/v1/volumes";
 const GOOGLE_BOOKS_DATA_REVALIDATE_SECONDS = 300;
 const GOOGLE_BOOKS_REQUEST_TIMEOUT_MS = 4_000;
 
@@ -27,14 +24,19 @@ export interface GoogleBooksClient {
 }
 
 export class GoogleBooksHttpClient implements GoogleBooksClient {
-  readonly #apiKey: string | null;
+  readonly #apiBaseUrl: string;
+  readonly #apiKey: string;
   readonly #fetchImpl: typeof fetch;
 
   constructor(input?: {
-    apiKey?: string | null;
+    apiBaseUrl?: string;
+    apiKey?: string;
     fetchImpl?: typeof fetch;
   }) {
-    this.#apiKey = input?.apiKey ?? getGoogleBooksEnv().apiKey;
+    this.#apiBaseUrl = normalizeApiBaseUrl(
+      input?.apiBaseUrl ?? env.googleBooks.apiBaseUrl,
+    );
+    this.#apiKey = input?.apiKey ?? env.googleBooks.apiKey;
     this.#fetchImpl = input?.fetchImpl ?? fetch;
   }
 
@@ -67,11 +69,9 @@ export class GoogleBooksHttpClient implements GoogleBooksClient {
   }
 
   #buildGoogleBooksUrl(path: string, params: URLSearchParams) {
-    if (this.#apiKey) {
-      params.set("key", this.#apiKey);
-    }
+    params.set("key", this.#apiKey);
 
-    return `${GOOGLE_BOOKS_BASE_URL}${path}?${params.toString()}`;
+    return `${this.#apiBaseUrl}${path}?${params.toString()}`;
   }
 
   async #fetchGoogleBooksJson<TPayload>({
@@ -122,4 +122,8 @@ export class GoogleBooksHttpClient implements GoogleBooksClient {
 
     return (await response.json()) as TPayload;
   }
+}
+
+function normalizeApiBaseUrl(value: string) {
+  return value.endsWith("/") ? value.slice(0, -1) : value;
 }
