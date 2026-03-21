@@ -14,7 +14,7 @@ import {
   INTEGRATION_POSTGRES_IMAGE,
 } from "./test-env";
 
-export default async function setup(project: TestProject) {
+export async function setup(project: TestProject) {
   const container = await new PostgreSqlContainer(INTEGRATION_POSTGRES_IMAGE)
     .withDatabase(INTEGRATION_DATABASE_NAME)
     .withUsername(INTEGRATION_DATABASE_USERNAME)
@@ -35,8 +35,8 @@ export default async function setup(project: TestProject) {
     await clearIntegrationRuntimeState().catch(() => undefined);
     throw error;
   }
+}
 
-  return async () => {
-    await teardownIntegrationDatabase();
-  };
+export async function teardown() {
+  await teardownIntegrationDatabase();
 }
