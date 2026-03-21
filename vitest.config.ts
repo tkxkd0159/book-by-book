@@ -14,6 +14,7 @@ export default defineConfig({
     environment: "node",
     fileParallelism: false,
     maxWorkers: 1,
+    setupFiles: ["./tests/support/vitest-env.ts"],
   },
 });
 

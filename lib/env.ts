@@ -1,18 +1,17 @@
-export type BooksProvider = "google" | "fixture";
 export type RateLimitProvider = "upstash" | "redis" | "memory" | "disabled";
 
 type RawEnv = NodeJS.ProcessEnv;
 
 type RuntimeEnv = {
-  nodeEnv: string | null;
-  vercelEnv: string | null;
   e2eBypassAuth: boolean;
+  nodeEnv: string | null;
+  mockGoogleBooks: boolean;
+  vercelEnv: string | null;
   isDevelopment: boolean;
   isProductionLike: boolean;
 };
 
 type StartupEnv = {
-  booksProvider: BooksProvider;
   runtime: RuntimeEnv;
   databaseUrl: string;
   googleClientId: string;
@@ -44,12 +43,14 @@ export function getRuntimeEnv(rawEnv: RawEnv = process.env): RuntimeEnv {
   const nodeEnv = readOptionalString(rawEnv, "NODE_ENV");
   const vercelEnv = readOptionalString(rawEnv, "VERCEL_ENV");
   const e2eBypassAuth = readOptionalString(rawEnv, "E2E_BYPASS_AUTH") === "1";
+  const mockGoogleBooks = readOptionalString(rawEnv, "MOCK_GOOGLE_BOOKS") === "1";
   const isDevelopment = nodeEnv === "development";
 
   return {
-    nodeEnv,
-    vercelEnv,
     e2eBypassAuth,
+    nodeEnv,
+    mockGoogleBooks,
+    vercelEnv,
     isDevelopment,
     isProductionLike: nodeEnv === "production" && !e2eBypassAuth,
   };
@@ -65,19 +66,11 @@ export function getDatabaseEnv(rawEnv: RawEnv = process.env) {
   };
 }
 
-export function getBooksProvider(rawEnv: RawEnv = process.env): BooksProvider {
-  const provider = readOptionalString(rawEnv, "BOOKS_PROVIDER") ?? "google";
-  if (provider === "google" || provider === "fixture") {
-    return provider;
-  }
-
-  throw new Error("BOOKS_PROVIDER must be one of: google, fixture.");
-}
-
 export function getGoogleBooksEnv(rawEnv: RawEnv = process.env) {
-  if (getBooksProvider(rawEnv) === "fixture") {
+  const runtime = getRuntimeEnv(rawEnv);
+  if (runtime.mockGoogleBooks) {
     return {
-      apiKey: null,
+      apiKey: readOptionalString(rawEnv, "GOOGLE_BOOKS_API_KEY"),
     };
   }
 
@@ -193,7 +186,6 @@ export function getMutationRateLimitEnv(rawEnv: RawEnv = process.env) {
 
 export function validateStartupEnv(rawEnv: RawEnv = process.env): StartupEnv {
   const errors: string[] = [];
-  const booksProvider = collectBooksProvider(rawEnv, errors);
   const runtime = getRuntimeEnv(rawEnv);
   const databaseUrl = collectRequiredString(
     rawEnv,
@@ -214,14 +206,14 @@ export function validateStartupEnv(rawEnv: RawEnv = process.env): StartupEnv {
     "GOOGLE_CLIENT_SECRET is required for Google sign-in.",
   );
   const googleBooksApiKey =
-    booksProvider === "google"
-      ? collectRequiredString(
+    runtime.mockGoogleBooks
+      ? readOptionalString(rawEnv, "GOOGLE_BOOKS_API_KEY")
+      : collectRequiredString(
           rawEnv,
           "GOOGLE_BOOKS_API_KEY",
           errors,
           "GOOGLE_BOOKS_API_KEY is required for Google Books requests.",
-        )
-      : null;
+        );
   const authSecret = collectAuthSecret(rawEnv, errors);
   const nextAuthUrl = readOptionalString(rawEnv, "NEXTAUTH_URL");
   const mutationRateLimit = collectMutationRateLimitEnv(rawEnv, errors, runtime);
@@ -231,7 +223,6 @@ export function validateStartupEnv(rawEnv: RawEnv = process.env): StartupEnv {
   }
 
   return {
-    booksProvider,
     runtime,
     databaseUrl: databaseUrl!,
     googleClientId: googleClientId!,
@@ -241,19 +232,6 @@ export function validateStartupEnv(rawEnv: RawEnv = process.env): StartupEnv {
     nextAuthUrl,
     mutationRateLimit,
   };
-}
-
-function collectBooksProvider(rawEnv: RawEnv, errors: string[]): BooksProvider {
-  try {
-    return getBooksProvider(rawEnv);
-  } catch (error) {
-    errors.push(
-      error instanceof Error
-        ? error.message
-        : "BOOKS_PROVIDER must be one of: google, fixture.",
-    );
-    return "google";
-  }
 }
 
 function collectMutationRateLimitEnv(

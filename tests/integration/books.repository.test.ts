@@ -1,27 +1,47 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import {
+  afterAll,
+  afterEach,
+  beforeAll,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  vi,
+} from "vitest";
 
-import { resetTestDatabase } from "@/lib/test/fixtures";
-import { E2E_SEARCH_RESULT_FIXTURE } from "@/lib/test/constants";
+import { E2E_SEARCH_RESULT_FIXTURE } from "@/tests/support/books/google-books-fixtures";
+import { googleBooksMockServer } from "@/tests/support/msw/server";
+import { resetTestDatabase } from "@/tests/support/fixtures";
+
+const originalMockGoogleBooks = process.env.MOCK_GOOGLE_BOOKS;
 
 describe("books repository integration", () => {
-  const originalBooksProvider = process.env.BOOKS_PROVIDER;
+  beforeAll(() => {
+    googleBooksMockServer.listen({ onUnhandledRequest: "error" });
+  });
 
   beforeEach(async () => {
     vi.resetModules();
+    process.env.MOCK_GOOGLE_BOOKS = "1";
     await resetTestDatabase();
-    process.env.BOOKS_PROVIDER = "fixture";
   });
 
   afterEach(() => {
-    if (originalBooksProvider) {
-      process.env.BOOKS_PROVIDER = originalBooksProvider;
+    googleBooksMockServer.resetHandlers();
+
+    if (originalMockGoogleBooks) {
+      process.env.MOCK_GOOGLE_BOOKS = originalMockGoogleBooks;
       return;
     }
 
-    delete process.env.BOOKS_PROVIDER;
+    delete process.env.MOCK_GOOGLE_BOOKS;
   });
 
-  it("persists a non-seeded fixture-provider book on demand", async () => {
+  afterAll(() => {
+    googleBooksMockServer.close();
+  });
+
+  it("persists a non-seeded MSW-backed book on demand", async () => {
     const { ensureBookInDatabase, findBookByGoogleVolumeId } = await import(
       "@/lib/books/repository"
     );

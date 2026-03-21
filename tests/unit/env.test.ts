@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
 
 import {
-  getBooksProvider,
   getMutationRateLimitEnv,
   validateStartupEnv,
 } from "@/lib/env";
@@ -28,18 +27,18 @@ describe("environment validation", () => {
     expect(env.googleClientId).toBe("test-google-client-id");
     expect(env.authSecret).toBe("test-auth-secret");
     expect(env.mutationRateLimit.provider).toBe("disabled");
-    expect(env.booksProvider).toBe("google");
+    expect(env.runtime.mockGoogleBooks).toBe(false);
   });
 
-  it("accepts fixture books provider without a Google Books API key", () => {
+  it("accepts Google Books mock mode without an API key", () => {
     const env = validateStartupEnv(
       createEnv({
-        BOOKS_PROVIDER: "fixture",
         GOOGLE_BOOKS_API_KEY: "",
+        MOCK_GOOGLE_BOOKS: "1",
       }),
     );
 
-    expect(env.booksProvider).toBe("fixture");
+    expect(env.runtime.mockGoogleBooks).toBe(true);
     expect(env.googleBooksApiKey).toBeNull();
   });
 
@@ -133,20 +132,6 @@ describe("environment validation", () => {
         }),
       ),
     ).toThrowError(/RATE_LIMIT_REDIS_URL is required/);
-  });
-
-  it("validates the books provider value", () => {
-    expect(() =>
-      validateStartupEnv(
-        createEnv({
-          BOOKS_PROVIDER: "unsupported",
-        }),
-      ),
-    ).toThrowError(/BOOKS_PROVIDER must be one of: google, fixture\./);
-
-    expect(getBooksProvider(createEnv({ BOOKS_PROVIDER: "fixture" }))).toBe(
-      "fixture",
-    );
   });
 
   it("rejects invalid positive integer overrides", () => {

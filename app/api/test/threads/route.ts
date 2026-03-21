@@ -6,9 +6,9 @@ import { findUserByProviderIdentity } from "@/lib/auth/users";
 import {
   TEST_ROUTE_ERROR_MESSAGES,
   TEST_USER_KEYS,
-} from "@/lib/test/constants";
+} from "@/tests/support/constants";
 import { createThread, createThreadPost } from "@/lib/threads/repository";
-import { seedTestUsers } from "@/lib/test/fixtures";
+import { seedTestUsers } from "@/tests/support/fixtures";
 
 export const runtime = "nodejs";
 

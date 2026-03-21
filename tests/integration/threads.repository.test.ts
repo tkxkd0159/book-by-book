@@ -11,7 +11,7 @@ import {
   removeClubBook,
 } from "@/lib/clubs/repository";
 import { findBookByGoogleVolumeId } from "@/lib/books/repository";
-import { resetTestDatabase, TEST_BOOK_VOLUME_ID } from "@/lib/test/fixtures";
+import { resetTestDatabase, TEST_BOOK_VOLUME_ID } from "@/tests/support/fixtures";
 import { ThreadError } from "@/lib/threads/errors";
 import {
   createThread,

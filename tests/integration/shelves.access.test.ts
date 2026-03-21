@@ -7,7 +7,7 @@ import {
   loadPublicShelfRouteAccess,
 } from "@/lib/shelves/access";
 import { createShelf } from "@/lib/shelves/repository";
-import { resetTestDatabase } from "@/lib/test/fixtures";
+import { resetTestDatabase } from "@/tests/support/fixtures";
 import type { AuthUser } from "@/types/db";
 
 async function getRequiredUser(key: string): Promise<AuthUser> {

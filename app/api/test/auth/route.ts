@@ -5,12 +5,12 @@ import { isE2EBypassEnabled } from "@/lib/auth/e2e";
 import {
   getTestUser,
   seedTestUsers,
-} from "@/lib/test/fixtures";
+} from "@/tests/support/fixtures";
 import {
   E2E_DEFAULT_RETURN_TO,
   TEST_ROUTE_ERROR_MESSAGES,
   isTestUserKey,
-} from "@/lib/test/constants";
+} from "@/tests/support/constants";
 
 export const runtime = "nodejs";
 

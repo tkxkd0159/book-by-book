@@ -1,66 +1,67 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 
-import { searchGoogleBooks } from "@/lib/books/google";
+import type { GoogleVolume } from "@/lib/books/google-api";
+import type {
+  GoogleBooksClient,
+  GoogleBooksSearchRequest,
+} from "@/lib/books/google-http-client";
+import { GoogleBooksService } from "@/lib/books/google-service";
+import { E2E_SEARCH_RESULT_VOLUME } from "@/tests/support/books/google-books-fixtures";
 
-const fetchMock = vi.fn();
-const originalGoogleBooksApiKey = process.env.GOOGLE_BOOKS_API_KEY;
-const originalBooksProvider = process.env.BOOKS_PROVIDER;
+class RecordingGoogleBooksClient implements GoogleBooksClient {
+  volumeToReturn: GoogleVolume | null = null;
+  readonly fetchRequests: string[] = [];
+  readonly searchRequests: GoogleBooksSearchRequest[] = [];
 
-describe("searchGoogleBooks quick search", () => {
-  beforeEach(() => {
-    vi.stubGlobal("fetch", fetchMock);
-    fetchMock.mockReset();
-    fetchMock.mockResolvedValue(
-      new Response(JSON.stringify({ totalItems: 0, items: [] }), {
-        status: 200,
-        headers: { "content-type": "application/json" },
-      }),
-    );
-    delete process.env.BOOKS_PROVIDER;
-    process.env.GOOGLE_BOOKS_API_KEY = "test-api-key";
-  });
+  async fetchVolume(googleVolumeId: string) {
+    this.fetchRequests.push(googleVolumeId);
+    return this.volumeToReturn;
+  }
 
-  afterEach(() => {
-    vi.unstubAllGlobals();
+  async searchVolumes(request: GoogleBooksSearchRequest) {
+    this.searchRequests.push(request);
+    return { items: [], totalItems: 0 };
+  }
+}
 
-    if (originalGoogleBooksApiKey) {
-      process.env.GOOGLE_BOOKS_API_KEY = originalGoogleBooksApiKey;
-    } else {
-      delete process.env.GOOGLE_BOOKS_API_KEY;
-    }
-
-    if (originalBooksProvider) {
-      process.env.BOOKS_PROVIDER = originalBooksProvider;
-      return;
-    }
-
-    delete process.env.BOOKS_PROVIDER;
-  });
-
+describe("GoogleBooksService", () => {
   it("wraps default quick searches in an intitle query", async () => {
-    await searchGoogleBooks("  Harry   Potter  ", { mode: "basic" });
+    const client = new RecordingGoogleBooksClient();
+    const service = new GoogleBooksService(client);
 
-    expect(fetchMock).toHaveBeenCalledTimes(1);
+    await service.searchBooks("  Harry   Potter  ", { mode: "basic" });
 
-    const [url] = fetchMock.mock.calls[0] ?? [];
-    const requestUrl = new URL(String(url));
-
-    expect(requestUrl.searchParams.get("q")).toBe('intitle:"Harry Potter"');
+    expect(client.searchRequests).toHaveLength(1);
+    expect(client.searchRequests[0]?.query).toBe('intitle:"Harry Potter"');
   });
 
   it("preserves the normalized raw query when search term mode is enabled", async () => {
-    await searchGoogleBooks('  "Elizabeth Bennet"   +Darcy   -Austen  ', {
+    const client = new RecordingGoogleBooksClient();
+    const service = new GoogleBooksService(client);
+
+    await service.searchBooks('  "Elizabeth Bennet"   +Darcy   -Austen  ', {
       mode: "basic",
       useSearchTerm: true,
     });
 
-    expect(fetchMock).toHaveBeenCalledTimes(1);
-
-    const [url] = fetchMock.mock.calls[0] ?? [];
-    const requestUrl = new URL(String(url));
-
-    expect(requestUrl.searchParams.get("q")).toBe(
+    expect(client.searchRequests).toHaveLength(1);
+    expect(client.searchRequests[0]?.query).toBe(
       '"Elizabeth Bennet" +Darcy -Austen',
     );
+  });
+
+  it("normalizes fetched volumes through the client seam", async () => {
+    const client = new RecordingGoogleBooksClient();
+    const service = new GoogleBooksService(client);
+    client.volumeToReturn = E2E_SEARCH_RESULT_VOLUME;
+
+    const volume = await service.fetchVolume("fixture-search-matilda");
+
+    expect(client.fetchRequests).toEqual(["fixture-search-matilda"]);
+    expect(volume).toMatchObject({
+      googleVolumeId: "fixture-search-matilda",
+      isbn13: "9780140328721",
+      title: "Matilda",
+    });
   });
 });

@@ -15,7 +15,7 @@ import {
   updateShelf,
   updateShelfItemNote,
 } from "@/lib/shelves/repository";
-import { resetTestDatabase, TEST_BOOK_VOLUME_ID } from "@/lib/test/fixtures";
+import { resetTestDatabase, TEST_BOOK_VOLUME_ID } from "@/tests/support/fixtures";
 import type { AuthUser } from "@/types/db";
 
 async function getRequiredUser(key: string): Promise<AuthUser> {
