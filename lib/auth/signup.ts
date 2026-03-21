@@ -3,7 +3,6 @@ import type { FavoriteGenreKey, UserGender } from "@/types/db";
 export const USER_GENDERS = [
   "MAN",
   "WOMAN",
-  "NON_BINARY",
   "PREFER_NOT_TO_SAY",
 ] as const satisfies readonly UserGender[];
 
@@ -48,8 +47,8 @@ export const FAVORITE_GENRE_GROUPS = [
   }>;
 }>;
 
-export const FAVORITE_GENRES = FAVORITE_GENRE_GROUPS.flatMap(
-  (group) => group.genres.map((genre) => genre.key),
+export const FAVORITE_GENRES = FAVORITE_GENRE_GROUPS.flatMap((group) =>
+  group.genres.map((genre) => genre.key),
 ) as FavoriteGenreKey[];
 
 export const NICKNAME_PATTERN = /^[a-z0-9_-]{3,20}$/;
@@ -201,7 +200,9 @@ export function coerceFavoriteGenres(
 
   const deduped = new Set<FavoriteGenreKey>();
   for (const value of values) {
-    const normalized = normalizeOptionalText(value)?.toUpperCase().replace(/\s+/g, "_");
+    const normalized = normalizeOptionalText(value)
+      ?.toUpperCase()
+      .replace(/\s+/g, "_");
     if (normalized && isFavoriteGenreKey(normalized)) {
       deduped.add(normalized);
     }

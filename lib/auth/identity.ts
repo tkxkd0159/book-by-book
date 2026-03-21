@@ -1,5 +1,6 @@
 import type { AppSessionIdentity, AuthUser } from "@/types/db";
 
+export const GOOGLE_AUTH_PROVIDER = "google";
 export const INTERNAL_AUTH_PROVIDER = "internal";
 const DEFAULT_READER_DISPLAY_NAME = "Book by Book Member";
 
@@ -37,8 +38,8 @@ export function isCompletedPublicUser(
 ): boolean {
   return Boolean(
     user &&
-      !isInternalAuthProvider(user.provider) &&
-      user.signupCompletedAt !== null,
+    !isInternalAuthProvider(user.provider) &&
+    user.signupCompletedAt !== null,
   );
 }
 
@@ -47,8 +48,8 @@ export function isIncompletePublicUser(
 ): boolean {
   return Boolean(
     user &&
-      !isInternalAuthProvider(user.provider) &&
-      user.signupCompletedAt === null,
+    !isInternalAuthProvider(user.provider) &&
+    user.signupCompletedAt === null,
   );
 }
 

@@ -1,8 +1,9 @@
 "use client";
 
 import { useTransition } from "react";
-
 import { signIn } from "next-auth/react";
+
+import { GOOGLE_AUTH_PROVIDER } from "@/lib/auth/identity";
 
 type SignInGoogleButtonProps = {
   callbackUrl?: string;
@@ -21,7 +22,7 @@ export default function SignInGoogleButton({
         disabled={isPending}
         onClick={() => {
           startTransition(() => {
-            void signIn("google", { callbackUrl });
+            void signIn(GOOGLE_AUTH_PROVIDER, { callbackUrl });
           });
         }}
       >
