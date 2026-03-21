@@ -108,6 +108,12 @@ When you run `npm start` or `pnpm start`, a `prestart` hook now verifies that lo
 ## Quality Gates
 
 ```bash
+pnpm test
+pnpm test:integration
 pnpm lint
 pnpm build
 ```
+
+`pnpm test` and `pnpm test:integration` do not load `.env` or `.env.local`; they use fixed in-repo test fixtures instead.
+
+`pnpm test:integration` requires Docker and provisions its own PostgreSQL 18 Testcontainers instance for the duration of the Vitest process.
