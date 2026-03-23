@@ -1,9 +1,9 @@
 import {
   env,
-  type CacheProvider,
 } from "@/lib/env";
 import {
   getCacheBackend,
+  incrementFixedWindowCounter,
   resetCacheBackendForTests,
 } from "@/lib/cache/backend";
 
@@ -27,7 +27,6 @@ export type MutationRateLimitDecision = {
 };
 
 type MutationRateLimitStore = {
-  provider: CacheProvider;
   incrementWindowCounter(input: {
     key: string;
     windowSeconds: number;
@@ -177,31 +176,11 @@ function formatRetryAfter(retryAfterSeconds: number) {
 }
 
 async function createMutationRateLimitStore(): Promise<MutationRateLimitStore> {
-  const backend = await getCacheBackend();
+  await getCacheBackend();
 
   return {
-    provider: backend.provider,
     async incrementWindowCounter({ key, windowSeconds }) {
-      if (backend.provider === "disabled") {
-        return 0;
-      }
-
-      const firstWrite = await backend.set(key, "1", {
-        onlyIfAbsent: true,
-        ttlSeconds: windowSeconds,
-      });
-
-      if (firstWrite) {
-        return 1;
-      }
-
-      const count = await backend.incr(key);
-      const ttl = await backend.ttl(key);
-      if (ttl === null || ttl < 0) {
-        await backend.expire(key, windowSeconds);
-      }
-
-      return count;
+      return incrementFixedWindowCounter(key, windowSeconds);
     },
   };
 }

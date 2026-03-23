@@ -39,7 +39,11 @@ describe("shared cache backend", () => {
   it("returns a disabled no-op backend when cache is disabled", async () => {
     process.env.CACHE_PROVIDER = "disabled";
 
-    const { getCacheBackend, resetCacheBackendForTests } = await import(
+    const {
+      getCacheBackend,
+      incrementFixedWindowCounter,
+      resetCacheBackendForTests,
+    } = await import(
       "@/lib/cache/backend"
     );
     resetCacheBackendForTests();
@@ -52,8 +56,9 @@ describe("shared cache backend", () => {
         ttlSeconds: 30,
       }),
     ).resolves.toBe(false);
-    await expect(backend.incr("cache:test:key")).resolves.toBe(0);
-    await expect(backend.ttl("cache:test:key")).resolves.toBeNull();
+    await expect(
+      incrementFixedWindowCounter("cache:test:key", 30),
+    ).resolves.toBe(0);
   });
 
   it("reuses the same backend instance for identical cache config", async () => {
@@ -70,5 +75,29 @@ describe("shared cache backend", () => {
     ]);
 
     expect(firstBackend).toBe(secondBackend);
+  });
+
+  it("repairs a missing TTL when incrementing a fixed-window counter", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-03-24T00:00:00.000Z"));
+    process.env.CACHE_PROVIDER = "memory";
+
+    const {
+      getCacheBackend,
+      incrementFixedWindowCounter,
+      resetCacheBackendForTests,
+    } = await import("@/lib/cache/backend");
+    resetCacheBackendForTests();
+    const backend = await getCacheBackend();
+
+    await backend.set("cache:test:counter", "4");
+
+    await expect(
+      incrementFixedWindowCounter("cache:test:counter", 30),
+    ).resolves.toBe(5);
+    await expect(backend.get("cache:test:counter")).resolves.toBe("5");
+
+    vi.advanceTimersByTime(30_001);
+    await expect(backend.get("cache:test:counter")).resolves.toBeNull();
   });
 });

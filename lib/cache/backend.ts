@@ -12,11 +12,12 @@ type CacheSetOptions = {
 export type CacheBackend = {
   provider: CacheProvider;
   del(key: string): Promise<void>;
-  expire(key: string, ttlSeconds: number): Promise<void>;
   get(key: string): Promise<string | null>;
-  incr(key: string): Promise<number>;
   set(key: string, value: string, options?: CacheSetOptions): Promise<boolean>;
-  ttl(key: string): Promise<number | null>;
+};
+
+type InternalCacheBackend = CacheBackend & {
+  incrementFixedWindowCounter(key: string, windowSeconds: number): Promise<number>;
 };
 
 type MemoryCacheEntry = {
@@ -30,11 +31,26 @@ type GlobalCacheState = typeof globalThis & {
 
 const globalCacheState = globalThis as GlobalCacheState;
 
-let cachedBackendPromises = new Map<string, Promise<CacheBackend>>();
+let cachedBackendPromises = new Map<string, Promise<InternalCacheBackend>>();
 
 export async function getCacheBackend(
   config: CacheEnv = env.cache,
 ): Promise<CacheBackend> {
+  return getInternalCacheBackend(config);
+}
+
+export async function incrementFixedWindowCounter(
+  key: string,
+  windowSeconds: number,
+  config: CacheEnv = env.cache,
+) {
+  const backend = await getInternalCacheBackend(config);
+  return backend.incrementFixedWindowCounter(key, windowSeconds);
+}
+
+async function getInternalCacheBackend(
+  config: CacheEnv = env.cache,
+): Promise<InternalCacheBackend> {
   const cacheKey = JSON.stringify(config);
   const cachedPromise = cachedBackendPromises.get(cacheKey);
   if (cachedPromise) {
@@ -51,7 +67,9 @@ export function resetCacheBackendForTests() {
   getMemoryStore().clear();
 }
 
-async function createCacheBackend(config: CacheEnv): Promise<CacheBackend> {
+async function createCacheBackend(
+  config: CacheEnv,
+): Promise<InternalCacheBackend> {
   switch (config.provider) {
     case "disabled":
       return createDisabledCacheBackend();
@@ -64,56 +82,49 @@ async function createCacheBackend(config: CacheEnv): Promise<CacheBackend> {
   }
 }
 
-function createDisabledCacheBackend(): CacheBackend {
+function createDisabledCacheBackend(): InternalCacheBackend {
   return {
     provider: "disabled",
     async del() {},
-    async expire() {},
     async get() {
       return null;
     },
-    async incr() {
+    async incrementFixedWindowCounter() {
       return 0;
     },
     async set() {
       return false;
     },
-    async ttl() {
-      return null;
-    },
   };
 }
 
-function createMemoryCacheBackend(): CacheBackend {
+function createMemoryCacheBackend(): InternalCacheBackend {
   return {
     provider: "memory",
     async del(key) {
       getMemoryStore().delete(key);
     },
-    async expire(key, ttlSeconds) {
-      const store = getMemoryStore();
-      const entry = readMemoryEntry(store, key);
-      if (!entry) {
-        return;
-      }
-
-      store.set(key, {
-        ...entry,
-        expiresAtMs: Date.now() + ttlSeconds * 1000,
-      });
-    },
     async get(key) {
       return readMemoryEntry(getMemoryStore(), key)?.value ?? null;
     },
-    async incr(key) {
+    async incrementFixedWindowCounter(key, windowSeconds) {
       const store = getMemoryStore();
       const entry = readMemoryEntry(store, key);
-      const nextValue = entry ? Number.parseInt(entry.value, 10) + 1 : 1;
+      const nowMs = Date.now();
+      if (!entry) {
+        store.set(key, {
+          expiresAtMs: nowMs + windowSeconds * 1000,
+          value: "1",
+        });
+        return 1;
+      }
+
+      const nextValue = Number.parseInt(entry.value, 10);
       store.set(key, {
-        expiresAtMs: entry?.expiresAtMs ?? null,
-        value: String(nextValue),
+        expiresAtMs: entry.expiresAtMs ?? nowMs + windowSeconds * 1000,
+        value: String(Number.isNaN(nextValue) ? 1 : nextValue + 1),
       });
-      return nextValue;
+      return Number.isNaN(nextValue) ? 1 : nextValue + 1;
     },
     async set(key, value, options) {
       const store = getMemoryStore();
@@ -131,18 +142,12 @@ function createMemoryCacheBackend(): CacheBackend {
       });
       return true;
     },
-    async ttl(key) {
-      const entry = readMemoryEntry(getMemoryStore(), key);
-      if (!entry?.expiresAtMs) {
-        return null;
-      }
-
-      return Math.max(0, Math.ceil((entry.expiresAtMs - Date.now()) / 1000));
-    },
   };
 }
 
-async function createUpstashCacheBackend(config: CacheEnv): Promise<CacheBackend> {
+async function createUpstashCacheBackend(
+  config: CacheEnv,
+): Promise<InternalCacheBackend> {
   const { Redis } = await import("@upstash/redis");
   const client = new Redis({
     token: config.upstashRestToken!,
@@ -154,15 +159,26 @@ async function createUpstashCacheBackend(config: CacheEnv): Promise<CacheBackend
     async del(key) {
       await client.del(key);
     },
-    async expire(key, ttlSeconds) {
-      await client.expire(key, ttlSeconds);
-    },
     async get(key) {
       const value = await client.get<string>(key);
       return typeof value === "string" ? value : null;
     },
-    async incr(key) {
-      return client.incr(key);
+    async incrementFixedWindowCounter(key, windowSeconds) {
+      const firstWrite = await client.set(key, "1", {
+        ex: windowSeconds,
+        nx: true,
+      });
+      if (firstWrite === "OK") {
+        return 1;
+      }
+
+      const count = await client.incr(key);
+      const ttl = await client.ttl(key);
+      if (typeof ttl !== "number" || ttl < 0) {
+        await client.expire(key, windowSeconds);
+      }
+
+      return count;
     },
     async set(key, value, options) {
       const setOptions =
@@ -178,16 +194,12 @@ async function createUpstashCacheBackend(config: CacheEnv): Promise<CacheBackend
         : await client.set(key, value);
       return result === "OK";
     },
-    async ttl(key) {
-      const result = await client.ttl(key);
-      return typeof result === "number" && result >= 0 ? result : null;
-    },
   };
 }
 
 async function createNodeRedisCacheBackend(
   config: CacheEnv,
-): Promise<CacheBackend> {
+): Promise<InternalCacheBackend> {
   const { createClient } = await import("redis");
   const client = createClient({
     url: config.redisUrl!,
@@ -204,14 +216,28 @@ async function createNodeRedisCacheBackend(
     async del(key) {
       await client.del(key);
     },
-    async expire(key, ttlSeconds) {
-      await client.expire(key, ttlSeconds);
-    },
     async get(key) {
       return client.get(key);
     },
-    async incr(key) {
-      return client.incr(key);
+    async incrementFixedWindowCounter(key, windowSeconds) {
+      const firstWrite = await client.set(key, "1", {
+        condition: "NX",
+        expiration: {
+          type: "EX",
+          value: windowSeconds,
+        },
+      });
+      if (firstWrite === "OK") {
+        return 1;
+      }
+
+      const count = await client.incr(key);
+      const ttl = await client.ttl(key);
+      if (ttl < 0) {
+        await client.expire(key, windowSeconds);
+      }
+
+      return count;
     },
     async set(key, value, options) {
       const result = await client.set(key, value, {
@@ -225,10 +251,6 @@ async function createNodeRedisCacheBackend(
             : undefined,
       });
       return result === "OK";
-    },
-    async ttl(key) {
-      const result = await client.ttl(key);
-      return result >= 0 ? result : null;
     },
   };
 }
