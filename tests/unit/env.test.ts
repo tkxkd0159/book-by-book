@@ -28,6 +28,7 @@ describe("environment validation", () => {
     expect(appEnv.googleOAuth.clientId).toBe("test-google-client-id");
     expect(appEnv.auth.secret).toBe("test-auth-secret");
     expect(appEnv.logging.level).toBe("info");
+    expect(appEnv.cache.provider).toBe("disabled");
     expect(appEnv.rateLimit.provider).toBe("disabled");
   });
 
@@ -184,6 +185,33 @@ describe("environment validation", () => {
     ).toThrow(/RATE_LIMIT_REDIS_URL is required/);
   });
 
+  it("accepts generic cache backend configuration", () => {
+    const appEnv = AppEnv.from(
+      createEnv({
+        CACHE_PROVIDER: "redis",
+        CACHE_REDIS_URL: "redis://localhost:6379",
+      }),
+    );
+
+    expect(appEnv.cache.provider).toBe("redis");
+    expect(appEnv.cache.redisUrl).toBe("redis://localhost:6379");
+    expect(appEnv.rateLimit.provider).toBe("redis");
+  });
+
+  it("falls back to legacy rate-limit backend envs for cache config", () => {
+    const appEnv = AppEnv.from(
+      createEnv({
+        RATE_LIMIT_PROVIDER: "upstash",
+        UPSTASH_REDIS_REST_URL: "https://example.upstash.io",
+        UPSTASH_REDIS_REST_TOKEN: "test-token",
+      }),
+    );
+
+    expect(appEnv.cache.provider).toBe("upstash");
+    expect(appEnv.cache.upstashRestUrl).toBe("https://example.upstash.io");
+    expect(appEnv.cache.upstashRestToken).toBe("test-token");
+  });
+
   it("rejects invalid positive integer overrides", () => {
     expect(() =>
       AppEnv.from(
@@ -264,6 +292,20 @@ describe("environment validation", () => {
         ).rateLimit,
     ).toThrow(
       "RATE_LIMIT_PROVIDER=memory is only supported in test and local development environments.",
+    );
+  });
+
+  it("rejects memory cache in production-like runtime", () => {
+    expect(
+      () =>
+        AppEnv.from(
+          createEnv({
+            CACHE_PROVIDER: "memory",
+            NODE_ENV: "production",
+          }),
+        ).cache,
+    ).toThrow(
+      "CACHE_PROVIDER=memory is only supported in test and local development environments.",
     );
   });
 });

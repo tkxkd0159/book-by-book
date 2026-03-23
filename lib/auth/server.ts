@@ -17,8 +17,21 @@ import {
   createE2ESession,
   getE2ECurrentUser,
 } from "@/lib/test-harness/auth";
+import {
+  readCachedAuthUserById,
+  syncCachedAuthUser,
+} from "@/lib/auth/user-cache";
 import { findUserById } from "@/lib/auth/users";
-import type { AuthUser } from "@/types/db";
+import type { AppSessionIdentity, AuthUser } from "@/types/db";
+
+export type AuthSessionIdentity = {
+  id: string;
+  isInternalAdmin: boolean;
+  isSignupComplete: boolean;
+  nickname: string | null;
+  provider?: string;
+  sessionIdentity?: AppSessionIdentity;
+};
 
 const readAuthSession = cache(async (): Promise<Session | null> => {
   const session = await getAuthSessionSafe();
@@ -41,14 +54,44 @@ async function findCurrentUserFromSession(
     return null;
   }
 
-  return findUserById(session.user.id);
+  const cachedUser = await readCachedAuthUserById(session.user.id);
+  if (cachedUser !== undefined) {
+    return cachedUser;
+  }
+
+  const user = await findUserById(session.user.id);
+  await syncCachedAuthUser(session.user.id, user);
+  return user;
 }
 
 const readCurrentUser = cache(async (): Promise<AuthUser | null> =>
   findCurrentUserFromSession(await readAuthSession()),
 );
 
+const readAuthIdentity = cache(async (): Promise<AuthSessionIdentity | null> => {
+  const session = await readAuthSession();
+  if (!session?.user?.id) {
+    return null;
+  }
+
+  return {
+    id: session.user.id,
+    isInternalAdmin: session.user.isInternalAdmin === true,
+    isSignupComplete: session.user.isSignupComplete === true,
+    nickname: typeof session.user.nickname === "string" ? session.user.nickname : null,
+    provider:
+      typeof session.user.provider === "string"
+        ? session.user.provider
+        : undefined,
+    sessionIdentity:
+      typeof session.user.sessionIdentity === "string"
+        ? session.user.sessionIdentity
+        : undefined,
+  };
+});
+
 export const getAuthSession = readAuthSession;
+export const getAuthIdentity = readAuthIdentity;
 export const getCurrentUser = readCurrentUser;
 
 type RequireCurrentUserOptions = {

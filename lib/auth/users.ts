@@ -1,4 +1,5 @@
 import sql from "@/lib/db";
+import { syncCachedAuthUser } from "@/lib/auth/user-cache";
 import { AuthFlowError } from "@/lib/auth/errors";
 import {
   getUserDisplayName,
@@ -417,7 +418,9 @@ export async function upsertGoogleOAuthUser(
           updated_at = now()
       `;
 
-      return mapAuthUser(user);
+      const authUser = mapAuthUser(user);
+      await syncCachedAuthUser(authUser.id, authUser);
+      return authUser;
     },
   );
 }

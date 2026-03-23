@@ -4,6 +4,8 @@ const getAuthSessionSafeMock = vi.fn();
 const getE2ECurrentUserMock = vi.fn();
 const createE2ESessionMock = vi.fn();
 const findUserByIdMock = vi.fn();
+const readCachedAuthUserByIdMock = vi.fn();
+const syncCachedAuthUserMock = vi.fn();
 const headersMock = vi.fn();
 const forbiddenMock = vi.fn(() => {
   throw new Error("NEXT_FORBIDDEN");
@@ -34,12 +36,19 @@ vi.mock("@/lib/auth/users", () => ({
   findUserById: findUserByIdMock,
 }));
 
+vi.mock("@/lib/auth/user-cache", () => ({
+  readCachedAuthUserById: readCachedAuthUserByIdMock,
+  syncCachedAuthUser: syncCachedAuthUserMock,
+}));
+
 describe("auth server helpers", () => {
   beforeEach(() => {
     vi.resetModules();
     vi.clearAllMocks();
     headersMock.mockResolvedValue(new Headers());
     getE2ECurrentUserMock.mockResolvedValue(null);
+    readCachedAuthUserByIdMock.mockResolvedValue(undefined);
+    syncCachedAuthUserMock.mockResolvedValue(undefined);
     createE2ESessionMock.mockImplementation((user) => ({
       expires: "2999-12-31T23:59:59.999Z",
       user: {
@@ -62,7 +71,9 @@ describe("auth server helpers", () => {
     const { getCurrentUser } = await import("@/lib/auth/server");
 
     await expect(getCurrentUser()).resolves.toBeNull();
+    expect(readCachedAuthUserByIdMock).toHaveBeenCalledWith("missing-user-id");
     expect(findUserByIdMock).toHaveBeenCalledWith("missing-user-id");
+    expect(syncCachedAuthUserMock).toHaveBeenCalledWith("missing-user-id", null);
   });
 
   it("redirects when requireCurrentUser cannot resolve a DB-backed user", async () => {
@@ -111,11 +122,13 @@ describe("auth server helpers", () => {
     const { requireCurrentUser } = await import("@/lib/auth/server");
 
     await expect(requireCurrentUser()).resolves.toEqual(currentUser);
+    expect(readCachedAuthUserByIdMock).toHaveBeenCalledWith(currentUser.id);
     expect(findUserByIdMock).toHaveBeenCalledWith(currentUser.id);
+    expect(syncCachedAuthUserMock).toHaveBeenCalledWith(currentUser.id, currentUser);
   });
 
-  it("does not reuse a stale DB-backed user across repeated lookups", async () => {
-    const firstUser = {
+  it("returns a cached DB-backed user without re-querying the database", async () => {
+    const cachedUser = {
       id: "user-123",
       provider: "google",
       providerUserId: "google-user-123",
@@ -131,26 +144,44 @@ describe("auth server helpers", () => {
       isSignupComplete: true,
       sessionIdentity: "PUBLIC",
     };
-    const secondUser = {
-      ...firstUser,
-      id: "user-456",
-      name: "Reader Two",
-    };
 
     getAuthSessionSafeMock.mockResolvedValue({
       user: {
-        id: firstUser.id,
+        id: cachedUser.id,
       },
     });
-    findUserByIdMock
-      .mockResolvedValueOnce(firstUser)
-      .mockResolvedValueOnce(secondUser);
+    readCachedAuthUserByIdMock.mockResolvedValue(cachedUser);
 
     const { getCurrentUser } = await import("@/lib/auth/server");
 
-    await expect(getCurrentUser()).resolves.toEqual(firstUser);
-    await expect(getCurrentUser()).resolves.toEqual(secondUser);
-    expect(findUserByIdMock).toHaveBeenCalledTimes(2);
+    await expect(getCurrentUser()).resolves.toEqual(cachedUser);
+    expect(findUserByIdMock).not.toHaveBeenCalled();
+    expect(syncCachedAuthUserMock).not.toHaveBeenCalled();
+  });
+
+  it("reads session identity claims without requiring a DB lookup", async () => {
+    getAuthSessionSafeMock.mockResolvedValue({
+      user: {
+        id: "user-123",
+        isInternalAdmin: false,
+        isSignupComplete: false,
+        nickname: "reader",
+        provider: "google",
+        sessionIdentity: "PUBLIC_INCOMPLETE",
+      },
+    });
+
+    const { getAuthIdentity } = await import("@/lib/auth/server");
+
+    await expect(getAuthIdentity()).resolves.toEqual({
+      id: "user-123",
+      isInternalAdmin: false,
+      isSignupComplete: false,
+      nickname: "reader",
+      provider: "google",
+      sessionIdentity: "PUBLIC_INCOMPLETE",
+    });
+    expect(findUserByIdMock).not.toHaveBeenCalled();
   });
 
   it("redirects incomplete public users to signup with the current request callback", async () => {

@@ -4,6 +4,10 @@ describe("mutation rate limiter", () => {
   beforeEach(() => {
     vi.resetModules();
     vi.useRealTimers();
+    delete process.env.CACHE_PROVIDER;
+    delete process.env.CACHE_REDIS_URL;
+    delete process.env.CACHE_UPSTASH_REST_URL;
+    delete process.env.CACHE_UPSTASH_REST_TOKEN;
     delete process.env.RATE_LIMIT_PROVIDER;
     delete process.env.RATE_LIMIT_REDIS_URL;
     delete process.env.UPSTASH_REDIS_REST_URL;

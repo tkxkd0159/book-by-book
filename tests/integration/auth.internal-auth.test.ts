@@ -10,6 +10,10 @@ import { resetMemoryMutationRateLimitStore } from "@/lib/rate-limit/mutation";
 import { resetTestDatabase } from "@/lib/test-harness/fixtures";
 
 beforeEach(async () => {
+  delete process.env.CACHE_PROVIDER;
+  delete process.env.CACHE_REDIS_URL;
+  delete process.env.CACHE_UPSTASH_REST_URL;
+  delete process.env.CACHE_UPSTASH_REST_TOKEN;
   process.env.RATE_LIMIT_PROVIDER = "memory";
   process.env.RATE_LIMIT_ADMIN_SIGNIN_EMAIL_IP_LIMIT = "2";
   process.env.RATE_LIMIT_ADMIN_SIGNIN_EMAIL_IP_WINDOW_SECONDS = "60";
@@ -20,6 +24,10 @@ beforeEach(async () => {
 });
 
 afterEach(() => {
+  delete process.env.CACHE_PROVIDER;
+  delete process.env.CACHE_REDIS_URL;
+  delete process.env.CACHE_UPSTASH_REST_URL;
+  delete process.env.CACHE_UPSTASH_REST_TOKEN;
   delete process.env.RATE_LIMIT_PROVIDER;
   delete process.env.RATE_LIMIT_ADMIN_SIGNIN_EMAIL_IP_LIMIT;
   delete process.env.RATE_LIMIT_ADMIN_SIGNIN_EMAIL_IP_WINDOW_SECONDS;

@@ -2,6 +2,10 @@ import {
   env,
   type RateLimitProvider,
 } from "@/lib/env";
+import {
+  getCacheBackend,
+  resetCacheBackendForTests,
+} from "@/lib/cache/backend";
 
 export type MutationRateLimitAction =
   | "create-club"
@@ -28,15 +32,6 @@ export type MutationRateLimitStore = {
     key: string;
     windowSeconds: number;
   }): Promise<number>;
-};
-
-type MemoryRateLimitEntry = {
-  count: number;
-  expiresAtMs: number;
-};
-
-type GlobalRateLimitState = typeof globalThis & {
-  __bbbMutationRateLimitMemoryStore?: Map<string, MemoryRateLimitEntry>;
 };
 
 const DEFAULT_MUTATION_RATE_LIMIT_POLICIES = {
@@ -90,7 +85,7 @@ export function isMutationRateLimitError(
 }
 
 export function resolveMutationRateLimitProvider(): RateLimitProvider {
-  return env.rateLimit.provider;
+  return env.cache.provider;
 }
 
 export function getMutationRateLimitPolicy(
@@ -163,7 +158,7 @@ export async function enforceMutationRateLimit(input: {
 }
 
 export function resetMemoryMutationRateLimitStore() {
-  getMemoryStore().clear();
+  resetCacheBackendForTests();
   cachedStorePromise = null;
 }
 
@@ -186,129 +181,31 @@ function formatRetryAfter(retryAfterSeconds: number) {
 }
 
 async function createMutationRateLimitStore(): Promise<MutationRateLimitStore> {
-  const provider = resolveMutationRateLimitProvider();
+  const backend = await getCacheBackend();
 
-  switch (provider) {
-    case "disabled":
-      return {
-        provider,
-        async incrementWindowCounter() {
-          return 0;
-        },
-      };
-    case "memory":
-      return createMemoryMutationRateLimitStore();
-    case "upstash":
-      return createUpstashMutationRateLimitStore();
-    case "redis":
-      return createNodeRedisMutationRateLimitStore();
-  }
-}
-
-function createMemoryMutationRateLimitStore(): MutationRateLimitStore {
   return {
-    provider: "memory",
+    provider: backend.provider,
     async incrementWindowCounter({ key, windowSeconds }) {
-      const store = getMemoryStore();
-      const nowMs = Date.now();
-      const existing = store.get(key);
-
-      if (!existing || existing.expiresAtMs <= nowMs) {
-        store.set(key, {
-          count: 1,
-          expiresAtMs: nowMs + windowSeconds * 1000,
-        });
-        return 1;
+      if (backend.provider === "disabled") {
+        return 0;
       }
 
-      existing.count += 1;
-      store.set(key, existing);
-      return existing.count;
-    },
-  };
-}
-
-async function createUpstashMutationRateLimitStore(): Promise<MutationRateLimitStore> {
-  const { upstashRestToken, upstashRestUrl } = env.rateLimit;
-  const { Redis } = await import("@upstash/redis");
-  const client = new Redis({
-    url: upstashRestUrl!,
-    token: upstashRestToken!,
-  });
-
-  return {
-    provider: "upstash",
-    async incrementWindowCounter({ key, windowSeconds }) {
-      const setResult = await client.set(key, "1", {
-        nx: true,
-        ex: windowSeconds,
+      const firstWrite = await backend.set(key, "1", {
+        onlyIfAbsent: true,
+        ttlSeconds: windowSeconds,
       });
 
-      if (setResult === "OK") {
+      if (firstWrite) {
         return 1;
       }
 
-      const count = await client.incr(key);
-      const ttl = await client.ttl(key);
-      if (typeof ttl !== "number" || ttl < 0) {
-        await client.expire(key, windowSeconds);
+      const count = await backend.incr(key);
+      const ttl = await backend.ttl(key);
+      if (ttl === null || ttl < 0) {
+        await backend.expire(key, windowSeconds);
       }
 
       return count;
     },
   };
-}
-
-async function createNodeRedisMutationRateLimitStore(): Promise<MutationRateLimitStore> {
-  const { redisUrl } = env.rateLimit;
-  const { createClient } = await import("redis");
-  const client = createClient({ url: redisUrl! });
-
-  client.on("error", (error) => {
-    console.error("[rate-limit] Redis client error", error);
-  });
-
-  await client.connect();
-
-  return {
-    provider: "redis",
-    async incrementWindowCounter({ key, windowSeconds }) {
-      const setResult = await client.set(key, "1", {
-        condition: "NX",
-        expiration: {
-          type: "EX",
-          value: windowSeconds,
-        },
-      });
-
-      if (setResult === "OK") {
-        return 1;
-      }
-
-      const count = await client.incr(key);
-      const ttl = await client.ttl(key);
-      if (ttl < 0) {
-        await client.expire(key, windowSeconds);
-      }
-
-      return count;
-    },
-  };
-}
-
-function getMemoryStore() {
-  const globalState = globalThis as GlobalRateLimitState;
-  if (!globalState.__bbbMutationRateLimitMemoryStore) {
-    globalState.__bbbMutationRateLimitMemoryStore = new Map();
-  }
-
-  const store = globalState.__bbbMutationRateLimitMemoryStore;
-  const nowMs = Date.now();
-  for (const [key, entry] of store.entries()) {
-    if (entry.expiresAtMs <= nowMs) {
-      store.delete(key);
-    }
-  }
-
-  return store;
 }

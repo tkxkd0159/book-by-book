@@ -4,7 +4,14 @@ import {
   isIncompletePublicUser,
   isInternalAdminUser,
 } from "@/lib/auth/identity";
-import type { AuthUser } from "@/types/db";
+import type { AppSessionIdentity, AuthUser } from "@/types/db";
+
+type SessionIdentityLike = {
+  isInternalAdmin?: boolean;
+  isSignupComplete?: boolean;
+  provider?: string;
+  sessionIdentity?: AppSessionIdentity;
+};
 
 export const AUTH_REQUEST_PATH_HEADER = "x-bbb-request-path";
 export const DEFAULT_PUBLIC_APP_PATH = "/books/search";
@@ -101,6 +108,33 @@ export function getAuthenticatedUserDestination(
   }
 
   if (isIncompletePublicUser(user)) {
+    return createSignupHref(safeCallbackUrl);
+  }
+
+  return safeCallbackUrl;
+}
+
+export function getAuthenticatedSessionDestination(
+  user: SessionIdentityLike,
+  callbackUrl = DEFAULT_PUBLIC_APP_PATH,
+) {
+  const safeCallbackUrl = normalizeSafeCallbackUrl(
+    callbackUrl,
+    DEFAULT_PUBLIC_APP_PATH,
+  );
+
+  if (user.isInternalAdmin === true || user.sessionIdentity === "INTERNAL_ADMIN") {
+    return DEFAULT_INTERNAL_ADMIN_PATH;
+  }
+
+  if (
+    user.sessionIdentity === "PUBLIC_INCOMPLETE" ||
+    (
+      user.sessionIdentity === undefined &&
+      typeof user.provider === "string" &&
+      user.isSignupComplete === false
+    )
+  ) {
     return createSignupHref(safeCallbackUrl);
   }
 

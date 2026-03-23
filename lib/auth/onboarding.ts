@@ -1,4 +1,5 @@
 import sql from "@/lib/db";
+import { syncCachedAuthUser } from "@/lib/auth/user-cache";
 import { AuthFlowError } from "@/lib/auth/errors";
 import { INTERNAL_AUTH_PROVIDER, resolveAppSessionIdentity } from "@/lib/auth/identity";
 import { logRepositoryOperation } from "@/lib/repository-logging";
@@ -91,7 +92,7 @@ export async function completeSignup(
       const invitationCodeHash = hashInvitationCode(input.invitationCode);
 
       try {
-        return await sql.begin(async (tx) => {
+        const completedUser = await sql.begin(async (tx) => {
           const query = tx as unknown as typeof sql;
 
           const [user] = await query<SignupUserRow[]>`
@@ -220,6 +221,9 @@ export async function completeSignup(
 
           return mapCompletedUser(updatedUser);
         });
+
+        await syncCachedAuthUser(completedUser.id, completedUser);
+        return completedUser;
       } catch (error) {
         if (
           typeof error === "object" &&

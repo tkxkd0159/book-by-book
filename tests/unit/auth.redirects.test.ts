@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   createSignInHref,
   createSignupHref,
+  getAuthenticatedSessionDestination,
   getAuthenticatedUserDestination,
   normalizeSafeCallbackUrl,
 } from "@/lib/auth/redirects";
@@ -46,6 +47,41 @@ describe("auth redirect helpers", () => {
         {
           provider: "internal",
           signupCompletedAt: null,
+        },
+        "/clubs",
+      ),
+    ).toBe("/admin/invitation-codes");
+  });
+
+  it("routes authenticated session identities without a DB-backed user", () => {
+    expect(
+      getAuthenticatedSessionDestination(
+        {
+          isInternalAdmin: false,
+          isSignupComplete: true,
+          provider: "google",
+          sessionIdentity: "PUBLIC",
+        },
+        "/clubs",
+      ),
+    ).toBe("/clubs");
+    expect(
+      getAuthenticatedSessionDestination(
+        {
+          isInternalAdmin: false,
+          isSignupComplete: false,
+          provider: "google",
+          sessionIdentity: "PUBLIC_INCOMPLETE",
+        },
+        "/clubs",
+      ),
+    ).toBe("/signup?callbackUrl=%2Fclubs");
+    expect(
+      getAuthenticatedSessionDestination(
+        {
+          isInternalAdmin: true,
+          isSignupComplete: false,
+          sessionIdentity: "INTERNAL_ADMIN",
         },
         "/clubs",
       ),
