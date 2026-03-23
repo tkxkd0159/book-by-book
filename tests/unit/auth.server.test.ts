@@ -1,5 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+import { APP_SESSION_IDENTITIES } from "@/lib/auth/identity";
+
 const getAuthSessionSafeMock = vi.fn();
 const getE2ECurrentUserMock = vi.fn();
 const createE2ESessionMock = vi.fn();
@@ -159,7 +161,7 @@ describe("auth server helpers", () => {
         id: "user-123",
         nickname: "reader",
         provider: "google",
-        sessionIdentity: "PUBLIC_INCOMPLETE",
+        sessionIdentity: APP_SESSION_IDENTITIES.PUBLIC_INCOMPLETE,
       },
     });
 
@@ -170,7 +172,7 @@ describe("auth server helpers", () => {
         id: "user-123",
         nickname: "reader",
         provider: "google",
-        sessionIdentity: "PUBLIC_INCOMPLETE",
+        sessionIdentity: APP_SESSION_IDENTITIES.PUBLIC_INCOMPLETE,
       },
     });
     expect(findUserByIdMock).not.toHaveBeenCalled();

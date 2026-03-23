@@ -1,5 +1,11 @@
 import type { AppSessionIdentity, AuthUser } from "@/types/db";
 
+export const APP_SESSION_IDENTITIES = {
+  INTERNAL_ADMIN: "INTERNAL_ADMIN",
+  PUBLIC: "PUBLIC",
+  PUBLIC_INCOMPLETE: "PUBLIC_INCOMPLETE",
+} as const satisfies Record<string, AppSessionIdentity>;
+
 export const GOOGLE_AUTH_PROVIDER = "google";
 export const INTERNAL_AUTH_PROVIDER = "internal";
 const DEFAULT_READER_DISPLAY_NAME = "Book by Book Member";
@@ -21,10 +27,24 @@ export function resolveAppSessionIdentity(
   identity: IdentityLike,
 ): AppSessionIdentity {
   if (isInternalAuthProvider(identity.provider)) {
-    return "INTERNAL_ADMIN";
+    return APP_SESSION_IDENTITIES.INTERNAL_ADMIN;
   }
 
-  return identity.signupCompletedAt ? "PUBLIC" : "PUBLIC_INCOMPLETE";
+  return identity.signupCompletedAt
+    ? APP_SESSION_IDENTITIES.PUBLIC
+    : APP_SESSION_IDENTITIES.PUBLIC_INCOMPLETE;
+}
+
+export function isInternalAdminSessionIdentity(
+  sessionIdentity: AppSessionIdentity | null | undefined,
+): boolean {
+  return sessionIdentity === APP_SESSION_IDENTITIES.INTERNAL_ADMIN;
+}
+
+export function isIncompletePublicSessionIdentity(
+  sessionIdentity: AppSessionIdentity | null | undefined,
+): boolean {
+  return sessionIdentity === APP_SESSION_IDENTITIES.PUBLIC_INCOMPLETE;
 }
 
 export function isInternalAdminUser(

@@ -1,5 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+import { APP_SESSION_IDENTITIES } from "@/lib/auth/identity";
+
 const findUserByIdMock = vi.fn();
 const findUserByProviderAccountMock = vi.fn();
 const upsertGoogleOAuthUserMock = vi.fn();
@@ -57,7 +59,7 @@ describe("authOptions jwt callback", () => {
       userId: dbUser.id,
       provider: "google",
       nickname: "reader",
-      sessionIdentity: "PUBLIC",
+      sessionIdentity: APP_SESSION_IDENTITIES.PUBLIC,
     });
   });
 
@@ -88,7 +90,7 @@ describe("authOptions jwt callback", () => {
     expect(token).toMatchObject({
       userId: dbUser.id,
       provider: "internal",
-      sessionIdentity: "INTERNAL_ADMIN",
+      sessionIdentity: APP_SESSION_IDENTITIES.INTERNAL_ADMIN,
     });
   });
 
@@ -109,7 +111,7 @@ describe("authOptions jwt callback", () => {
     expect(token).toMatchObject({
       userId: dbUser.id,
       provider: "google",
-      sessionIdentity: "PUBLIC",
+      sessionIdentity: APP_SESSION_IDENTITIES.PUBLIC,
     });
   });
 });

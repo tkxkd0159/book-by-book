@@ -13,6 +13,7 @@ import {
   getAuthenticatedSessionDestination,
   normalizeSafeCallbackUrl,
 } from "@/lib/auth/redirects";
+import { isInternalAdminSessionIdentity } from "@/lib/auth/identity";
 import { getAuthSession } from "@/lib/auth/server";
 
 function extractSearchParam(value: string | string[] | undefined) {
@@ -33,7 +34,7 @@ export default async function AdminSignInPage({ searchParams }: Props.Page) {
   const sessionUser = session?.user?.id ? session.user : null;
 
   if (sessionUser) {
-    if (sessionUser.sessionIdentity !== "INTERNAL_ADMIN") {
+    if (!isInternalAdminSessionIdentity(sessionUser.sessionIdentity)) {
       forbidden();
     }
 
@@ -46,7 +47,8 @@ export default async function AdminSignInPage({ searchParams }: Props.Page) {
         <CardHeader>
           <CardTitle className="text-3xl">Internal admin sign-in</CardTitle>
           <CardDescription>
-            Invitation-code management is restricted to manually provisioned internal admins.
+            Invitation-code management is restricted to manually provisioned
+            internal admins.
           </CardDescription>
         </CardHeader>
         <CardContent>

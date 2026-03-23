@@ -1,5 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+import { APP_SESSION_IDENTITIES } from "@/lib/auth/identity";
+
 const getAuthSessionMock = vi.fn();
 const forbiddenMock = vi.fn(() => {
   throw new Error("NEXT_FORBIDDEN");
@@ -27,7 +29,7 @@ describe("public auth pages", () => {
     getAuthSessionMock.mockResolvedValue({
       user: {
         id: "user-123",
-        sessionIdentity: "PUBLIC",
+        sessionIdentity: APP_SESSION_IDENTITIES.PUBLIC,
       },
     });
 
@@ -41,7 +43,7 @@ describe("public auth pages", () => {
     getAuthSessionMock.mockResolvedValue({
       user: {
         id: "user-123",
-        sessionIdentity: "PUBLIC_INCOMPLETE",
+        sessionIdentity: APP_SESSION_IDENTITIES.PUBLIC_INCOMPLETE,
       },
     });
 
@@ -61,7 +63,7 @@ describe("public auth pages", () => {
     getAuthSessionMock.mockResolvedValue({
       user: {
         id: "user-123",
-        sessionIdentity: "PUBLIC",
+        sessionIdentity: APP_SESSION_IDENTITIES.PUBLIC,
       },
     });
 

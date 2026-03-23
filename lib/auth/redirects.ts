@@ -2,7 +2,9 @@ import { headers } from "next/headers";
 import type { Session } from "next-auth";
 
 import {
+  isIncompletePublicSessionIdentity,
   isIncompletePublicUser,
+  isInternalAdminSessionIdentity,
   isInternalAdminUser,
 } from "@/lib/auth/identity";
 import type { AuthUser } from "@/types/db";
@@ -119,11 +121,11 @@ export function getAuthenticatedSessionDestination(
     DEFAULT_PUBLIC_APP_PATH,
   );
 
-  if (user.sessionIdentity === "INTERNAL_ADMIN") {
+  if (isInternalAdminSessionIdentity(user.sessionIdentity)) {
     return DEFAULT_INTERNAL_ADMIN_PATH;
   }
 
-  if (user.sessionIdentity === "PUBLIC_INCOMPLETE") {
+  if (isIncompletePublicSessionIdentity(user.sessionIdentity)) {
     return createSignupHref(safeCallbackUrl);
   }
 

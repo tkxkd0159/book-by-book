@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 
+import { APP_SESSION_IDENTITIES } from "@/lib/auth/identity";
 import {
   createSignInHref,
   createSignupHref,
@@ -57,7 +58,7 @@ describe("auth redirect helpers", () => {
     expect(
       getAuthenticatedSessionDestination(
         {
-          sessionIdentity: "PUBLIC",
+          sessionIdentity: APP_SESSION_IDENTITIES.PUBLIC,
         },
         "/clubs",
       ),
@@ -65,7 +66,7 @@ describe("auth redirect helpers", () => {
     expect(
       getAuthenticatedSessionDestination(
         {
-          sessionIdentity: "PUBLIC_INCOMPLETE",
+          sessionIdentity: APP_SESSION_IDENTITIES.PUBLIC_INCOMPLETE,
         },
         "/clubs",
       ),
@@ -73,7 +74,7 @@ describe("auth redirect helpers", () => {
     expect(
       getAuthenticatedSessionDestination(
         {
-          sessionIdentity: "INTERNAL_ADMIN",
+          sessionIdentity: APP_SESSION_IDENTITIES.INTERNAL_ADMIN,
         },
         "/clubs",
       ),
