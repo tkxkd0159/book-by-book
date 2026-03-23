@@ -1,13 +1,13 @@
 "use client";
 
-import Link from "next/link";
 import { useSearchParams, useSelectedLayoutSegment } from "next/navigation";
 
 import {
   createClubSectionHref,
   type ClubViewSection,
 } from "@/lib/clubs/view-paths";
-import { buttonStyles } from "@/components/ui/button";
+
+import { ClubTabLink } from "@/components/clubs/club-tab-link";
 
 type ClubOverviewTabsProps = {
   clubId: string;
@@ -34,42 +34,26 @@ export function ClubOverviewTabs({
 
   return (
     <div className="flex flex-wrap gap-2">
-      <Link
+      <ClubTabLink
         href={createClubSectionHref({
           clubId,
           section: "board",
         })}
-        aria-current={activeSection === "board" ? "page" : undefined}
-        className={buttonStyles({
-          variant: activeSection === "board" ? "default" : "secondary",
-          size: "sm",
-          className:
-            activeSection === "board"
-              ? "shadow-[0_8px_18px_rgba(15,97,82,0.18)]"
-              : "",
-        })}
+        isActive={activeSection === "board"}
       >
         Reading board
-      </Link>
+      </ClubTabLink>
       {showMembers ? (
-        <Link
+        <ClubTabLink
           href={createClubSectionHref({
             clubId,
             section: "members",
             role: activeRole,
           })}
-          aria-current={activeSection === "members" ? "page" : undefined}
-          className={buttonStyles({
-            variant: activeSection === "members" ? "default" : "secondary",
-            size: "sm",
-            className:
-              activeSection === "members"
-                ? "shadow-[0_8px_18px_rgba(15,97,82,0.18)]"
-                : "",
-          })}
+          isActive={activeSection === "members"}
         >
           Members
-        </Link>
+        </ClubTabLink>
       ) : null}
     </div>
   );
