@@ -1,6 +1,7 @@
 import { fetchGoogleVolume } from "@/lib/books/google";
 import type { NormalizedBook } from "@/lib/books/types";
 import sql from "@/lib/db";
+import { logRepositoryOperation } from "@/lib/repository-logging";
 import type { BookRecord } from "@/types/db";
 
 type BookRow = {
@@ -26,6 +27,8 @@ type BookRow = {
   updatedAt: Date;
 };
 
+const REPOSITORY_MODULE = "books.repository";
+
 function mapBookRow(row: BookRow): BookRecord {
   return {
     ...row,
@@ -37,155 +40,192 @@ function mapBookRow(row: BookRow): BookRecord {
 export async function findBookByGoogleVolumeId(
   googleVolumeId: string,
 ): Promise<BookRecord | null> {
-  const [book] = await sql<BookRow[]>`
-    select
-      id::text as id,
-      google_volume_id as "googleVolumeId",
-      title,
-      subtitle,
-      authors,
-      publisher,
-      published_date as "publishedDate",
-      description,
-      isbn10,
-      isbn13,
-      page_count as "pageCount",
-      categories,
-      language,
-      thumbnail_url as "thumbnailUrl",
-      preview_link as "previewLink",
-      info_link as "infoLink",
-      canonical_link as "canonicalLink",
-      raw_google_json as "rawGoogleJson",
-      created_at as "createdAt",
-      updated_at as "updatedAt"
-    from bookapp.books
-    where google_volume_id = ${googleVolumeId}
-    limit 1
-  `;
+  return logRepositoryOperation(
+    {
+      context: { googleVolumeId },
+      module: REPOSITORY_MODULE,
+      operation: "findBookByGoogleVolumeId",
+    },
+    async () => {
+      const [book] = await sql<BookRow[]>`
+        select
+          id::text as id,
+          google_volume_id as "googleVolumeId",
+          title,
+          subtitle,
+          authors,
+          publisher,
+          published_date as "publishedDate",
+          description,
+          isbn10,
+          isbn13,
+          page_count as "pageCount",
+          categories,
+          language,
+          thumbnail_url as "thumbnailUrl",
+          preview_link as "previewLink",
+          info_link as "infoLink",
+          canonical_link as "canonicalLink",
+          raw_google_json as "rawGoogleJson",
+          created_at as "createdAt",
+          updated_at as "updatedAt"
+        from bookapp.books
+        where google_volume_id = ${googleVolumeId}
+        limit 1
+      `;
 
-  return book ? mapBookRow(book) : null;
+      return book ? mapBookRow(book) : null;
+    },
+  );
 }
 
 export async function upsertBook(book: NormalizedBook): Promise<BookRecord> {
-  const [savedBook] = await sql<BookRow[]>`
-    insert into bookapp.books (
-      google_volume_id,
-      title,
-      subtitle,
-      authors,
-      publisher,
-      published_date,
-      description,
-      isbn10,
-      isbn13,
-      page_count,
-      categories,
-      language,
-      thumbnail_url,
-      preview_link,
-      info_link,
-      canonical_link,
-      raw_google_json
-    )
-    values (
-      ${book.googleVolumeId},
-      ${book.title},
-      ${book.subtitle},
-      ${book.authors},
-      ${book.publisher},
-      ${book.publishedDate},
-      ${book.description},
-      ${book.isbn10},
-      ${book.isbn13},
-      ${book.pageCount},
-      ${book.categories},
-      ${book.language},
-      ${book.thumbnailUrl},
-      ${book.previewLink},
-      ${book.infoLink},
-      ${book.canonicalLink},
-      ${JSON.stringify(book.rawGoogleJson)}::jsonb
-    )
-    on conflict (google_volume_id)
-    do update set
-      title = excluded.title,
-      subtitle = excluded.subtitle,
-      authors = excluded.authors,
-      publisher = excluded.publisher,
-      published_date = excluded.published_date,
-      description = excluded.description,
-      isbn10 = excluded.isbn10,
-      isbn13 = excluded.isbn13,
-      page_count = excluded.page_count,
-      categories = excluded.categories,
-      language = excluded.language,
-      thumbnail_url = excluded.thumbnail_url,
-      preview_link = excluded.preview_link,
-      info_link = excluded.info_link,
-      canonical_link = excluded.canonical_link,
-      raw_google_json = excluded.raw_google_json,
-      updated_at = now()
-    returning
-      id::text as id,
-      google_volume_id as "googleVolumeId",
-      title,
-      subtitle,
-      authors,
-      publisher,
-      published_date as "publishedDate",
-      description,
-      isbn10,
-      isbn13,
-      page_count as "pageCount",
-      categories,
-      language,
-      thumbnail_url as "thumbnailUrl",
-      preview_link as "previewLink",
-      info_link as "infoLink",
-      canonical_link as "canonicalLink",
-      raw_google_json as "rawGoogleJson",
-      created_at as "createdAt",
-      updated_at as "updatedAt"
-  `;
+  return logRepositoryOperation(
+    {
+      context: {
+        authorCount: book.authors.length,
+        categoryCount: book.categories.length,
+        googleVolumeId: book.googleVolumeId,
+        hasIsbn10: Boolean(book.isbn10),
+        hasIsbn13: Boolean(book.isbn13),
+        hasPublishedDate: Boolean(book.publishedDate),
+      },
+      module: REPOSITORY_MODULE,
+      operation: "upsertBook",
+    },
+    async () => {
+      const [savedBook] = await sql<BookRow[]>`
+        insert into bookapp.books (
+          google_volume_id,
+          title,
+          subtitle,
+          authors,
+          publisher,
+          published_date,
+          description,
+          isbn10,
+          isbn13,
+          page_count,
+          categories,
+          language,
+          thumbnail_url,
+          preview_link,
+          info_link,
+          canonical_link,
+          raw_google_json
+        )
+        values (
+          ${book.googleVolumeId},
+          ${book.title},
+          ${book.subtitle},
+          ${book.authors},
+          ${book.publisher},
+          ${book.publishedDate},
+          ${book.description},
+          ${book.isbn10},
+          ${book.isbn13},
+          ${book.pageCount},
+          ${book.categories},
+          ${book.language},
+          ${book.thumbnailUrl},
+          ${book.previewLink},
+          ${book.infoLink},
+          ${book.canonicalLink},
+          ${JSON.stringify(book.rawGoogleJson)}::jsonb
+        )
+        on conflict (google_volume_id)
+        do update set
+          title = excluded.title,
+          subtitle = excluded.subtitle,
+          authors = excluded.authors,
+          publisher = excluded.publisher,
+          published_date = excluded.published_date,
+          description = excluded.description,
+          isbn10 = excluded.isbn10,
+          isbn13 = excluded.isbn13,
+          page_count = excluded.page_count,
+          categories = excluded.categories,
+          language = excluded.language,
+          thumbnail_url = excluded.thumbnail_url,
+          preview_link = excluded.preview_link,
+          info_link = excluded.info_link,
+          canonical_link = excluded.canonical_link,
+          raw_google_json = excluded.raw_google_json,
+          updated_at = now()
+        returning
+          id::text as id,
+          google_volume_id as "googleVolumeId",
+          title,
+          subtitle,
+          authors,
+          publisher,
+          published_date as "publishedDate",
+          description,
+          isbn10,
+          isbn13,
+          page_count as "pageCount",
+          categories,
+          language,
+          thumbnail_url as "thumbnailUrl",
+          preview_link as "previewLink",
+          info_link as "infoLink",
+          canonical_link as "canonicalLink",
+          raw_google_json as "rawGoogleJson",
+          created_at as "createdAt",
+          updated_at as "updatedAt"
+      `;
 
-  return mapBookRow(savedBook);
+      return mapBookRow(savedBook);
+    },
+  );
 }
 
 export async function findBooksByGoogleVolumeIds(
   googleVolumeIds: string[],
 ): Promise<BookRecord[]> {
-  if (googleVolumeIds.length === 0) {
-    return [];
-  }
+  return logRepositoryOperation(
+    {
+      context: {
+        googleVolumeIdCount: googleVolumeIds.length,
+        googleVolumeIds,
+      },
+      module: REPOSITORY_MODULE,
+      operation: "findBooksByGoogleVolumeIds",
+    },
+    async () => {
+      if (googleVolumeIds.length === 0) {
+        return [];
+      }
 
-  const rows = await sql<BookRow[]>`
-    select
-      id::text as id,
-      google_volume_id as "googleVolumeId",
-      title,
-      subtitle,
-      authors,
-      publisher,
-      published_date as "publishedDate",
-      description,
-      isbn10,
-      isbn13,
-      page_count as "pageCount",
-      categories,
-      language,
-      thumbnail_url as "thumbnailUrl",
-      preview_link as "previewLink",
-      info_link as "infoLink",
-      canonical_link as "canonicalLink",
-      raw_google_json as "rawGoogleJson",
-      created_at as "createdAt",
-      updated_at as "updatedAt"
-    from bookapp.books
-    where google_volume_id in ${sql(googleVolumeIds)}
-  `;
+      const rows = await sql<BookRow[]>`
+        select
+          id::text as id,
+          google_volume_id as "googleVolumeId",
+          title,
+          subtitle,
+          authors,
+          publisher,
+          published_date as "publishedDate",
+          description,
+          isbn10,
+          isbn13,
+          page_count as "pageCount",
+          categories,
+          language,
+          thumbnail_url as "thumbnailUrl",
+          preview_link as "previewLink",
+          info_link as "infoLink",
+          canonical_link as "canonicalLink",
+          raw_google_json as "rawGoogleJson",
+          created_at as "createdAt",
+          updated_at as "updatedAt"
+        from bookapp.books
+        where google_volume_id in ${sql(googleVolumeIds)}
+      `;
 
-  return rows.map(mapBookRow);
+      return rows.map(mapBookRow);
+    },
+  );
 }
 
 export async function ensureBookInDatabase(
@@ -194,22 +234,34 @@ export async function ensureBookInDatabase(
     prefetchedBook?: NormalizedBook | null;
   },
 ): Promise<BookRecord | null> {
-  const existingBook = await findBookByGoogleVolumeId(googleVolumeId);
-  if (existingBook) {
-    return existingBook;
-  }
+  return logRepositoryOperation(
+    {
+      context: {
+        googleVolumeId,
+        hasPrefetchedBook: Boolean(options?.prefetchedBook),
+      },
+      module: REPOSITORY_MODULE,
+      operation: "ensureBookInDatabase",
+    },
+    async () => {
+      const existingBook = await findBookByGoogleVolumeId(googleVolumeId);
+      if (existingBook) {
+        return existingBook;
+      }
 
-  if (
-    options?.prefetchedBook &&
-    options.prefetchedBook.googleVolumeId === googleVolumeId
-  ) {
-    return upsertBook(options.prefetchedBook);
-  }
+      if (
+        options?.prefetchedBook &&
+        options.prefetchedBook.googleVolumeId === googleVolumeId
+      ) {
+        return upsertBook(options.prefetchedBook);
+      }
 
-  const googleBook = await fetchGoogleVolume(googleVolumeId);
-  if (!googleBook) {
-    return null;
-  }
+      const googleBook = await fetchGoogleVolume(googleVolumeId);
+      if (!googleBook) {
+        return null;
+      }
 
-  return upsertBook(googleBook);
+      return upsertBook(googleBook);
+    },
+  );
 }

@@ -1,4 +1,12 @@
 export type RateLimitProvider = "upstash" | "redis" | "memory" | "disabled";
+export type LogLevel =
+  | "trace"
+  | "debug"
+  | "info"
+  | "warn"
+  | "error"
+  | "fatal"
+  | "silent";
 
 type RawEnv = NodeJS.ProcessEnv;
 
@@ -45,8 +53,13 @@ type AuthEnv = {
   secret: string;
 };
 
+type LoggingEnv = {
+  level: LogLevel;
+};
+
 const DEFAULT_GOOGLE_BOOKS_API_BASE_URL =
   "https://www.googleapis.com/books/v1/volumes";
+const DEFAULT_LOG_LEVEL: LogLevel = "info";
 const AUTH_SECRET_REQUIRED_MESSAGE =
   "AUTH_SECRET or NEXTAUTH_SECRET is required for authentication.";
 
@@ -124,6 +137,12 @@ export class AppEnv {
     return {
       nextAuthUrl: this.#readOptionalString("NEXTAUTH_URL"),
       secret: this.#readRequiredAuthSecret(),
+    };
+  }
+
+  get logging(): LoggingEnv {
+    return {
+      level: this.#readLogLevel(),
     };
   }
 
@@ -209,6 +228,7 @@ export class AppEnv {
     this.#collectOptionalAbsoluteUrl("GOOGLE_BOOKS_API_BASE_URL", issues);
 
     this.#collectRequiredAuthSecret(issues);
+    this.#collectLogLevel(issues);
 
     if (runtime.requiresNextAuthUrl) {
       this.#collectRequiredString(
@@ -272,6 +292,18 @@ export class AppEnv {
     this.validateForBuildOrThrow();
   }
 
+  #collectLogLevel(issues: string[]) {
+    try {
+      this.#readLogLevel();
+    } catch (error) {
+      issues.push(
+        error instanceof Error
+          ? error.message
+          : "LOG_LEVEL must be one of: trace, debug, info, warn, error, fatal, silent.",
+      );
+    }
+  }
+
   #collectRateLimitProvider(issues: string[]): RateLimitProvider {
     try {
       return this.#readRateLimitProvider();
@@ -302,6 +334,29 @@ export class AppEnv {
 
     throw new Error(
       "RATE_LIMIT_PROVIDER must be one of: upstash, redis, memory, disabled.",
+    );
+  }
+
+  #readLogLevel(): LogLevel {
+    const value = this.#readOptionalString("LOG_LEVEL");
+    if (!value) {
+      return DEFAULT_LOG_LEVEL;
+    }
+
+    if (
+      value === "trace" ||
+      value === "debug" ||
+      value === "info" ||
+      value === "warn" ||
+      value === "error" ||
+      value === "fatal" ||
+      value === "silent"
+    ) {
+      return value;
+    }
+
+    throw new Error(
+      "LOG_LEVEL must be one of: trace, debug, info, warn, error, fatal, silent.",
     );
   }
 

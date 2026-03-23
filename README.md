@@ -24,6 +24,7 @@ Optional:
 ```bash
 NEXTAUTH_URL=http://localhost:3000
 NEXTAUTH_SECRET=...
+LOG_LEVEL=<trace|debug|info|warn|error|fatal|silent>
 RATE_LIMIT_PROVIDER=<disabled|memory|redis|upstash>
 RATE_LIMIT_REDIS_URL=redis://...
 UPSTASH_REDIS_REST_URL=...
@@ -98,6 +99,8 @@ pnpm dev
 ```
 
 `next dev`, `next build`, and `next start` now validate the required application environment before the app fully boots. Missing or invalid values fail fast with one aggregated error message.
+
+`LOG_LEVEL` controls server log verbosity for the shared Pino logger. It defaults to `info`. Set `LOG_LEVEL=debug` to emit repository debug logs, or `LOG_LEVEL=silent` to suppress them.
 
 When you run `npm start` or `pnpm start`, a `prestart` hook now verifies that local PostgreSQL is reachable at `localhost:54329` when `DATABASE_URL` targets the local dev database. If it is not running, start it with:
 

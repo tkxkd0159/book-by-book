@@ -3,6 +3,7 @@ const COMMON_TEST_ENV = {
   GOOGLE_BOOKS_API_KEY: "book-by-book-test-google-books-key",
   GOOGLE_CLIENT_ID: "book-by-book-test-google-client-id",
   GOOGLE_CLIENT_SECRET: "book-by-book-test-google-client-secret",
+  LOG_LEVEL: "silent",
   NODE_ENV: "test",
 } as const;
 
@@ -23,6 +24,7 @@ const APP_ENV_NAMES = [
   "E2E_BYPASS_AUTH",
   "VERCEL_ENV",
   "GOOGLE_BOOKS_API_BASE_URL",
+  "LOG_LEVEL",
   "RATE_LIMIT_PROVIDER",
   "RATE_LIMIT_REDIS_URL",
   "UPSTASH_REDIS_REST_URL",

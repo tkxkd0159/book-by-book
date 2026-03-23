@@ -1,4 +1,5 @@
 import sql from "@/lib/db";
+import { logRepositoryOperation } from "@/lib/repository-logging";
 import type { AuthUser, BookRecord, ShelfItemRecord, ShelfRecord } from "@/types/db";
 
 import { SHELF_ERROR_MESSAGES, ShelfError } from "@/lib/shelves/errors";
@@ -89,6 +90,8 @@ export type ManageableShelfBookTarget = {
   isPublic: boolean;
   alreadyAdded: boolean;
 };
+
+const REPOSITORY_MODULE = "shelves.repository";
 
 function asQueryExecutor(tx: unknown) {
   return tx as QueryExecutor;
@@ -258,99 +261,145 @@ async function buildShelfDetail(
 }
 
 export async function listUserShelves(userId: string): Promise<ShelfSummary[]> {
-  const rows = await sql<ShelfSummaryRow[]>`
-    select
-      shelves.id::text as id,
-      shelves.user_id::text as "userId",
-      shelves.name,
-      shelves.description,
-      shelves.is_public as "isPublic",
-      shelves.created_at as "createdAt",
-      shelves.updated_at as "updatedAt",
-      count(shelf_items.id)::int as "itemCount"
-    from bookapp.shelves
-    left join bookapp.shelf_items on shelf_items.shelf_id = shelves.id
-    where shelves.user_id = ${userId}::uuid
-    group by shelves.id
-    order by shelves.created_at desc
-  `;
+  return logRepositoryOperation(
+    {
+      context: { userId },
+      module: REPOSITORY_MODULE,
+      operation: "listUserShelves",
+    },
+    async () => {
+      const rows = await sql<ShelfSummaryRow[]>`
+        select
+          shelves.id::text as id,
+          shelves.user_id::text as "userId",
+          shelves.name,
+          shelves.description,
+          shelves.is_public as "isPublic",
+          shelves.created_at as "createdAt",
+          shelves.updated_at as "updatedAt",
+          count(shelf_items.id)::int as "itemCount"
+        from bookapp.shelves
+        left join bookapp.shelf_items on shelf_items.shelf_id = shelves.id
+        where shelves.user_id = ${userId}::uuid
+        group by shelves.id
+        order by shelves.created_at desc
+      `;
 
-  return rows.map(mapShelfSummary);
+      return rows.map(mapShelfSummary);
+    },
+  );
 }
 
 export async function listManageableShelfBookTargetsByGoogleVolumeIds(
   userId: string,
   googleVolumeIds: string[],
 ) {
-  const normalizedVolumeIds = Array.from(
-    new Set(
-      googleVolumeIds
-        .map((googleVolumeId) => googleVolumeId.trim())
-        .filter((googleVolumeId) => googleVolumeId.length > 0),
-    ),
+  return logRepositoryOperation(
+    {
+      context: {
+        googleVolumeIdCount: googleVolumeIds.length,
+        googleVolumeIds,
+        userId,
+      },
+      module: REPOSITORY_MODULE,
+      operation: "listManageableShelfBookTargetsByGoogleVolumeIds",
+    },
+    async () => {
+      const normalizedVolumeIds = Array.from(
+        new Set(
+          googleVolumeIds
+            .map((googleVolumeId) => googleVolumeId.trim())
+            .filter((googleVolumeId) => googleVolumeId.length > 0),
+        ),
+      );
+
+      if (normalizedVolumeIds.length === 0) {
+        return {} satisfies Record<string, ManageableShelfBookTarget[]>;
+      }
+
+      const shelves = await listUserShelves(userId);
+      if (shelves.length === 0) {
+        return Object.fromEntries(
+          normalizedVolumeIds.map((googleVolumeId) => [googleVolumeId, []]),
+        ) satisfies Record<string, ManageableShelfBookTarget[]>;
+      }
+
+      const shelfIds = shelves.map((shelf) => shelf.id);
+      const rows = await sql<ManageableShelfBookTargetRow[]>`
+        select
+          books.google_volume_id as "googleVolumeId",
+          shelf_items.shelf_id::text as "shelfId"
+        from bookapp.shelf_items
+        inner join bookapp.books on books.id = shelf_items.book_id
+        where books.google_volume_id in ${sql(normalizedVolumeIds)}
+          and shelf_items.shelf_id in ${sql(shelfIds)}
+      `;
+
+      const activeTargets = new Set(
+        rows.map((row) => `${row.googleVolumeId}:${row.shelfId}`),
+      );
+
+      return Object.fromEntries(
+        normalizedVolumeIds.map((googleVolumeId) => [
+          googleVolumeId,
+          shelves.map((shelf) => ({
+            shelfId: shelf.id,
+            shelfName: shelf.name,
+            isPublic: shelf.isPublic,
+            alreadyAdded: activeTargets.has(`${googleVolumeId}:${shelf.id}`),
+          })),
+        ]),
+      ) satisfies Record<string, ManageableShelfBookTarget[]>;
+    },
   );
-
-  if (normalizedVolumeIds.length === 0) {
-    return {} satisfies Record<string, ManageableShelfBookTarget[]>;
-  }
-
-  const shelves = await listUserShelves(userId);
-  if (shelves.length === 0) {
-    return Object.fromEntries(
-      normalizedVolumeIds.map((googleVolumeId) => [googleVolumeId, []]),
-    ) satisfies Record<string, ManageableShelfBookTarget[]>;
-  }
-
-  const shelfIds = shelves.map((shelf) => shelf.id);
-  const rows = await sql<ManageableShelfBookTargetRow[]>`
-    select
-      books.google_volume_id as "googleVolumeId",
-      shelf_items.shelf_id::text as "shelfId"
-    from bookapp.shelf_items
-    inner join bookapp.books on books.id = shelf_items.book_id
-    where books.google_volume_id in ${sql(normalizedVolumeIds)}
-      and shelf_items.shelf_id in ${sql(shelfIds)}
-  `;
-
-  const activeTargets = new Set(
-    rows.map((row) => `${row.googleVolumeId}:${row.shelfId}`),
-  );
-
-  return Object.fromEntries(
-    normalizedVolumeIds.map((googleVolumeId) => [
-      googleVolumeId,
-      shelves.map((shelf) => ({
-        shelfId: shelf.id,
-        shelfName: shelf.name,
-        isPublic: shelf.isPublic,
-        alreadyAdded: activeTargets.has(`${googleVolumeId}:${shelf.id}`),
-      })),
-    ]),
-  ) satisfies Record<string, ManageableShelfBookTarget[]>;
 }
 
 export async function listManageableShelfBookTargetsForGoogleVolumeId(
   userId: string,
   googleVolumeId: string,
 ) {
-  const targetsByVolumeId = await listManageableShelfBookTargetsByGoogleVolumeIds(
-    userId,
-    [googleVolumeId],
-  );
+  return logRepositoryOperation(
+    {
+      context: {
+        googleVolumeId,
+        userId,
+      },
+      module: REPOSITORY_MODULE,
+      operation: "listManageableShelfBookTargetsForGoogleVolumeId",
+    },
+    async () => {
+      const targetsByVolumeId =
+        await listManageableShelfBookTargetsByGoogleVolumeIds(userId, [
+          googleVolumeId,
+        ]);
 
-  return targetsByVolumeId[googleVolumeId.trim()] ?? [];
+      return targetsByVolumeId[googleVolumeId.trim()] ?? [];
+    },
+  );
 }
 
 export async function findOwnedShelfDetail(
   shelfId: string,
   ownerUserId: string,
 ): Promise<ShelfDetail | null> {
-  const row = await findShelfDetailRow(sql, shelfId, ownerUserId);
-  if (!row) {
-    return null;
-  }
+  return logRepositoryOperation(
+    {
+      context: {
+        ownerUserId,
+        shelfId,
+      },
+      module: REPOSITORY_MODULE,
+      operation: "findOwnedShelfDetail",
+    },
+    async () => {
+      const row = await findShelfDetailRow(sql, shelfId, ownerUserId);
+      if (!row) {
+        return null;
+      }
 
-  return buildShelfDetail(sql, row);
+      return buildShelfDetail(sql, row);
+    },
+  );
 }
 
 export async function findPublicShelfDetail(input: {
@@ -358,22 +407,35 @@ export async function findPublicShelfDetail(input: {
   ownerUserId: string;
   viewerUserId: string;
 }): Promise<ShelfDetail> {
-  const row = await findShelfDetailRow(sql, input.shelfId, input.ownerUserId);
-  if (!row) {
-    throw new ShelfError("NOT_FOUND", SHELF_ERROR_MESSAGES.shelfNotFound);
-  }
+  return logRepositoryOperation(
+    {
+      context: {
+        ownerUserId: input.ownerUserId,
+        shelfId: input.shelfId,
+        viewerUserId: input.viewerUserId,
+      },
+      module: REPOSITORY_MODULE,
+      operation: "findPublicShelfDetail",
+    },
+    async () => {
+      const row = await findShelfDetailRow(sql, input.shelfId, input.ownerUserId);
+      if (!row) {
+        throw new ShelfError("NOT_FOUND", SHELF_ERROR_MESSAGES.shelfNotFound);
+      }
 
-  if (
-    !canViewShelf({
-      ownerUserId: row.userId,
-      currentUserId: input.viewerUserId,
-      isPublic: row.isPublic,
-    })
-  ) {
-    throw new ShelfError("FORBIDDEN", SHELF_ERROR_MESSAGES.privateShelf);
-  }
+      if (
+        !canViewShelf({
+          ownerUserId: row.userId,
+          currentUserId: input.viewerUserId,
+          isPublic: row.isPublic,
+        })
+      ) {
+        throw new ShelfError("FORBIDDEN", SHELF_ERROR_MESSAGES.privateShelf);
+      }
 
-  return buildShelfDetail(sql, row);
+      return buildShelfDetail(sql, row);
+    },
+  );
 }
 
 export async function createShelf(input: {
@@ -382,30 +444,43 @@ export async function createShelf(input: {
   description: string | null;
   isPublic: boolean;
 }): Promise<ShelfRecord> {
-  const [shelf] = await sql<ShelfRow[]>`
-    insert into bookapp.shelves (
-      user_id,
-      name,
-      description,
-      is_public
-    )
-    values (
-      ${input.userId}::uuid,
-      ${input.name},
-      ${input.description},
-      ${input.isPublic}
-    )
-    returning
-      id::text as id,
-      user_id::text as "userId",
-      name,
-      description,
-      is_public as "isPublic",
-      created_at as "createdAt",
-      updated_at as "updatedAt"
-  `;
+  return logRepositoryOperation(
+    {
+      context: {
+        hasDescription: Boolean(input.description),
+        isPublic: input.isPublic,
+        userId: input.userId,
+      },
+      module: REPOSITORY_MODULE,
+      operation: "createShelf",
+    },
+    async () => {
+      const [shelf] = await sql<ShelfRow[]>`
+        insert into bookapp.shelves (
+          user_id,
+          name,
+          description,
+          is_public
+        )
+        values (
+          ${input.userId}::uuid,
+          ${input.name},
+          ${input.description},
+          ${input.isPublic}
+        )
+        returning
+          id::text as id,
+          user_id::text as "userId",
+          name,
+          description,
+          is_public as "isPublic",
+          created_at as "createdAt",
+          updated_at as "updatedAt"
+      `;
 
-  return mapShelf(shelf);
+      return mapShelf(shelf);
+    },
+  );
 }
 
 export async function updateShelf(input: {
@@ -415,38 +490,64 @@ export async function updateShelf(input: {
   description: string | null;
   isPublic: boolean;
 }): Promise<ShelfRecord> {
-  await requireOwnedShelf(sql, input.shelfId, input.userId);
+  return logRepositoryOperation(
+    {
+      context: {
+        hasDescription: Boolean(input.description),
+        isPublic: input.isPublic,
+        shelfId: input.shelfId,
+        userId: input.userId,
+      },
+      module: REPOSITORY_MODULE,
+      operation: "updateShelf",
+    },
+    async () => {
+      await requireOwnedShelf(sql, input.shelfId, input.userId);
 
-  const [shelf] = await sql<ShelfRow[]>`
-    update bookapp.shelves
-    set
-      name = ${input.name},
-      description = ${input.description},
-      is_public = ${input.isPublic}
-    where id = ${input.shelfId}::uuid
-    returning
-      id::text as id,
-      user_id::text as "userId",
-      name,
-      description,
-      is_public as "isPublic",
-      created_at as "createdAt",
-      updated_at as "updatedAt"
-  `;
+      const [shelf] = await sql<ShelfRow[]>`
+        update bookapp.shelves
+        set
+          name = ${input.name},
+          description = ${input.description},
+          is_public = ${input.isPublic}
+        where id = ${input.shelfId}::uuid
+        returning
+          id::text as id,
+          user_id::text as "userId",
+          name,
+          description,
+          is_public as "isPublic",
+          created_at as "createdAt",
+          updated_at as "updatedAt"
+      `;
 
-  return mapShelf(shelf);
+      return mapShelf(shelf);
+    },
+  );
 }
 
 export async function deleteShelf(input: {
   shelfId: string;
   userId: string;
 }): Promise<void> {
-  await requireOwnedShelf(sql, input.shelfId, input.userId);
+  return logRepositoryOperation(
+    {
+      context: {
+        shelfId: input.shelfId,
+        userId: input.userId,
+      },
+      module: REPOSITORY_MODULE,
+      operation: "deleteShelf",
+    },
+    async () => {
+      await requireOwnedShelf(sql, input.shelfId, input.userId);
 
-  await sql`
-    delete from bookapp.shelves
-    where id = ${input.shelfId}::uuid
-  `;
+      await sql`
+        delete from bookapp.shelves
+        where id = ${input.shelfId}::uuid
+      `;
+    },
+  );
 }
 
 export async function addBookToShelf(input: {
@@ -456,58 +557,73 @@ export async function addBookToShelf(input: {
   note?: string | null;
   sortOrder?: number | null;
 }): Promise<ShelfItemRecord> {
-  return sql.begin(async (tx) => {
-    const query = asQueryExecutor(tx);
-    await requireOwnedShelf(query, input.shelfId, input.addedById);
+  return logRepositoryOperation(
+    {
+      context: {
+        addedById: input.addedById,
+        bookId: input.bookId,
+        hasNote: Boolean(input.note),
+        hasSortOrder: input.sortOrder !== null && input.sortOrder !== undefined,
+        shelfId: input.shelfId,
+      },
+      module: REPOSITORY_MODULE,
+      operation: "addBookToShelf",
+      transactional: true,
+    },
+    () =>
+      sql.begin(async (tx) => {
+        const query = asQueryExecutor(tx);
+        await requireOwnedShelf(query, input.shelfId, input.addedById);
 
-    const [existing] = await query<ShelfItemRow[]>`
-      select
-        id::text as id,
-        shelf_id::text as "shelfId",
-        book_id::text as "bookId",
-        note,
-        sort_order as "sortOrder",
-        added_at as "addedAt"
-      from bookapp.shelf_items
-      where shelf_id = ${input.shelfId}::uuid
-        and book_id = ${input.bookId}::uuid
-      limit 1
-    `;
+        const [existing] = await query<ShelfItemRow[]>`
+          select
+            id::text as id,
+            shelf_id::text as "shelfId",
+            book_id::text as "bookId",
+            note,
+            sort_order as "sortOrder",
+            added_at as "addedAt"
+          from bookapp.shelf_items
+          where shelf_id = ${input.shelfId}::uuid
+            and book_id = ${input.bookId}::uuid
+          limit 1
+        `;
 
-    if (existing) {
-      return mapShelfItem(existing);
-    }
+        if (existing) {
+          return mapShelfItem(existing);
+        }
 
-    const [{ nextSortOrder }] = await query<{ nextSortOrder: number }[]>`
-      select coalesce(max(sort_order), -1) + 1 as "nextSortOrder"
-      from bookapp.shelf_items
-      where shelf_id = ${input.shelfId}::uuid
-    `;
+        const [{ nextSortOrder }] = await query<{ nextSortOrder: number }[]>`
+          select coalesce(max(sort_order), -1) + 1 as "nextSortOrder"
+          from bookapp.shelf_items
+          where shelf_id = ${input.shelfId}::uuid
+        `;
 
-    const [item] = await query<ShelfItemRow[]>`
-      insert into bookapp.shelf_items (
-        shelf_id,
-        book_id,
-        note,
-        sort_order
-      )
-      values (
-        ${input.shelfId}::uuid,
-        ${input.bookId}::uuid,
-        ${input.note ?? null},
-        ${input.sortOrder ?? nextSortOrder}
-      )
-      returning
-        id::text as id,
-        shelf_id::text as "shelfId",
-        book_id::text as "bookId",
-        note,
-        sort_order as "sortOrder",
-        added_at as "addedAt"
-    `;
+        const [item] = await query<ShelfItemRow[]>`
+          insert into bookapp.shelf_items (
+            shelf_id,
+            book_id,
+            note,
+            sort_order
+          )
+          values (
+            ${input.shelfId}::uuid,
+            ${input.bookId}::uuid,
+            ${input.note ?? null},
+            ${input.sortOrder ?? nextSortOrder}
+          )
+          returning
+            id::text as id,
+            shelf_id::text as "shelfId",
+            book_id::text as "bookId",
+            note,
+            sort_order as "sortOrder",
+            added_at as "addedAt"
+        `;
 
-    return mapShelfItem(item);
-  });
+        return mapShelfItem(item);
+      }),
+  );
 }
 
 export async function updateShelfItemNote(input: {
@@ -516,27 +632,41 @@ export async function updateShelfItemNote(input: {
   userId: string;
   note: string | null;
 }): Promise<ShelfItemRecord> {
-  await requireOwnedShelf(sql, input.shelfId, input.userId);
+  return logRepositoryOperation(
+    {
+      context: {
+        bookId: input.bookId,
+        hasNote: Boolean(input.note),
+        shelfId: input.shelfId,
+        userId: input.userId,
+      },
+      module: REPOSITORY_MODULE,
+      operation: "updateShelfItemNote",
+    },
+    async () => {
+      await requireOwnedShelf(sql, input.shelfId, input.userId);
 
-  const [item] = await sql<ShelfItemRow[]>`
-    update bookapp.shelf_items
-    set note = ${input.note}
-    where shelf_id = ${input.shelfId}::uuid
-      and book_id = ${input.bookId}::uuid
-    returning
-      id::text as id,
-      shelf_id::text as "shelfId",
-      book_id::text as "bookId",
-      note,
-      sort_order as "sortOrder",
-      added_at as "addedAt"
-  `;
+      const [item] = await sql<ShelfItemRow[]>`
+        update bookapp.shelf_items
+        set note = ${input.note}
+        where shelf_id = ${input.shelfId}::uuid
+          and book_id = ${input.bookId}::uuid
+        returning
+          id::text as id,
+          shelf_id::text as "shelfId",
+          book_id::text as "bookId",
+          note,
+          sort_order as "sortOrder",
+          added_at as "addedAt"
+      `;
 
-  if (!item) {
-    throw new ShelfError("NOT_FOUND", SHELF_ERROR_MESSAGES.shelfItemNotFound);
-  }
+      if (!item) {
+        throw new ShelfError("NOT_FOUND", SHELF_ERROR_MESSAGES.shelfItemNotFound);
+      }
 
-  return mapShelfItem(item);
+      return mapShelfItem(item);
+    },
+  );
 }
 
 export async function removeShelfItem(input: {
@@ -544,22 +674,35 @@ export async function removeShelfItem(input: {
   bookId: string;
   userId: string;
 }): Promise<void> {
-  await requireOwnedShelf(sql, input.shelfId, input.userId);
+  return logRepositoryOperation(
+    {
+      context: {
+        bookId: input.bookId,
+        shelfId: input.shelfId,
+        userId: input.userId,
+      },
+      module: REPOSITORY_MODULE,
+      operation: "removeShelfItem",
+    },
+    async () => {
+      await requireOwnedShelf(sql, input.shelfId, input.userId);
 
-  const [item] = await sql<ShelfItemRow[]>`
-    delete from bookapp.shelf_items
-    where shelf_id = ${input.shelfId}::uuid
-      and book_id = ${input.bookId}::uuid
-    returning
-      id::text as id,
-      shelf_id::text as "shelfId",
-      book_id::text as "bookId",
-      note,
-      sort_order as "sortOrder",
-      added_at as "addedAt"
-  `;
+      const [item] = await sql<ShelfItemRow[]>`
+        delete from bookapp.shelf_items
+        where shelf_id = ${input.shelfId}::uuid
+          and book_id = ${input.bookId}::uuid
+        returning
+          id::text as id,
+          shelf_id::text as "shelfId",
+          book_id::text as "bookId",
+          note,
+          sort_order as "sortOrder",
+          added_at as "addedAt"
+      `;
 
-  if (!item) {
-    throw new ShelfError("NOT_FOUND", SHELF_ERROR_MESSAGES.shelfItemNotFound);
-  }
+      if (!item) {
+        throw new ShelfError("NOT_FOUND", SHELF_ERROR_MESSAGES.shelfItemNotFound);
+      }
+    },
+  );
 }
