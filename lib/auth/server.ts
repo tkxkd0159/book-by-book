@@ -24,7 +24,7 @@ import {
 import { findUserById } from "@/lib/auth/users";
 import type { AppSessionIdentity, AuthUser } from "@/types/db";
 
-export type AuthSessionIdentity = {
+type AuthSessionIdentity = {
   id: string;
   isInternalAdmin: boolean;
   isSignupComplete: boolean;

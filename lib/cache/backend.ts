@@ -4,7 +4,7 @@ import {
   type CacheProvider,
 } from "@/lib/env";
 
-export type CacheSetOptions = {
+type CacheSetOptions = {
   onlyIfAbsent?: boolean;
   ttlSeconds?: number;
 };

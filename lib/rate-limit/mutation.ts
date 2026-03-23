@@ -26,7 +26,7 @@ export type MutationRateLimitDecision = {
   resetAt: string;
 };
 
-export type MutationRateLimitStore = {
+type MutationRateLimitStore = {
   provider: CacheProvider;
   incrementWindowCounter(input: {
     key: string;

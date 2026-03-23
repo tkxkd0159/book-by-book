@@ -143,19 +143,6 @@ export async function syncCachedAuthUser(
   }
 }
 
-export async function invalidateCachedAuthUser(userId: string) {
-  try {
-    const backend = await getCacheBackend();
-    if (backend.provider === "disabled") {
-      return;
-    }
-
-    await backend.del(getAuthUserCacheKey(userId));
-  } catch (error) {
-    console.error("[auth] Failed to invalidate auth user cache entry.", error);
-  }
-}
-
 function getAuthUserCacheKey(userId: string) {
   return `${AUTH_USER_CACHE_KEY_PREFIX}:${userId}`;
 }
