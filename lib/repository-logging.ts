@@ -24,6 +24,7 @@ type RepositoryLogOptions = {
   transactional?: boolean;
 };
 
+// Suppress nested repository logs so composite repository flows emit one outer log span.
 const REPOSITORY_LOG_SCOPE = new AsyncLocalStorage<{ active: true }>();
 const SENSITIVE_KEY_PATTERN =
   /(email|name|title|description|body|note|token|secret|password|hash|nickname|raw|image|url|link)/i;
