@@ -5,11 +5,7 @@ describe("admin sign-in rate limiter", () => {
     vi.resetModules();
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2026-03-22T00:00:00.000Z"));
-    delete process.env.CACHE_PROVIDER;
-    delete process.env.CACHE_REDIS_URL;
-    delete process.env.CACHE_UPSTASH_REST_URL;
-    delete process.env.CACHE_UPSTASH_REST_TOKEN;
-    process.env.RATE_LIMIT_PROVIDER = "memory";
+    process.env.CACHE_PROVIDER = "memory";
     process.env.RATE_LIMIT_ADMIN_SIGNIN_EMAIL_IP_LIMIT = "2";
     process.env.RATE_LIMIT_ADMIN_SIGNIN_EMAIL_IP_WINDOW_SECONDS = "60";
     process.env.RATE_LIMIT_ADMIN_SIGNIN_IP_LIMIT = "3";
@@ -19,10 +15,6 @@ describe("admin sign-in rate limiter", () => {
   afterEach(() => {
     vi.useRealTimers();
     delete process.env.CACHE_PROVIDER;
-    delete process.env.CACHE_REDIS_URL;
-    delete process.env.CACHE_UPSTASH_REST_URL;
-    delete process.env.CACHE_UPSTASH_REST_TOKEN;
-    delete process.env.RATE_LIMIT_PROVIDER;
     delete process.env.RATE_LIMIT_ADMIN_SIGNIN_EMAIL_IP_LIMIT;
     delete process.env.RATE_LIMIT_ADMIN_SIGNIN_EMAIL_IP_WINDOW_SECONDS;
     delete process.env.RATE_LIMIT_ADMIN_SIGNIN_IP_LIMIT;

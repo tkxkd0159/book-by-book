@@ -8,10 +8,6 @@ describe("shared cache backend", () => {
     delete process.env.CACHE_REDIS_URL;
     delete process.env.CACHE_UPSTASH_REST_URL;
     delete process.env.CACHE_UPSTASH_REST_TOKEN;
-    delete process.env.RATE_LIMIT_PROVIDER;
-    delete process.env.RATE_LIMIT_REDIS_URL;
-    delete process.env.UPSTASH_REDIS_REST_URL;
-    delete process.env.UPSTASH_REDIS_REST_TOKEN;
   });
 
   afterEach(async () => {

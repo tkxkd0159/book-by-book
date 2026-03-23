@@ -29,7 +29,7 @@ describe("environment validation", () => {
     expect(appEnv.auth.secret).toBe("test-auth-secret");
     expect(appEnv.logging.level).toBe("info");
     expect(appEnv.cache.provider).toBe("disabled");
-    expect(appEnv.rateLimit.provider).toBe("disabled");
+    expect(appEnv.rateLimit.overrides.createClubLimit).toBeNull();
   });
 
   it("accepts supported log level overrides", () => {
@@ -164,25 +164,25 @@ describe("environment validation", () => {
     );
   });
 
-  it("requires provider-specific rate-limit configuration", () => {
+  it("requires provider-specific cache configuration", () => {
     expect(() =>
       AppEnv.from(
         createEnv({
-          RATE_LIMIT_PROVIDER: "upstash",
-          UPSTASH_REDIS_REST_URL: "",
-          UPSTASH_REDIS_REST_TOKEN: "",
+          CACHE_PROVIDER: "upstash",
+          CACHE_UPSTASH_REST_URL: "",
+          CACHE_UPSTASH_REST_TOKEN: "",
         }),
       ).validateForBuildOrThrow(),
-    ).toThrow(/UPSTASH_REDIS_REST_URL is required/);
+    ).toThrow(/CACHE_UPSTASH_REST_URL is required/);
 
     expect(() =>
       AppEnv.from(
         createEnv({
-          RATE_LIMIT_PROVIDER: "redis",
-          RATE_LIMIT_REDIS_URL: "",
+          CACHE_PROVIDER: "redis",
+          CACHE_REDIS_URL: "",
         }),
       ).validateForBuildOrThrow(),
-    ).toThrow(/RATE_LIMIT_REDIS_URL is required/);
+    ).toThrow(/CACHE_REDIS_URL is required/);
   });
 
   it("accepts generic cache backend configuration", () => {
@@ -195,21 +195,7 @@ describe("environment validation", () => {
 
     expect(appEnv.cache.provider).toBe("redis");
     expect(appEnv.cache.redisUrl).toBe("redis://localhost:6379");
-    expect(appEnv.rateLimit.provider).toBe("redis");
-  });
-
-  it("falls back to legacy rate-limit backend envs for cache config", () => {
-    const appEnv = AppEnv.from(
-      createEnv({
-        RATE_LIMIT_PROVIDER: "upstash",
-        UPSTASH_REDIS_REST_URL: "https://example.upstash.io",
-        UPSTASH_REDIS_REST_TOKEN: "test-token",
-      }),
-    );
-
-    expect(appEnv.cache.provider).toBe("upstash");
-    expect(appEnv.cache.upstashRestUrl).toBe("https://example.upstash.io");
-    expect(appEnv.cache.upstashRestToken).toBe("test-token");
+    expect(appEnv.rateLimit.overrides.createClubLimit).toBeNull();
   });
 
   it("rejects invalid positive integer overrides", () => {
@@ -278,20 +264,6 @@ describe("environment validation", () => {
       ).validateForBuildOrThrow(),
     ).toThrow(
       /NEXTAUTH_URL is required for production and e2e-authenticated app runs\./,
-    );
-  });
-
-  it("rejects memory rate limiting in production-like runtime", () => {
-    expect(
-      () =>
-        AppEnv.from(
-          createEnv({
-            NODE_ENV: "production",
-            RATE_LIMIT_PROVIDER: "memory",
-          }),
-        ).rateLimit,
-    ).toThrow(
-      "RATE_LIMIT_PROVIDER=memory is only supported in test and local development environments.",
     );
   });
 

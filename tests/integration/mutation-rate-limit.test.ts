@@ -4,11 +4,7 @@ describe("mutation rate limit integration", () => {
   beforeEach(async () => {
     vi.resetModules();
     vi.useRealTimers();
-    delete process.env.CACHE_PROVIDER;
-    delete process.env.CACHE_REDIS_URL;
-    delete process.env.CACHE_UPSTASH_REST_URL;
-    delete process.env.CACHE_UPSTASH_REST_TOKEN;
-    process.env.RATE_LIMIT_PROVIDER = "memory";
+    process.env.CACHE_PROVIDER = "memory";
     process.env.RATE_LIMIT_CREATE_CLUB_LIMIT = "2";
     process.env.RATE_LIMIT_CREATE_CLUB_WINDOW_SECONDS = "60";
 

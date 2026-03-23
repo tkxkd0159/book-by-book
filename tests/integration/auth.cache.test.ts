@@ -13,10 +13,6 @@ import { resetTestDatabase } from "@/lib/test-harness/fixtures";
 
 beforeEach(async () => {
   process.env.CACHE_PROVIDER = "memory";
-  delete process.env.RATE_LIMIT_PROVIDER;
-  delete process.env.RATE_LIMIT_REDIS_URL;
-  delete process.env.UPSTASH_REDIS_REST_URL;
-  delete process.env.UPSTASH_REDIS_REST_TOKEN;
   resetCacheBackendForTests();
   await resetTestDatabase();
 });

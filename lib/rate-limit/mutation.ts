@@ -1,6 +1,6 @@
 import {
   env,
-  type RateLimitProvider,
+  type CacheProvider,
 } from "@/lib/env";
 import {
   getCacheBackend,
@@ -27,7 +27,7 @@ export type MutationRateLimitDecision = {
 };
 
 export type MutationRateLimitStore = {
-  provider: RateLimitProvider;
+  provider: CacheProvider;
   incrementWindowCounter(input: {
     key: string;
     windowSeconds: number;
@@ -82,10 +82,6 @@ export function isMutationRateLimitError(
   error: unknown,
 ): error is MutationRateLimitError {
   return error instanceof MutationRateLimitError;
-}
-
-export function resolveMutationRateLimitProvider(): RateLimitProvider {
-  return env.cache.provider;
 }
 
 export function getMutationRateLimitPolicy(
