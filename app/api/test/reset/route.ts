@@ -1,9 +1,9 @@
 import { NextResponse } from "next/server";
 
-import { resetMemoryMutationRateLimitStore } from "@/lib/rate-limit/mutation";
 import { isE2EBypassEnabled } from "@/lib/test-harness/auth";
 import { TEST_ROUTE_ERROR_MESSAGES } from "@/lib/test-harness/constants";
 import { resetTestDatabase } from "@/lib/test-harness/fixtures";
+import { resetTestHarnessRuntimeState } from "@/lib/test-harness/runtime-state";
 
 export const runtime = "nodejs";
 
@@ -16,6 +16,6 @@ export async function GET() {
   }
 
   await resetTestDatabase();
-  resetMemoryMutationRateLimitStore();
+  resetTestHarnessRuntimeState();
   return NextResponse.json({ ok: true });
 }

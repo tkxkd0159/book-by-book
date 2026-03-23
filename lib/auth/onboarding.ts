@@ -1,7 +1,7 @@
 import sql from "@/lib/db";
 import { syncCachedAuthUser } from "@/lib/auth/user-cache";
 import { AuthFlowError } from "@/lib/auth/errors";
-import { INTERNAL_AUTH_PROVIDER, resolveAppSessionIdentity } from "@/lib/auth/identity";
+import { INTERNAL_AUTH_PROVIDER } from "@/lib/auth/identity";
 import { logRepositoryOperation } from "@/lib/repository-logging";
 import {
   parseCountryCode,
@@ -49,8 +49,6 @@ type CompleteSignupInput = {
 const REPOSITORY_MODULE = "auth.onboarding";
 
 function mapCompletedUser(row: SignupUserRow): AuthUser {
-  const sessionIdentity = resolveAppSessionIdentity(row);
-
   return {
     id: row.id,
     provider: row.provider,
@@ -63,9 +61,6 @@ function mapCompletedUser(row: SignupUserRow): AuthUser {
     countryCode: row.countryCode,
     favoriteGenres: parseFavoriteGenres(row.favoriteGenres ?? []),
     signupCompletedAt: row.signupCompletedAt,
-    isInternalAdmin: false,
-    isSignupComplete: sessionIdentity === "PUBLIC",
-    sessionIdentity,
   };
 }
 

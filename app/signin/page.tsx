@@ -14,7 +14,7 @@ import {
   getAuthenticatedSessionDestination,
   normalizeSafeCallbackUrl,
 } from "@/lib/auth/redirects";
-import { getAuthIdentity } from "@/lib/auth/server";
+import { getAuthSession } from "@/lib/auth/server";
 
 function extractSearchParam(value: string | string[] | undefined) {
   if (Array.isArray(value)) {
@@ -30,9 +30,10 @@ export default async function SignInPage({ searchParams }: Props.Page) {
     extractSearchParam(params.callbackUrl) || DEFAULT_PUBLIC_APP_PATH,
     DEFAULT_PUBLIC_APP_PATH,
   );
-  const authIdentity = await getAuthIdentity();
-  if (authIdentity) {
-    redirect(getAuthenticatedSessionDestination(authIdentity, callbackUrl));
+  const session = await getAuthSession();
+  const sessionUser = session?.user?.id ? session.user : null;
+  if (sessionUser) {
+    redirect(getAuthenticatedSessionDestination(sessionUser, callbackUrl));
   }
 
   const errorCode = extractSearchParam(params.error);

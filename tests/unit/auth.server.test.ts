@@ -107,9 +107,6 @@ describe("auth server helpers", () => {
       countryCode: "US",
       favoriteGenres: ["FANTASY"],
       signupCompletedAt: new Date("2026-01-01T00:00:00.000Z"),
-      isInternalAdmin: false,
-      isSignupComplete: true,
-      sessionIdentity: "PUBLIC",
     };
 
     getAuthSessionSafeMock.mockResolvedValue({
@@ -140,9 +137,6 @@ describe("auth server helpers", () => {
       countryCode: "US",
       favoriteGenres: ["FANTASY"],
       signupCompletedAt: new Date("2026-01-01T00:00:00.000Z"),
-      isInternalAdmin: false,
-      isSignupComplete: true,
-      sessionIdentity: "PUBLIC",
     };
 
     getAuthSessionSafeMock.mockResolvedValue({
@@ -159,27 +153,25 @@ describe("auth server helpers", () => {
     expect(syncCachedAuthUserMock).not.toHaveBeenCalled();
   });
 
-  it("reads session identity claims without requiring a DB lookup", async () => {
+  it("returns session claims without requiring a DB lookup", async () => {
     getAuthSessionSafeMock.mockResolvedValue({
       user: {
         id: "user-123",
-        isInternalAdmin: false,
-        isSignupComplete: false,
         nickname: "reader",
         provider: "google",
         sessionIdentity: "PUBLIC_INCOMPLETE",
       },
     });
 
-    const { getAuthIdentity } = await import("@/lib/auth/server");
+    const { getAuthSession } = await import("@/lib/auth/server");
 
-    await expect(getAuthIdentity()).resolves.toEqual({
-      id: "user-123",
-      isInternalAdmin: false,
-      isSignupComplete: false,
-      nickname: "reader",
-      provider: "google",
-      sessionIdentity: "PUBLIC_INCOMPLETE",
+    await expect(getAuthSession()).resolves.toEqual({
+      user: {
+        id: "user-123",
+        nickname: "reader",
+        provider: "google",
+        sessionIdentity: "PUBLIC_INCOMPLETE",
+      },
     });
     expect(findUserByIdMock).not.toHaveBeenCalled();
   });
@@ -202,9 +194,6 @@ describe("auth server helpers", () => {
       countryCode: null,
       favoriteGenres: [],
       signupCompletedAt: null,
-      isInternalAdmin: false,
-      isSignupComplete: false,
-      sessionIdentity: "PUBLIC_INCOMPLETE",
     });
     getAuthSessionSafeMock.mockResolvedValue({
       user: {
@@ -232,9 +221,6 @@ describe("auth server helpers", () => {
       countryCode: null,
       favoriteGenres: [],
       signupCompletedAt: null,
-      isInternalAdmin: true,
-      isSignupComplete: false,
-      sessionIdentity: "INTERNAL_ADMIN",
     });
     getAuthSessionSafeMock.mockResolvedValue({
       user: {
@@ -278,9 +264,6 @@ describe("auth server helpers", () => {
       countryCode: "US",
       favoriteGenres: ["FANTASY"],
       signupCompletedAt: new Date("2026-01-01T00:00:00.000Z"),
-      isInternalAdmin: false,
-      isSignupComplete: true,
-      sessionIdentity: "PUBLIC",
     });
     getAuthSessionSafeMock.mockResolvedValue({
       user: {

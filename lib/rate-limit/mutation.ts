@@ -4,7 +4,6 @@ import {
 import {
   getCacheBackend,
   incrementFixedWindowCounter,
-  resetCacheBackendForTests,
 } from "@/lib/cache/backend";
 
 export type MutationRateLimitAction =
@@ -150,11 +149,6 @@ export async function enforceMutationRateLimit(input: {
   }
 
   return decision;
-}
-
-export function resetMemoryMutationRateLimitStore() {
-  resetCacheBackendForTests();
-  cachedStorePromise = null;
 }
 
 function formatRetryAfter(retryAfterSeconds: number) {

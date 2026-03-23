@@ -1,8 +1,15 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+let nextCachedUserId = 0;
+
+function createCachedUserId() {
+  nextCachedUserId += 1;
+  return `user-${nextCachedUserId}`;
+}
+
 function createAuthUser() {
   return {
-    id: "user-123",
+    id: createCachedUserId(),
     provider: "google",
     providerUserId: "google-user-123",
     email: "reader@example.com",
@@ -13,9 +20,6 @@ function createAuthUser() {
     countryCode: "US",
     favoriteGenres: ["FANTASY", "SCIENCE"] as const,
     signupCompletedAt: new Date("2026-01-01T00:00:00.000Z"),
-    isInternalAdmin: false,
-    isSignupComplete: true,
-    sessionIdentity: "PUBLIC" as const,
   };
 }
 
@@ -33,22 +37,14 @@ describe("auth user cache", () => {
   afterEach(async () => {
     vi.useRealTimers();
     vi.doUnmock("@/lib/cache/backend");
-    try {
-      const { resetCacheBackendForTests } = await import("@/lib/cache/backend");
-      resetCacheBackendForTests();
-    } catch {
-      // The backend module may be mocked in a fail-open test.
-    }
   });
 
   it("stores and reads serialized auth users with the memory cache backend", async () => {
     process.env.CACHE_PROVIDER = "memory";
 
-    const { resetCacheBackendForTests } = await import("@/lib/cache/backend");
     const { readCachedAuthUserById, syncCachedAuthUser } = await import(
       "@/lib/auth/user-cache"
     );
-    resetCacheBackendForTests();
     const authUser = createAuthUser();
 
     await syncCachedAuthUser(authUser.id, authUser);
@@ -59,33 +55,30 @@ describe("auth user cache", () => {
   it("returns a cached null for negative auth-user cache entries", async () => {
     process.env.CACHE_PROVIDER = "memory";
 
-    const { resetCacheBackendForTests } = await import("@/lib/cache/backend");
     const { readCachedAuthUserById, syncCachedAuthUser } = await import(
       "@/lib/auth/user-cache"
     );
-    resetCacheBackendForTests();
+    const missingUserId = createCachedUserId();
 
-    await syncCachedAuthUser("missing-user-id", null);
+    await syncCachedAuthUser(missingUserId, null);
 
-    await expect(readCachedAuthUserById("missing-user-id")).resolves.toBeNull();
+    await expect(readCachedAuthUserById(missingUserId)).resolves.toBeNull();
   });
 
   it("treats malformed cached payloads as misses and deletes the bad entry", async () => {
     process.env.CACHE_PROVIDER = "memory";
 
-    const { getCacheBackend, resetCacheBackendForTests } = await import(
-      "@/lib/cache/backend"
-    );
+    const { getCacheBackend } = await import("@/lib/cache/backend");
     const { readCachedAuthUserById } = await import("@/lib/auth/user-cache");
-    resetCacheBackendForTests();
     const backend = await getCacheBackend();
+    const userId = createCachedUserId();
 
-    await backend.set("bbb:auth-user:v1:user-123", "not-json", {
+    await backend.set(`bbb:auth-user:v1:${userId}`, "not-json", {
       ttlSeconds: 60,
     });
 
-    await expect(readCachedAuthUserById("user-123")).resolves.toBeUndefined();
-    await expect(backend.get("bbb:auth-user:v1:user-123")).resolves.toBeNull();
+    await expect(readCachedAuthUserById(userId)).resolves.toBeUndefined();
+    await expect(backend.get(`bbb:auth-user:v1:${userId}`)).resolves.toBeNull();
   });
 
   it("fails open when the cache backend cannot be created", async () => {

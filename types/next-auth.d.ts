@@ -6,8 +6,6 @@ declare module "next-auth" {
   interface Session {
     user: DefaultSession["user"] & {
       id?: string;
-      isInternalAdmin?: boolean;
-      isSignupComplete?: boolean;
       nickname?: string | null;
       provider?: string;
       sessionIdentity?: AppSessionIdentity;
@@ -17,8 +15,6 @@ declare module "next-auth" {
 
 declare module "next-auth/jwt" {
   interface JWT {
-    isInternalAdmin?: boolean;
-    isSignupComplete?: boolean;
     nickname?: string | null;
     provider?: string;
     sessionIdentity?: AppSessionIdentity;

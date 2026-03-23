@@ -40,13 +40,9 @@ describe("admin sign-in rate limiter", () => {
   });
 
   it("throttles repeated failures for the same email and IP", async () => {
-    const { resetMemoryMutationRateLimitStore } = await import(
-      "@/lib/rate-limit/mutation"
-    );
     const { recordFailedAdminSignInAttempt } = await import(
       "@/lib/rate-limit/admin-signin"
     );
-    resetMemoryMutationRateLimitStore();
 
     await expect(
       recordFailedAdminSignInAttempt({
@@ -71,13 +67,9 @@ describe("admin sign-in rate limiter", () => {
   });
 
   it("throttles by IP across multiple email addresses", async () => {
-    const { resetMemoryMutationRateLimitStore } = await import(
-      "@/lib/rate-limit/mutation"
-    );
     const { recordFailedAdminSignInAttempt } = await import(
       "@/lib/rate-limit/admin-signin"
     );
-    resetMemoryMutationRateLimitStore();
 
     await recordFailedAdminSignInAttempt({
       email: "admin-1@book-by-book.test",

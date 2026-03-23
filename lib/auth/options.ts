@@ -7,6 +7,7 @@ import { isAuthFlowError } from "@/lib/auth/errors";
 import {
   INTERNAL_AUTH_PROVIDER,
   GOOGLE_AUTH_PROVIDER,
+  resolveAppSessionIdentity,
 } from "@/lib/auth/identity";
 import { authorizeInternalAdminCredentials } from "@/lib/auth/internal-auth";
 import {
@@ -24,22 +25,16 @@ function applyDbUserToToken(token: Record<string, unknown>, user: AuthUser) {
   token.userId = user.id;
   token.provider = user.provider;
   token.nickname = user.nickname;
-  token.isInternalAdmin = user.isInternalAdmin;
-  token.isSignupComplete = user.isSignupComplete;
-  token.sessionIdentity = user.sessionIdentity;
+  token.sessionIdentity = resolveAppSessionIdentity(user);
   return token;
 }
 
 function tokenNeedsDbRefresh(token: Record<string, unknown>) {
   return (
     typeof token.userId === "string" &&
-    (
-      typeof token.provider !== "string" ||
-      typeof token.isInternalAdmin !== "boolean" ||
-      typeof token.isSignupComplete !== "boolean" ||
+    (typeof token.provider !== "string" ||
       typeof token.sessionIdentity !== "string" ||
-      !("nickname" in token)
-    )
+      !("nickname" in token))
   );
 }
 
@@ -172,8 +167,6 @@ export const authOptions: NextAuthOptions = {
           typeof token.provider === "string" ? token.provider : undefined;
         session.user.nickname =
           typeof token.nickname === "string" ? token.nickname : null;
-        session.user.isInternalAdmin = token.isInternalAdmin === true;
-        session.user.isSignupComplete = token.isSignupComplete === true;
         session.user.sessionIdentity =
           typeof token.sessionIdentity === "string"
             ? token.sessionIdentity

@@ -1,25 +1,20 @@
 import { randomUUID } from "node:crypto";
 
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import sql from "@/lib/db";
-import { completeSignup } from "@/lib/auth/onboarding";
-import { readCachedAuthUserById, syncCachedAuthUser } from "@/lib/auth/user-cache";
-import { findUserById, upsertGoogleOAuthUser } from "@/lib/auth/users";
 import { hashInvitationCode } from "@/lib/invitation-codes/core";
-import { resetCacheBackendForTests } from "@/lib/cache/backend";
 import { E2E_USER_PROVIDER } from "@/lib/test-harness/auth";
 import { resetTestDatabase } from "@/lib/test-harness/fixtures";
 
 beforeEach(async () => {
+  vi.resetModules();
   process.env.CACHE_PROVIDER = "memory";
-  resetCacheBackendForTests();
   await resetTestDatabase();
 });
 
 afterEach(() => {
   delete process.env.CACHE_PROVIDER;
-  resetCacheBackendForTests();
 });
 
 async function getOwnerUserId() {
@@ -83,6 +78,8 @@ async function createIncompletePublicUser() {
 
 describe("auth cache integration", () => {
   it("populates the auth-user cache after Google OAuth upsert", async () => {
+    const { readCachedAuthUserById } = await import("@/lib/auth/user-cache");
+    const { upsertGoogleOAuthUser } = await import("@/lib/auth/users");
     const user = await upsertGoogleOAuthUser({
       email: `reader-${randomUUID()}@book-by-book.test`,
       name: "Cached Reader",
@@ -100,6 +97,11 @@ describe("auth cache integration", () => {
   });
 
   it("refreshes the auth-user cache immediately after signup completion", async () => {
+    const { completeSignup } = await import("@/lib/auth/onboarding");
+    const { readCachedAuthUserById, syncCachedAuthUser } = await import(
+      "@/lib/auth/user-cache"
+    );
+    const { findUserById } = await import("@/lib/auth/users");
     const userId = await createIncompletePublicUser();
     await createBetaInvitationCode("beta-cache-code");
     const incompleteUser = await findUserById(userId);

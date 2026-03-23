@@ -2,7 +2,10 @@ import type { Session } from "next-auth";
 import { forbidden, redirect } from "next/navigation";
 import { cache } from "react";
 
-import { isIncompletePublicUser, isInternalAdminUser } from "@/lib/auth/identity";
+import {
+  isIncompletePublicUser,
+  isInternalAdminUser,
+} from "@/lib/auth/identity";
 import {
   createAdminSignInHref,
   createSignInHref,
@@ -13,25 +16,13 @@ import {
   readAuthCallbackUrlFromRequest,
 } from "@/lib/auth/redirects";
 import { getAuthSessionSafe } from "@/lib/auth/session";
-import {
-  createE2ESession,
-  getE2ECurrentUser,
-} from "@/lib/test-harness/auth";
+import { createE2ESession, getE2ECurrentUser } from "@/lib/test-harness/auth";
 import {
   readCachedAuthUserById,
   syncCachedAuthUser,
 } from "@/lib/auth/user-cache";
 import { findUserById } from "@/lib/auth/users";
-import type { AppSessionIdentity, AuthUser } from "@/types/db";
-
-type AuthSessionIdentity = {
-  id: string;
-  isInternalAdmin: boolean;
-  isSignupComplete: boolean;
-  nickname: string | null;
-  provider?: string;
-  sessionIdentity?: AppSessionIdentity;
-};
+import type { AuthUser } from "@/types/db";
 
 const readAuthSession = cache(async (): Promise<Session | null> => {
   const session = await getAuthSessionSafe();
@@ -64,34 +55,12 @@ async function findCurrentUserFromSession(
   return user;
 }
 
-const readCurrentUser = cache(async (): Promise<AuthUser | null> =>
-  findCurrentUserFromSession(await readAuthSession()),
+const readCurrentUser = cache(
+  async (): Promise<AuthUser | null> =>
+    findCurrentUserFromSession(await readAuthSession()),
 );
 
-const readAuthIdentity = cache(async (): Promise<AuthSessionIdentity | null> => {
-  const session = await readAuthSession();
-  if (!session?.user?.id) {
-    return null;
-  }
-
-  return {
-    id: session.user.id,
-    isInternalAdmin: session.user.isInternalAdmin === true,
-    isSignupComplete: session.user.isSignupComplete === true,
-    nickname: typeof session.user.nickname === "string" ? session.user.nickname : null,
-    provider:
-      typeof session.user.provider === "string"
-        ? session.user.provider
-        : undefined,
-    sessionIdentity:
-      typeof session.user.sessionIdentity === "string"
-        ? session.user.sessionIdentity
-        : undefined,
-  };
-});
-
 export const getAuthSession = readAuthSession;
-export const getAuthIdentity = readAuthIdentity;
 export const getCurrentUser = readCurrentUser;
 
 type RequireCurrentUserOptions = {
@@ -112,24 +81,6 @@ async function resolveCallbackUrl(options?: RequireCurrentUserOptions) {
   return readAuthCallbackUrlFromRequest(
     options?.fallbackCallbackUrl ?? DEFAULT_PUBLIC_APP_PATH,
   );
-}
-
-export async function requireAuthSession(options?: {
-  callbackUrl?: string;
-  fallbackCallbackUrl?: string;
-}): Promise<Session> {
-  const session = await getAuthSession();
-  const callbackUrl =
-    options?.callbackUrl ??
-    (await readAuthCallbackUrlFromRequest(
-      options?.fallbackCallbackUrl ?? DEFAULT_PUBLIC_APP_PATH,
-    ));
-
-  if (!session?.user?.id) {
-    redirect(createSignInHref(callbackUrl));
-  }
-
-  return session;
 }
 
 export async function requireCurrentUser(

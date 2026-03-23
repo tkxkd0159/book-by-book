@@ -23,9 +23,6 @@ function createAuthUser() {
     countryCode: null,
     favoriteGenres: [],
     signupCompletedAt: new Date("2026-01-01T00:00:00.000Z"),
-    isInternalAdmin: false,
-    isSignupComplete: true,
-    sessionIdentity: "PUBLIC" as const,
   };
 }
 
@@ -60,7 +57,6 @@ describe("authOptions jwt callback", () => {
       userId: dbUser.id,
       provider: "google",
       nickname: "reader",
-      isSignupComplete: true,
       sessionIdentity: "PUBLIC",
     });
   });
@@ -70,9 +66,7 @@ describe("authOptions jwt callback", () => {
       ...createAuthUser(),
       provider: "internal",
       providerUserId: "admin@book-by-book.test",
-      isInternalAdmin: true,
-      isSignupComplete: false,
-      sessionIdentity: "INTERNAL_ADMIN" as const,
+      signupCompletedAt: null,
     };
     findUserByIdMock.mockResolvedValue(dbUser);
 

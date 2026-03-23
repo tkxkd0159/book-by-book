@@ -13,7 +13,7 @@ import {
   getAuthenticatedSessionDestination,
   normalizeSafeCallbackUrl,
 } from "@/lib/auth/redirects";
-import { getAuthIdentity } from "@/lib/auth/server";
+import { getAuthSession } from "@/lib/auth/server";
 
 function extractSearchParam(value: string | string[] | undefined) {
   if (Array.isArray(value)) {
@@ -29,14 +29,15 @@ export default async function AdminSignInPage({ searchParams }: Props.Page) {
     extractSearchParam(params.callbackUrl) || DEFAULT_INTERNAL_ADMIN_PATH,
     DEFAULT_INTERNAL_ADMIN_PATH,
   );
-  const authIdentity = await getAuthIdentity();
+  const session = await getAuthSession();
+  const sessionUser = session?.user?.id ? session.user : null;
 
-  if (authIdentity) {
-    if (!authIdentity.isInternalAdmin) {
+  if (sessionUser) {
+    if (sessionUser.sessionIdentity !== "INTERNAL_ADMIN") {
       forbidden();
     }
 
-    redirect(getAuthenticatedSessionDestination(authIdentity, callbackUrl));
+    redirect(getAuthenticatedSessionDestination(sessionUser, callbackUrl));
   }
 
   return (

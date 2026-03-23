@@ -1,6 +1,5 @@
 import { getCacheBackend } from "@/lib/cache/backend";
 import type {
-  AppSessionIdentity,
   AuthUser,
   FavoriteGenreKey,
   UserGender,
@@ -31,11 +30,6 @@ const FAVORITE_GENRE_KEYS = new Set([
   "COOKING_FOOD",
   "ESSAYS_JOURNALISM",
 ]);
-const SESSION_IDENTITIES = new Set<AppSessionIdentity>([
-  "INTERNAL_ADMIN",
-  "PUBLIC",
-  "PUBLIC_INCOMPLETE",
-]);
 const USER_GENDERS = new Set([
   "MAN",
   "WOMAN",
@@ -61,13 +55,10 @@ type SerializedAuthUser = {
   gender: UserGender | null;
   id: string;
   imageUrl: string | null;
-  isInternalAdmin: boolean;
-  isSignupComplete: boolean;
   name: string | null;
   nickname: string | null;
   provider: string;
   providerUserId: string;
-  sessionIdentity: AppSessionIdentity;
   signupCompletedAt: string | null;
 };
 
@@ -155,13 +146,10 @@ function serializeAuthUser(user: AuthUser): SerializedAuthUser {
     gender: user.gender,
     id: user.id,
     imageUrl: user.imageUrl,
-    isInternalAdmin: user.isInternalAdmin,
-    isSignupComplete: user.isSignupComplete,
     name: user.name,
     nickname: user.nickname,
     provider: user.provider,
     providerUserId: user.providerUserId,
-    sessionIdentity: user.sessionIdentity,
     signupCompletedAt: user.signupCompletedAt?.toISOString() ?? null,
   };
 }
@@ -178,9 +166,6 @@ function deserializeAuthUser(user: SerializedAuthUser): AuthUser | null {
     !isNullableString(user.countryCode) ||
     !isValidGender(user.gender) ||
     !isValidFavoriteGenres(user.favoriteGenres) ||
-    typeof user.isInternalAdmin !== "boolean" ||
-    typeof user.isSignupComplete !== "boolean" ||
-    !SESSION_IDENTITIES.has(user.sessionIdentity) ||
     !isNullableString(user.signupCompletedAt)
   ) {
     return null;
@@ -200,13 +185,10 @@ function deserializeAuthUser(user: SerializedAuthUser): AuthUser | null {
     gender: user.gender,
     id: user.id,
     imageUrl: user.imageUrl,
-    isInternalAdmin: user.isInternalAdmin,
-    isSignupComplete: user.isSignupComplete,
     name: user.name,
     nickname: user.nickname,
     provider: user.provider,
     providerUserId: user.providerUserId,
-    sessionIdentity: user.sessionIdentity,
     signupCompletedAt,
   };
 }

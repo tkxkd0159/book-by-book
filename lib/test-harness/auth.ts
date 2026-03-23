@@ -2,6 +2,7 @@ import type { Session } from "next-auth";
 import { cookies } from "next/headers";
 
 import { env } from "@/lib/env";
+import { resolveAppSessionIdentity } from "@/lib/auth/identity";
 import { findUserByProviderIdentity } from "@/lib/auth/users";
 import { E2E_AUTH_COOKIE_NAME } from "@/lib/test-harness/constants";
 import type { AuthUser } from "@/types/db";
@@ -34,6 +35,9 @@ export function createE2ESession(user: AuthUser): Session {
       email: user.email ?? undefined,
       name: user.name ?? undefined,
       image: user.imageUrl ?? undefined,
+      nickname: user.nickname,
+      provider: user.provider,
+      sessionIdentity: resolveAppSessionIdentity(user),
     },
   };
 }

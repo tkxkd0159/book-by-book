@@ -10,12 +10,13 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { getAuthenticatedSessionDestination } from "@/lib/auth/redirects";
-import { getAuthIdentity } from "@/lib/auth/server";
+import { getAuthSession } from "@/lib/auth/server";
 
 export default async function Page() {
-  const authIdentity = await getAuthIdentity();
-  if (authIdentity) {
-    redirect(getAuthenticatedSessionDestination(authIdentity));
+  const session = await getAuthSession();
+  const sessionUser = session?.user?.id ? session.user : null;
+  if (sessionUser) {
+    redirect(getAuthenticatedSessionDestination(sessionUser));
   }
 
   return (

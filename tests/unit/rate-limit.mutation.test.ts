@@ -81,21 +81,20 @@ describe("mutation rate limiter", () => {
 
     const {
       checkMutationRateLimit,
-      resetMemoryMutationRateLimitStore,
     } = await import("@/lib/rate-limit/mutation");
-    resetMemoryMutationRateLimitStore();
+    const userId = "unit-add-book-user";
 
     const first = await checkMutationRateLimit({
       action: "add-book",
-      userId: "user-1",
+      userId,
     });
     const second = await checkMutationRateLimit({
       action: "add-book",
-      userId: "user-1",
+      userId,
     });
     const third = await checkMutationRateLimit({
       action: "add-book",
-      userId: "user-1",
+      userId,
     });
 
     expect(first).toMatchObject({

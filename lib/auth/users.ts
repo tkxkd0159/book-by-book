@@ -4,8 +4,6 @@ import { AuthFlowError } from "@/lib/auth/errors";
 import {
   getUserDisplayName,
   INTERNAL_AUTH_PROVIDER,
-  isInternalAuthProvider,
-  resolveAppSessionIdentity,
 } from "@/lib/auth/identity";
 import { normalizeInternalAdminEmail } from "@/lib/auth/internal";
 import {
@@ -47,8 +45,6 @@ type UpsertGoogleOAuthUserInput = {
 const REPOSITORY_MODULE = "auth.users";
 
 function mapAuthUser(row: UserRow): AuthUser {
-  const sessionIdentity = resolveAppSessionIdentity(row);
-
   return {
     id: row.id,
     provider: row.provider,
@@ -61,9 +57,6 @@ function mapAuthUser(row: UserRow): AuthUser {
     countryCode: row.countryCode,
     favoriteGenres: coerceFavoriteGenres(row.favoriteGenres),
     signupCompletedAt: row.signupCompletedAt,
-    isInternalAdmin: isInternalAuthProvider(row.provider),
-    isSignupComplete: sessionIdentity === "PUBLIC",
-    sessionIdentity,
   };
 }
 
@@ -81,9 +74,6 @@ function mapInternalAdminAuthUser(row: UserRow): InternalAdminAuthUser {
     favoriteGenres: coerceFavoriteGenres(row.favoriteGenres),
     signupCompletedAt: row.signupCompletedAt,
     passwordHash: row.passwordHash,
-    isInternalAdmin: true,
-    isSignupComplete: false,
-    sessionIdentity: "INTERNAL_ADMIN",
   };
 }
 

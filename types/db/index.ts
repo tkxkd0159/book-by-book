@@ -38,17 +38,9 @@ type UserRecord = {
   passwordHash: string | null;
 };
 
-type AuthUser = Omit<UserRecord, "passwordHash"> & {
-  isInternalAdmin: boolean;
-  isSignupComplete: boolean;
-  sessionIdentity: AppSessionIdentity;
-};
+type AuthUser = Omit<UserRecord, "passwordHash">;
 
-type InternalAdminAuthUser = UserRecord & {
-  isInternalAdmin: true;
-  isSignupComplete: false;
-  sessionIdentity: "INTERNAL_ADMIN";
-};
+type InternalAdminAuthUser = UserRecord;
 
 type BookRecord = {
   id: string;

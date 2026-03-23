@@ -57,9 +57,6 @@ describe("auth redirect helpers", () => {
     expect(
       getAuthenticatedSessionDestination(
         {
-          isInternalAdmin: false,
-          isSignupComplete: true,
-          provider: "google",
           sessionIdentity: "PUBLIC",
         },
         "/clubs",
@@ -68,9 +65,6 @@ describe("auth redirect helpers", () => {
     expect(
       getAuthenticatedSessionDestination(
         {
-          isInternalAdmin: false,
-          isSignupComplete: false,
-          provider: "google",
           sessionIdentity: "PUBLIC_INCOMPLETE",
         },
         "/clubs",
@@ -79,8 +73,6 @@ describe("auth redirect helpers", () => {
     expect(
       getAuthenticatedSessionDestination(
         {
-          isInternalAdmin: true,
-          isSignupComplete: false,
           sessionIdentity: "INTERNAL_ADMIN",
         },
         "/clubs",

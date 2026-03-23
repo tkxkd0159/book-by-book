@@ -1,21 +1,19 @@
 import { randomUUID } from "node:crypto";
 
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import sql from "@/lib/db";
 import { INTERNAL_AUTH_PROVIDER } from "@/lib/auth/identity";
 import { hashInternalAdminPassword } from "@/lib/auth/internal";
-import { authenticateInternalAdmin } from "@/lib/auth/internal-auth";
-import { resetMemoryMutationRateLimitStore } from "@/lib/rate-limit/mutation";
 import { resetTestDatabase } from "@/lib/test-harness/fixtures";
 
 beforeEach(async () => {
+  vi.resetModules();
   process.env.CACHE_PROVIDER = "memory";
   process.env.RATE_LIMIT_ADMIN_SIGNIN_EMAIL_IP_LIMIT = "2";
   process.env.RATE_LIMIT_ADMIN_SIGNIN_EMAIL_IP_WINDOW_SECONDS = "60";
   process.env.RATE_LIMIT_ADMIN_SIGNIN_IP_LIMIT = "3";
   process.env.RATE_LIMIT_ADMIN_SIGNIN_IP_WINDOW_SECONDS = "60";
-  resetMemoryMutationRateLimitStore();
   await resetTestDatabase();
 });
 
@@ -25,7 +23,6 @@ afterEach(() => {
   delete process.env.RATE_LIMIT_ADMIN_SIGNIN_EMAIL_IP_WINDOW_SECONDS;
   delete process.env.RATE_LIMIT_ADMIN_SIGNIN_IP_LIMIT;
   delete process.env.RATE_LIMIT_ADMIN_SIGNIN_IP_WINDOW_SECONDS;
-  resetMemoryMutationRateLimitStore();
 });
 
 async function createInternalAdmin(password: string) {
@@ -55,6 +52,7 @@ async function createInternalAdmin(password: string) {
 
 describe("internal admin authentication integration", () => {
   it("authenticates a valid internal admin email and password", async () => {
+    const { authenticateInternalAdmin } = await import("@/lib/auth/internal-auth");
     const admin = await createInternalAdmin("internal-secret");
 
     const authenticatedAdmin = await authenticateInternalAdmin({
@@ -66,12 +64,12 @@ describe("internal admin authentication integration", () => {
       id: admin.id,
       email: admin.email,
       provider: INTERNAL_AUTH_PROVIDER,
-      isInternalAdmin: true,
-      sessionIdentity: "INTERNAL_ADMIN",
+      signupCompletedAt: null,
     });
   });
 
   it("rejects invalid internal admin credentials", async () => {
+    const { authenticateInternalAdmin } = await import("@/lib/auth/internal-auth");
     const admin = await createInternalAdmin("internal-secret");
 
     await expect(
@@ -86,6 +84,7 @@ describe("internal admin authentication integration", () => {
   });
 
   it("throttles repeated failed sign-in attempts", async () => {
+    const { authenticateInternalAdmin } = await import("@/lib/auth/internal-auth");
     const admin = await createInternalAdmin("internal-secret");
     const headers = { "x-forwarded-for": "203.0.113.40" };
 

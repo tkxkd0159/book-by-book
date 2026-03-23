@@ -31,7 +31,7 @@ type GlobalCacheState = typeof globalThis & {
 
 const globalCacheState = globalThis as GlobalCacheState;
 
-let cachedBackendPromises = new Map<string, Promise<InternalCacheBackend>>();
+const cachedBackendPromises = new Map<string, Promise<InternalCacheBackend>>();
 
 export async function getCacheBackend(
   config: CacheEnv = env.cache,
@@ -60,11 +60,6 @@ async function getInternalCacheBackend(
   const backendPromise = createCacheBackend(config);
   cachedBackendPromises.set(cacheKey, backendPromise);
   return backendPromise;
-}
-
-export function resetCacheBackendForTests() {
-  cachedBackendPromises = new Map();
-  getMemoryStore().clear();
 }
 
 async function createCacheBackend(
