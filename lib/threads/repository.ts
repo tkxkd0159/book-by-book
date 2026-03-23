@@ -1,4 +1,5 @@
 import sql from "@/lib/db";
+import { logRepositoryOperation } from "@/lib/repository-logging";
 import type {
   AuthUser,
   BookRecord,
@@ -154,6 +155,8 @@ export type CursorPaginationResult<T> = {
 export type ThreadDetail = ThreadSummary & {
   clubBook: DiscussionClubBook;
 };
+
+const REPOSITORY_MODULE = "threads.repository";
 
 function asQueryExecutor(tx: unknown) {
   return tx as QueryExecutor;
@@ -470,7 +473,18 @@ export async function findDiscussionClubBook(input: {
   clubBookId: string;
   userId: string;
 }) {
-  return getDiscussionAccessContext(sql, input);
+  return logRepositoryOperation(
+    {
+      context: {
+        clubBookId: input.clubBookId,
+        clubId: input.clubId,
+        userId: input.userId,
+      },
+      module: REPOSITORY_MODULE,
+      operation: "findDiscussionClubBook",
+    },
+    () => getDiscussionAccessContext(sql, input),
+  );
 }
 
 export async function findDiscussionClubBookForMember(input: {
@@ -478,7 +492,18 @@ export async function findDiscussionClubBookForMember(input: {
   clubBookId: string;
   currentUserRole: ClubMemberRole;
 }) {
-  return getDiscussionAccessContextForMember(sql, input);
+  return logRepositoryOperation(
+    {
+      context: {
+        clubBookId: input.clubBookId,
+        clubId: input.clubId,
+        currentUserRole: input.currentUserRole,
+      },
+      module: REPOSITORY_MODULE,
+      operation: "findDiscussionClubBookForMember",
+    },
+    () => getDiscussionAccessContextForMember(sql, input),
+  );
 }
 
 async function listThreadsForClubBookQuery(
@@ -582,10 +607,25 @@ export async function loadDiscussionDataForMember(input: {
   afterCursor?: string | null;
   limit?: number | null;
 }) {
-  const discussion = await getDiscussionAccessContextForMember(sql, input);
-  const threads = await listThreadsForClubBookQuery(sql, input);
+  return logRepositoryOperation(
+    {
+      context: {
+        afterCursor: Boolean(input.afterCursor),
+        clubBookId: input.clubBookId,
+        clubId: input.clubId,
+        currentUserRole: input.currentUserRole,
+        limit: input.limit,
+      },
+      module: REPOSITORY_MODULE,
+      operation: "loadDiscussionDataForMember",
+    },
+    async () => {
+      const discussion = await getDiscussionAccessContextForMember(sql, input);
+      const threads = await listThreadsForClubBookQuery(sql, input);
 
-  return { discussion, threads };
+      return { discussion, threads };
+    },
+  );
 }
 
 export async function listThreadsForClubBook(input: {
@@ -595,9 +635,24 @@ export async function listThreadsForClubBook(input: {
   afterCursor?: string | null;
   limit?: number | null;
 }) {
-  await getDiscussionAccessContext(sql, input);
+  return logRepositoryOperation(
+    {
+      context: {
+        afterCursor: Boolean(input.afterCursor),
+        clubBookId: input.clubBookId,
+        clubId: input.clubId,
+        limit: input.limit,
+        userId: input.userId,
+      },
+      module: REPOSITORY_MODULE,
+      operation: "listThreadsForClubBook",
+    },
+    async () => {
+      await getDiscussionAccessContext(sql, input);
 
-  return listThreadsForClubBookQuery(sql, input);
+      return listThreadsForClubBookQuery(sql, input);
+    },
+  );
 }
 
 export async function listThreadsForClubBookForMember(input: {
@@ -607,9 +662,24 @@ export async function listThreadsForClubBookForMember(input: {
   afterCursor?: string | null;
   limit?: number | null;
 }) {
-  await getDiscussionAccessContextForMember(sql, input);
+  return logRepositoryOperation(
+    {
+      context: {
+        afterCursor: Boolean(input.afterCursor),
+        clubBookId: input.clubBookId,
+        clubId: input.clubId,
+        currentUserRole: input.currentUserRole,
+        limit: input.limit,
+      },
+      module: REPOSITORY_MODULE,
+      operation: "listThreadsForClubBookForMember",
+    },
+    async () => {
+      await getDiscussionAccessContextForMember(sql, input);
 
-  return listThreadsForClubBookQuery(sql, input);
+      return listThreadsForClubBookQuery(sql, input);
+    },
+  );
 }
 
 export async function createThread(input: {
@@ -619,69 +689,83 @@ export async function createThread(input: {
   title: string;
   body: string | null;
 }) {
-  return sql.begin(async (tx) => {
-    const query = asQueryExecutor(tx);
-    const membership = await getMembership(query, input.clubId, input.authorId);
-    if (!membership || !canViewThreads(membership.role)) {
-      throw new ThreadError(
-        "NOT_FOUND",
-        THREAD_ERROR_MESSAGES.discussionNotFound,
-      );
-    }
+  return logRepositoryOperation(
+    {
+      context: {
+        authorId: input.authorId,
+        clubBookId: input.clubBookId,
+        clubId: input.clubId,
+        hasBody: Boolean(input.body),
+      },
+      module: REPOSITORY_MODULE,
+      operation: "createThread",
+      transactional: true,
+    },
+    () =>
+      sql.begin(async (tx) => {
+        const query = asQueryExecutor(tx);
+        const membership = await getMembership(query, input.clubId, input.authorId);
+        if (!membership || !canViewThreads(membership.role)) {
+          throw new ThreadError(
+            "NOT_FOUND",
+            THREAD_ERROR_MESSAGES.discussionNotFound,
+          );
+        }
 
-    const clubBook = await getDiscussionClubBook(
-      query,
-      input.clubId,
-      input.clubBookId,
-    );
-    if (!clubBook) {
-      throw new ThreadError(
-        "NOT_FOUND",
-        THREAD_ERROR_MESSAGES.discussionNotFound,
-      );
-    }
+        const clubBook = await getDiscussionClubBook(
+          query,
+          input.clubId,
+          input.clubBookId,
+        );
+        if (!clubBook) {
+          throw new ThreadError(
+            "NOT_FOUND",
+            THREAD_ERROR_MESSAGES.discussionNotFound,
+          );
+        }
 
-    if (clubBook.removedAt) {
-      throw new ThreadError(
-        "FORBIDDEN",
-        "Archived club books cannot accept new threads.",
-      );
-    }
+        if (clubBook.removedAt) {
+          throw new ThreadError(
+            "FORBIDDEN",
+            "Archived club books cannot accept new threads.",
+          );
+        }
 
-    const [thread] = await query<ThreadRow[]>`
-      insert into bookapp.threads (
-        club_id,
-        club_book_id,
-        book_id,
-        author_id,
-        title,
-        body
-      )
-      values (
-        ${input.clubId}::uuid,
-        ${input.clubBookId}::uuid,
-        ${clubBook.bookId}::uuid,
-        ${input.authorId}::uuid,
-        ${input.title},
-        ${input.body}
-      )
-      returning
-        id::text as id,
-        club_id::text as "clubId",
-        club_book_id::text as "clubBookId",
-        book_id::text as "bookId",
-        author_id::text as "authorId",
-        title,
-        body,
-        is_locked as "isLocked",
-        is_pinned as "isPinned",
-        created_at as "createdAt",
-        updated_at as "updatedAt",
-        deleted_at as "deletedAt"
-    `;
+        const [thread] = await query<ThreadRow[]>`
+          insert into bookapp.threads (
+            club_id,
+            club_book_id,
+            book_id,
+            author_id,
+            title,
+            body
+          )
+          values (
+            ${input.clubId}::uuid,
+            ${input.clubBookId}::uuid,
+            ${clubBook.bookId}::uuid,
+            ${input.authorId}::uuid,
+            ${input.title},
+            ${input.body}
+          )
+          returning
+            id::text as id,
+            club_id::text as "clubId",
+            club_book_id::text as "clubBookId",
+            book_id::text as "bookId",
+            author_id::text as "authorId",
+            title,
+            body,
+            is_locked as "isLocked",
+            is_pinned as "isPinned",
+            created_at as "createdAt",
+            updated_at as "updatedAt",
+            deleted_at as "deletedAt"
+        `;
 
-    return mapThread(thread);
-  });
+        return mapThread(thread);
+      }),
+  );
 }
 
 export async function findThreadDetail(input: {
@@ -691,18 +775,33 @@ export async function findThreadDetail(input: {
   afterCursor?: string | null;
   limit?: number | null;
 }) {
-  const membership = await getMembership(sql, input.clubId, input.userId);
-  if (!membership || !canViewThreads(membership.role)) {
-    throw new ThreadError("NOT_FOUND", THREAD_ERROR_MESSAGES.threadNotFound);
-  }
+  return logRepositoryOperation(
+    {
+      context: {
+        afterCursor: Boolean(input.afterCursor),
+        clubId: input.clubId,
+        limit: input.limit,
+        threadId: input.threadId,
+        userId: input.userId,
+      },
+      module: REPOSITORY_MODULE,
+      operation: "findThreadDetail",
+    },
+    async () => {
+      const membership = await getMembership(sql, input.clubId, input.userId);
+      if (!membership || !canViewThreads(membership.role)) {
+        throw new ThreadError("NOT_FOUND", THREAD_ERROR_MESSAGES.threadNotFound);
+      }
 
-  return findThreadDetailForMember({
-    clubId: input.clubId,
-    threadId: input.threadId,
-    currentUserRole: membership.role,
-    afterCursor: input.afterCursor,
-    limit: input.limit,
-  });
+      return findThreadDetailForMember({
+        clubId: input.clubId,
+        threadId: input.threadId,
+        currentUserRole: membership.role,
+        afterCursor: input.afterCursor,
+        limit: input.limit,
+      });
+    },
+  );
 }
 
 export async function findThreadDetailForMember(input: {
@@ -712,177 +811,192 @@ export async function findThreadDetailForMember(input: {
   afterCursor?: string | null;
   limit?: number | null;
 }) {
-  if (!canViewThreads(input.currentUserRole)) {
-    throw new ThreadError("NOT_FOUND", THREAD_ERROR_MESSAGES.threadNotFound);
-  }
-
-  const limit = parseDiscussionLimit(input.limit);
-  const afterCursor = parseThreadCommentCursor(input.afterCursor);
-  const queryLimit = limit + 1;
-
-  const [threadRow] = await sql<ThreadDetailRow[]>`
-    select
-      threads.id::text as id,
-      threads.club_id::text as "clubId",
-      threads.club_book_id::text as "clubBookId",
-      threads.book_id::text as "bookId",
-      threads.author_id::text as "authorId",
-      threads.title,
-      threads.body,
-      threads.is_locked as "isLocked",
-      threads.is_pinned as "isPinned",
-      threads.created_at as "createdAt",
-      threads.updated_at as "updatedAt",
-      threads.deleted_at as "deletedAt",
-      coalesce(thread_author.nickname, thread_author.name) as "authorName",
-      thread_author.image_url as "authorImageUrl",
-      threads.post_count as "postCount",
-      club_books.status as "clubBookStatus",
-      club_books.added_by_id::text as "clubBookAddedById",
-      club_books.sort_order as "clubBookSortOrder",
-      club_books.added_at as "clubBookAddedAt",
-      club_books.removed_at as "clubBookRemovedAt",
-      club_books.created_at as "clubBookCreatedAt",
-      club_books.updated_at as "clubBookUpdatedAt",
-      books.google_volume_id as "googleVolumeId",
-      books.title as "bookTitle",
-      books.subtitle as "bookSubtitle",
-      books.authors as "bookAuthors",
-      books.publisher as "bookPublisher",
-      books.published_date as "bookPublishedDate",
-      books.thumbnail_url as "bookThumbnailUrl",
-      books.info_link as "bookInfoLink"
-    from bookapp.threads
-    join bookapp.club_books
-      on club_books.id = threads.club_book_id
-     and club_books.club_id = threads.club_id
-    join bookapp.books on books.id = threads.book_id
-    join bookapp.users thread_author on thread_author.id = threads.author_id
-    where threads.id = ${input.threadId}::uuid
-      and threads.club_id = ${input.clubId}::uuid
-      and threads.deleted_at is null
-    limit 1
-  `;
-
-  if (!threadRow) {
-    throw new ThreadError("NOT_FOUND", THREAD_ERROR_MESSAGES.threadNotFound);
-  }
-
-  const topLevelRows = afterCursor
-    ? await sql<ThreadPostRow[]>`
-      select
-        thread_posts.id::text as id,
-        thread_posts.thread_id::text as "threadId",
-        thread_posts.parent_post_id::text as "parentPostId",
-        thread_posts.author_id::text as "authorId",
-        thread_posts.body,
-        thread_posts.created_at as "createdAt",
-        ((extract(epoch from thread_posts.created_at) * 1000000)::bigint)::text as "cursorCreatedAtMicros",
-        thread_posts.updated_at as "updatedAt",
-        thread_posts.deleted_at as "deletedAt",
-        coalesce(users.nickname, users.name) as "authorName",
-        users.image_url as "authorImageUrl"
-      from bookapp.thread_posts
-      join bookapp.users on users.id = thread_posts.author_id
-      where thread_posts.thread_id = ${input.threadId}::uuid
-        and thread_posts.parent_post_id is null
-        and (
-          (extract(epoch from thread_posts.created_at) * 1000000)::bigint
-            > ${afterCursor.createdAtMicros}::bigint
-          or (
-            (extract(epoch from thread_posts.created_at) * 1000000)::bigint
-              = ${afterCursor.createdAtMicros}::bigint
-            and thread_posts.id > ${afterCursor.id}::uuid
-          )
-        )
-      order by thread_posts.created_at asc, thread_posts.id asc
-      limit ${queryLimit}
-    `
-    : await sql<ThreadPostRow[]>`
-      select
-        thread_posts.id::text as id,
-        thread_posts.thread_id::text as "threadId",
-        thread_posts.parent_post_id::text as "parentPostId",
-        thread_posts.author_id::text as "authorId",
-        thread_posts.body,
-        thread_posts.created_at as "createdAt",
-        ((extract(epoch from thread_posts.created_at) * 1000000)::bigint)::text as "cursorCreatedAtMicros",
-        thread_posts.updated_at as "updatedAt",
-        thread_posts.deleted_at as "deletedAt",
-        coalesce(users.nickname, users.name) as "authorName",
-        users.image_url as "authorImageUrl"
-      from bookapp.thread_posts
-      join bookapp.users on users.id = thread_posts.author_id
-      where thread_posts.thread_id = ${input.threadId}::uuid
-        and thread_posts.parent_post_id is null
-      order by thread_posts.created_at asc, thread_posts.id asc
-      limit ${queryLimit}
-    `;
-
-  const hasMore = topLevelRows.length > limit;
-  const visibleTopLevelRows = hasMore
-    ? topLevelRows.slice(0, limit)
-    : topLevelRows;
-  const topLevelIds = visibleTopLevelRows.map((post) => post.id);
-  const replyRows = topLevelIds.length > 0
-    ? await sql<ThreadPostRow[]>`
-      select
-        thread_posts.id::text as id,
-        thread_posts.thread_id::text as "threadId",
-        thread_posts.parent_post_id::text as "parentPostId",
-        thread_posts.author_id::text as "authorId",
-        thread_posts.body,
-        thread_posts.created_at as "createdAt",
-        thread_posts.updated_at as "updatedAt",
-        thread_posts.deleted_at as "deletedAt",
-        coalesce(users.nickname, users.name) as "authorName",
-        users.image_url as "authorImageUrl"
-      from bookapp.thread_posts
-      join bookapp.users on users.id = thread_posts.author_id
-      where thread_posts.thread_id = ${input.threadId}::uuid
-        and thread_posts.parent_post_id in ${sql(topLevelIds)}
-      order by
-        thread_posts.parent_post_id asc,
-        thread_posts.created_at asc,
-        thread_posts.id asc
-    `
-    : [];
-
-  const repliesByParentId = new Map<string, ThreadPostWithAuthor[]>();
-  for (const reply of replyRows) {
-    const parentPostId = reply.parentPostId;
-    if (!parentPostId) {
-      continue;
-    }
-
-    const entries = repliesByParentId.get(parentPostId) ?? [];
-    entries.push(mapThreadPost(reply));
-    repliesByParentId.set(parentPostId, entries);
-  }
-
-  const lastVisibleRow = visibleTopLevelRows.at(-1) ?? null;
-  const endCursor = lastVisibleRow
-    ? createThreadCommentCursor({
-      createdAtMicros:
-          lastVisibleRow.cursorCreatedAtMicros
-          ?? lastVisibleRow.createdAt.getTime() * 1000,
-      id: lastVisibleRow.id,
-    })
-    : null;
-
-  return {
-    currentUserRole: input.currentUserRole,
-    thread: mapThreadDetail(threadRow),
-    posts: {
-      items: visibleTopLevelRows.map((post) => ({
-        ...mapThreadPost(post),
-        replies: repliesByParentId.get(post.id) ?? [],
-      })),
-      nextCursor: hasMore ? endCursor : null,
-      endCursor,
-      hasMore,
+  return logRepositoryOperation(
+    {
+      context: {
+        afterCursor: Boolean(input.afterCursor),
+        clubId: input.clubId,
+        currentUserRole: input.currentUserRole,
+        limit: input.limit,
+        threadId: input.threadId,
+      },
+      module: REPOSITORY_MODULE,
+      operation: "findThreadDetailForMember",
     },
-  };
+    async () => {
+      if (!canViewThreads(input.currentUserRole)) {
+        throw new ThreadError("NOT_FOUND", THREAD_ERROR_MESSAGES.threadNotFound);
+      }
+
+      const limit = parseDiscussionLimit(input.limit);
+      const afterCursor = parseThreadCommentCursor(input.afterCursor);
+      const queryLimit = limit + 1;
+
+      const [threadRow] = await sql<ThreadDetailRow[]>`
+        select
+          threads.id::text as id,
+          threads.club_id::text as "clubId",
+          threads.club_book_id::text as "clubBookId",
+          threads.book_id::text as "bookId",
+          threads.author_id::text as "authorId",
+          threads.title,
+          threads.body,
+          threads.is_locked as "isLocked",
+          threads.is_pinned as "isPinned",
+          threads.created_at as "createdAt",
+          threads.updated_at as "updatedAt",
+          threads.deleted_at as "deletedAt",
+          coalesce(thread_author.nickname, thread_author.name) as "authorName",
+          thread_author.image_url as "authorImageUrl",
+          threads.post_count as "postCount",
+          club_books.status as "clubBookStatus",
+          club_books.added_by_id::text as "clubBookAddedById",
+          club_books.sort_order as "clubBookSortOrder",
+          club_books.added_at as "clubBookAddedAt",
+          club_books.removed_at as "clubBookRemovedAt",
+          club_books.created_at as "clubBookCreatedAt",
+          club_books.updated_at as "clubBookUpdatedAt",
+          books.google_volume_id as "googleVolumeId",
+          books.title as "bookTitle",
+          books.subtitle as "bookSubtitle",
+          books.authors as "bookAuthors",
+          books.publisher as "bookPublisher",
+          books.published_date as "bookPublishedDate",
+          books.thumbnail_url as "bookThumbnailUrl",
+          books.info_link as "bookInfoLink"
+        from bookapp.threads
+        join bookapp.club_books
+          on club_books.id = threads.club_book_id
+         and club_books.club_id = threads.club_id
+        join bookapp.books on books.id = threads.book_id
+        join bookapp.users thread_author on thread_author.id = threads.author_id
+        where threads.id = ${input.threadId}::uuid
+          and threads.club_id = ${input.clubId}::uuid
+          and threads.deleted_at is null
+        limit 1
+      `;
+
+      if (!threadRow) {
+        throw new ThreadError("NOT_FOUND", THREAD_ERROR_MESSAGES.threadNotFound);
+      }
+
+      const topLevelRows = afterCursor
+        ? await sql<ThreadPostRow[]>`
+          select
+            thread_posts.id::text as id,
+            thread_posts.thread_id::text as "threadId",
+            thread_posts.parent_post_id::text as "parentPostId",
+            thread_posts.author_id::text as "authorId",
+            thread_posts.body,
+            thread_posts.created_at as "createdAt",
+            ((extract(epoch from thread_posts.created_at) * 1000000)::bigint)::text as "cursorCreatedAtMicros",
+            thread_posts.updated_at as "updatedAt",
+            thread_posts.deleted_at as "deletedAt",
+            coalesce(users.nickname, users.name) as "authorName",
+            users.image_url as "authorImageUrl"
+          from bookapp.thread_posts
+          join bookapp.users on users.id = thread_posts.author_id
+          where thread_posts.thread_id = ${input.threadId}::uuid
+            and thread_posts.parent_post_id is null
+            and (
+              (extract(epoch from thread_posts.created_at) * 1000000)::bigint
+                > ${afterCursor.createdAtMicros}::bigint
+              or (
+                (extract(epoch from thread_posts.created_at) * 1000000)::bigint
+                  = ${afterCursor.createdAtMicros}::bigint
+                and thread_posts.id > ${afterCursor.id}::uuid
+              )
+            )
+          order by thread_posts.created_at asc, thread_posts.id asc
+          limit ${queryLimit}
+        `
+        : await sql<ThreadPostRow[]>`
+          select
+            thread_posts.id::text as id,
+            thread_posts.thread_id::text as "threadId",
+            thread_posts.parent_post_id::text as "parentPostId",
+            thread_posts.author_id::text as "authorId",
+            thread_posts.body,
+            thread_posts.created_at as "createdAt",
+            ((extract(epoch from thread_posts.created_at) * 1000000)::bigint)::text as "cursorCreatedAtMicros",
+            thread_posts.updated_at as "updatedAt",
+            thread_posts.deleted_at as "deletedAt",
+            coalesce(users.nickname, users.name) as "authorName",
+            users.image_url as "authorImageUrl"
+          from bookapp.thread_posts
+          join bookapp.users on users.id = thread_posts.author_id
+          where thread_posts.thread_id = ${input.threadId}::uuid
+            and thread_posts.parent_post_id is null
+          order by thread_posts.created_at asc, thread_posts.id asc
+          limit ${queryLimit}
+        `;
+
+      const hasMore = topLevelRows.length > limit;
+      const visibleTopLevelRows = hasMore
+        ? topLevelRows.slice(0, limit)
+        : topLevelRows;
+      const topLevelIds = visibleTopLevelRows.map((post) => post.id);
+      const replyRows = topLevelIds.length > 0
+        ? await sql<ThreadPostRow[]>`
+          select
+            thread_posts.id::text as id,
+            thread_posts.thread_id::text as "threadId",
+            thread_posts.parent_post_id::text as "parentPostId",
+            thread_posts.author_id::text as "authorId",
+            thread_posts.body,
+            thread_posts.created_at as "createdAt",
+            thread_posts.updated_at as "updatedAt",
+            thread_posts.deleted_at as "deletedAt",
+            coalesce(users.nickname, users.name) as "authorName",
+            users.image_url as "authorImageUrl"
+          from bookapp.thread_posts
+          join bookapp.users on users.id = thread_posts.author_id
+          where thread_posts.thread_id = ${input.threadId}::uuid
+            and thread_posts.parent_post_id in ${sql(topLevelIds)}
+          order by
+            thread_posts.parent_post_id asc,
+            thread_posts.created_at asc,
+            thread_posts.id asc
+        `
+        : [];
+
+      const repliesByParentId = new Map<string, ThreadPostWithAuthor[]>();
+      for (const reply of replyRows) {
+        const parentPostId = reply.parentPostId;
+        if (!parentPostId) {
+          continue;
+        }
+
+        const entries = repliesByParentId.get(parentPostId) ?? [];
+        entries.push(mapThreadPost(reply));
+        repliesByParentId.set(parentPostId, entries);
+      }
+
+      const lastVisibleRow = visibleTopLevelRows.at(-1) ?? null;
+      const endCursor = lastVisibleRow
+        ? createThreadCommentCursor({
+          createdAtMicros:
+              lastVisibleRow.cursorCreatedAtMicros
+              ?? lastVisibleRow.createdAt.getTime() * 1000,
+          id: lastVisibleRow.id,
+        })
+        : null;
+
+      return {
+        currentUserRole: input.currentUserRole,
+        thread: mapThreadDetail(threadRow),
+        posts: {
+          items: visibleTopLevelRows.map((post) => ({
+            ...mapThreadPost(post),
+            replies: repliesByParentId.get(post.id) ?? [],
+          })),
+          nextCursor: hasMore ? endCursor : null,
+          endCursor,
+          hasMore,
+        },
+      };
+    },
+  );
 }
 
 export async function createThreadPost(input: {
@@ -892,86 +1006,100 @@ export async function createThreadPost(input: {
   body: string;
   parentPostId?: string | null;
 }) {
-  return sql.begin(async (tx) => {
-    const query = asQueryExecutor(tx);
-    const membership = await getMembership(query, input.clubId, input.authorId);
-    if (!membership || !canViewThreads(membership.role)) {
-      throw new ThreadError("NOT_FOUND", THREAD_ERROR_MESSAGES.threadNotFound);
-    }
+  return logRepositoryOperation(
+    {
+      context: {
+        authorId: input.authorId,
+        clubId: input.clubId,
+        hasParentPostId: Boolean(input.parentPostId),
+        threadId: input.threadId,
+      },
+      module: REPOSITORY_MODULE,
+      operation: "createThreadPost",
+      transactional: true,
+    },
+    () =>
+      sql.begin(async (tx) => {
+        const query = asQueryExecutor(tx);
+        const membership = await getMembership(query, input.clubId, input.authorId);
+        if (!membership || !canViewThreads(membership.role)) {
+          throw new ThreadError("NOT_FOUND", THREAD_ERROR_MESSAGES.threadNotFound);
+        }
 
-    const thread = await getThreadForPinUpdate(query, input.clubId, input.threadId);
-    if (!thread) {
-      throw new ThreadError("NOT_FOUND", THREAD_ERROR_MESSAGES.threadNotFound);
-    }
+        const thread = await getThreadForPinUpdate(query, input.clubId, input.threadId);
+        if (!thread) {
+          throw new ThreadError("NOT_FOUND", THREAD_ERROR_MESSAGES.threadNotFound);
+        }
 
-    let parentPostId: string | null = null;
-    if (input.parentPostId) {
-      const parentPost = await getReplyTargetPost(
-        query,
-        thread.id,
-        input.parentPostId,
-      );
+        let parentPostId: string | null = null;
+        if (input.parentPostId) {
+          const parentPost = await getReplyTargetPost(
+            query,
+            thread.id,
+            input.parentPostId,
+          );
 
-      if (!parentPost) {
-        throw new ThreadError(
-          "NOT_FOUND",
-          THREAD_ERROR_MESSAGES.replyTargetNotFound,
-        );
-      }
+          if (!parentPost) {
+            throw new ThreadError(
+              "NOT_FOUND",
+              THREAD_ERROR_MESSAGES.replyTargetNotFound,
+            );
+          }
 
-      if (parentPost.parentPostId) {
-        throw new ThreadError(
-          "CONFLICT",
-          THREAD_ERROR_MESSAGES.replyTargetTopLevelOnly,
-        );
-      }
+          if (parentPost.parentPostId) {
+            throw new ThreadError(
+              "CONFLICT",
+              THREAD_ERROR_MESSAGES.replyTargetTopLevelOnly,
+            );
+          }
 
-      if (parentPost.deletedAt) {
-        throw new ThreadError(
-          "CONFLICT",
-          THREAD_ERROR_MESSAGES.deletedReplyTarget,
-        );
-      }
+          if (parentPost.deletedAt) {
+            throw new ThreadError(
+              "CONFLICT",
+              THREAD_ERROR_MESSAGES.deletedReplyTarget,
+            );
+          }
 
-      parentPostId = parentPost.id;
-    }
+          parentPostId = parentPost.id;
+        }
 
-    const [post] = await query<ThreadPostRow[]>`
-      insert into bookapp.thread_posts (
-        thread_id,
-        parent_post_id,
-        author_id,
-        body
-      )
-      values (
-        ${thread.id}::uuid,
-        ${parentPostId}::uuid,
-        ${input.authorId}::uuid,
-        ${input.body}
-      )
-      returning
-        id::text as id,
-        thread_id::text as "threadId",
-        parent_post_id::text as "parentPostId",
-        author_id::text as "authorId",
-        body,
-        created_at as "createdAt",
-        updated_at as "updatedAt",
-        deleted_at as "deletedAt",
-        (
-          select coalesce(nickname, name)
-          from bookapp.users
-          where users.id = thread_posts.author_id
-        ) as "authorName",
-        (
-          select image_url
-          from bookapp.users
-          where users.id = thread_posts.author_id
-        ) as "authorImageUrl"
-    `;
+        const [post] = await query<ThreadPostRow[]>`
+          insert into bookapp.thread_posts (
+            thread_id,
+            parent_post_id,
+            author_id,
+            body
+          )
+          values (
+            ${thread.id}::uuid,
+            ${parentPostId}::uuid,
+            ${input.authorId}::uuid,
+            ${input.body}
+          )
+          returning
+            id::text as id,
+            thread_id::text as "threadId",
+            parent_post_id::text as "parentPostId",
+            author_id::text as "authorId",
+            body,
+            created_at as "createdAt",
+            updated_at as "updatedAt",
+            deleted_at as "deletedAt",
+            (
+              select coalesce(nickname, name)
+              from bookapp.users
+              where users.id = thread_posts.author_id
+            ) as "authorName",
+            (
+              select image_url
+              from bookapp.users
+              where users.id = thread_posts.author_id
+            ) as "authorImageUrl"
+        `;
 
-    return mapThreadPost(post);
-  });
+        return mapThreadPost(post);
+      }),
+  );
 }
 
 export async function editThreadPost(input: {
@@ -980,55 +1108,68 @@ export async function editThreadPost(input: {
   editorId: string;
   body: string;
 }) {
-  return sql.begin(async (tx) => {
-    const query = asQueryExecutor(tx);
-    const membership = await getMembership(query, input.clubId, input.editorId);
-    if (!membership || !canViewThreads(membership.role)) {
-      throw new ThreadError("NOT_FOUND", THREAD_ERROR_MESSAGES.postNotFound);
-    }
+  return logRepositoryOperation(
+    {
+      context: {
+        clubId: input.clubId,
+        editorId: input.editorId,
+        postId: input.postId,
+      },
+      module: REPOSITORY_MODULE,
+      operation: "editThreadPost",
+      transactional: true,
+    },
+    () =>
+      sql.begin(async (tx) => {
+        const query = asQueryExecutor(tx);
+        const membership = await getMembership(query, input.clubId, input.editorId);
+        if (!membership || !canViewThreads(membership.role)) {
+          throw new ThreadError("NOT_FOUND", THREAD_ERROR_MESSAGES.postNotFound);
+        }
 
-    const existing = await getThreadPostForMutation(query, input.clubId, input.postId);
-    if (!existing) {
-      throw new ThreadError("NOT_FOUND", THREAD_ERROR_MESSAGES.postNotFound);
-    }
+        const existing = await getThreadPostForMutation(query, input.clubId, input.postId);
+        if (!existing) {
+          throw new ThreadError("NOT_FOUND", THREAD_ERROR_MESSAGES.postNotFound);
+        }
 
-    if (!isThreadPostAuthor(existing.authorId, input.editorId)) {
-      throw new ThreadError("FORBIDDEN", THREAD_ERROR_MESSAGES.postAuthorOnly);
-    }
+        if (!isThreadPostAuthor(existing.authorId, input.editorId)) {
+          throw new ThreadError("FORBIDDEN", THREAD_ERROR_MESSAGES.postAuthorOnly);
+        }
 
-    if (existing.deletedAt) {
-      throw new ThreadError("CONFLICT", THREAD_ERROR_MESSAGES.deletedPostEdit);
-    }
+        if (existing.deletedAt) {
+          throw new ThreadError("CONFLICT", THREAD_ERROR_MESSAGES.deletedPostEdit);
+        }
 
-    const [updated] = await query<ThreadPostRow[]>`
-      update bookapp.thread_posts
-      set
-        body = ${input.body},
-        updated_at = now()
-      where id = ${input.postId}::uuid
-      returning
-        id::text as id,
-        thread_id::text as "threadId",
-        parent_post_id::text as "parentPostId",
-        author_id::text as "authorId",
-        body,
-        created_at as "createdAt",
-        updated_at as "updatedAt",
-        deleted_at as "deletedAt",
-        (
-          select coalesce(nickname, name)
-          from bookapp.users
-          where users.id = thread_posts.author_id
-        ) as "authorName",
-        (
-          select image_url
-          from bookapp.users
-          where users.id = thread_posts.author_id
-        ) as "authorImageUrl"
-    `;
+        const [updated] = await query<ThreadPostRow[]>`
+          update bookapp.thread_posts
+          set
+            body = ${input.body},
+            updated_at = now()
+          where id = ${input.postId}::uuid
+          returning
+            id::text as id,
+            thread_id::text as "threadId",
+            parent_post_id::text as "parentPostId",
+            author_id::text as "authorId",
+            body,
+            created_at as "createdAt",
+            updated_at as "updatedAt",
+            deleted_at as "deletedAt",
+            (
+              select coalesce(nickname, name)
+              from bookapp.users
+              where users.id = thread_posts.author_id
+            ) as "authorName",
+            (
+              select image_url
+              from bookapp.users
+              where users.id = thread_posts.author_id
+            ) as "authorImageUrl"
+        `;
 
-    return mapThreadPost(updated);
-  });
+        return mapThreadPost(updated);
+      }),
+  );
 }
 
 export async function deleteThreadPost(input: {
@@ -1036,55 +1177,68 @@ export async function deleteThreadPost(input: {
   postId: string;
   deletedById: string;
 }) {
-  return sql.begin(async (tx) => {
-    const query = asQueryExecutor(tx);
-    const membership = await getMembership(query, input.clubId, input.deletedById);
-    if (!membership || !canViewThreads(membership.role)) {
-      throw new ThreadError("NOT_FOUND", THREAD_ERROR_MESSAGES.postNotFound);
-    }
+  return logRepositoryOperation(
+    {
+      context: {
+        clubId: input.clubId,
+        deletedById: input.deletedById,
+        postId: input.postId,
+      },
+      module: REPOSITORY_MODULE,
+      operation: "deleteThreadPost",
+      transactional: true,
+    },
+    () =>
+      sql.begin(async (tx) => {
+        const query = asQueryExecutor(tx);
+        const membership = await getMembership(query, input.clubId, input.deletedById);
+        if (!membership || !canViewThreads(membership.role)) {
+          throw new ThreadError("NOT_FOUND", THREAD_ERROR_MESSAGES.postNotFound);
+        }
 
-    const existing = await getThreadPostForMutation(query, input.clubId, input.postId);
-    if (!existing) {
-      throw new ThreadError("NOT_FOUND", THREAD_ERROR_MESSAGES.postNotFound);
-    }
+        const existing = await getThreadPostForMutation(query, input.clubId, input.postId);
+        if (!existing) {
+          throw new ThreadError("NOT_FOUND", THREAD_ERROR_MESSAGES.postNotFound);
+        }
 
-    if (!isThreadPostAuthor(existing.authorId, input.deletedById)) {
-      throw new ThreadError("FORBIDDEN", THREAD_ERROR_MESSAGES.postAuthorOnly);
-    }
+        if (!isThreadPostAuthor(existing.authorId, input.deletedById)) {
+          throw new ThreadError("FORBIDDEN", THREAD_ERROR_MESSAGES.postAuthorOnly);
+        }
 
-    if (existing.deletedAt) {
-      return mapThreadPost(existing);
-    }
+        if (existing.deletedAt) {
+          return mapThreadPost(existing);
+        }
 
-    const [updated] = await query<ThreadPostRow[]>`
-      update bookapp.thread_posts
-      set
-        deleted_at = now(),
-        updated_at = now()
-      where id = ${input.postId}::uuid
-      returning
-        id::text as id,
-        thread_id::text as "threadId",
-        parent_post_id::text as "parentPostId",
-        author_id::text as "authorId",
-        body,
-        created_at as "createdAt",
-        updated_at as "updatedAt",
-        deleted_at as "deletedAt",
-        (
-          select coalesce(nickname, name)
-          from bookapp.users
-          where users.id = thread_posts.author_id
-        ) as "authorName",
-        (
-          select image_url
-          from bookapp.users
-          where users.id = thread_posts.author_id
-        ) as "authorImageUrl"
-    `;
+        const [updated] = await query<ThreadPostRow[]>`
+          update bookapp.thread_posts
+          set
+            deleted_at = now(),
+            updated_at = now()
+          where id = ${input.postId}::uuid
+          returning
+            id::text as id,
+            thread_id::text as "threadId",
+            parent_post_id::text as "parentPostId",
+            author_id::text as "authorId",
+            body,
+            created_at as "createdAt",
+            updated_at as "updatedAt",
+            deleted_at as "deletedAt",
+            (
+              select coalesce(nickname, name)
+              from bookapp.users
+              where users.id = thread_posts.author_id
+            ) as "authorName",
+            (
+              select image_url
+              from bookapp.users
+              where users.id = thread_posts.author_id
+            ) as "authorImageUrl"
+        `;
 
-    return mapThreadPost(updated);
-  });
+        return mapThreadPost(updated);
+      }),
+  );
 }
 
 export async function deleteThread(input: {
@@ -1092,42 +1246,55 @@ export async function deleteThread(input: {
   threadId: string;
   deletedById: string;
 }) {
-  return sql.begin(async (tx) => {
-    const query = asQueryExecutor(tx);
-    const membership = await getMembership(query, input.clubId, input.deletedById);
-    if (!membership || !canDeleteThreads(membership.role)) {
-      throw new ThreadError(
-        membership ? "FORBIDDEN" : "NOT_FOUND",
-        "Only club admins can delete threads.",
-      );
-    }
+  return logRepositoryOperation(
+    {
+      context: {
+        clubId: input.clubId,
+        deletedById: input.deletedById,
+        threadId: input.threadId,
+      },
+      module: REPOSITORY_MODULE,
+      operation: "deleteThread",
+      transactional: true,
+    },
+    () =>
+      sql.begin(async (tx) => {
+        const query = asQueryExecutor(tx);
+        const membership = await getMembership(query, input.clubId, input.deletedById);
+        if (!membership || !canDeleteThreads(membership.role)) {
+          throw new ThreadError(
+            membership ? "FORBIDDEN" : "NOT_FOUND",
+            "Only club admins can delete threads.",
+          );
+        }
 
-    const thread = await getThreadForPinUpdate(query, input.clubId, input.threadId);
-    if (!thread) {
-      throw new ThreadError("NOT_FOUND", THREAD_ERROR_MESSAGES.threadNotFound);
-    }
+        const thread = await getThreadForPinUpdate(query, input.clubId, input.threadId);
+        if (!thread) {
+          throw new ThreadError("NOT_FOUND", THREAD_ERROR_MESSAGES.threadNotFound);
+        }
 
-    const [deleted] = await query<ThreadRow[]>`
-      delete from bookapp.threads
-      where id = ${input.threadId}::uuid
-        and club_id = ${input.clubId}::uuid
-      returning
-        id::text as id,
-        club_id::text as "clubId",
-        club_book_id::text as "clubBookId",
-        book_id::text as "bookId",
-        author_id::text as "authorId",
-        title,
-        body,
-        is_locked as "isLocked",
-        is_pinned as "isPinned",
-        created_at as "createdAt",
-        updated_at as "updatedAt",
-        deleted_at as "deletedAt"
-    `;
+        const [deleted] = await query<ThreadRow[]>`
+          delete from bookapp.threads
+          where id = ${input.threadId}::uuid
+            and club_id = ${input.clubId}::uuid
+          returning
+            id::text as id,
+            club_id::text as "clubId",
+            club_book_id::text as "clubBookId",
+            book_id::text as "bookId",
+            author_id::text as "authorId",
+            title,
+            body,
+            is_locked as "isLocked",
+            is_pinned as "isPinned",
+            created_at as "createdAt",
+            updated_at as "updatedAt",
+            deleted_at as "deletedAt"
+        `;
 
-    return mapThread(deleted);
-  });
+        return mapThread(deleted);
+      }),
+  );
 }
 
 async function setThreadPinnedState(input: {
@@ -1182,12 +1349,25 @@ export function pinThread(input: {
   threadId: string;
   pinnedById: string;
 }) {
-  return setThreadPinnedState({
-    clubId: input.clubId,
-    threadId: input.threadId,
-    actorId: input.pinnedById,
-    isPinned: true,
-  });
+  return logRepositoryOperation(
+    {
+      context: {
+        clubId: input.clubId,
+        pinnedById: input.pinnedById,
+        threadId: input.threadId,
+      },
+      module: REPOSITORY_MODULE,
+      operation: "pinThread",
+      transactional: true,
+    },
+    () =>
+      setThreadPinnedState({
+        clubId: input.clubId,
+        threadId: input.threadId,
+        actorId: input.pinnedById,
+        isPinned: true,
+      }),
+  );
 }
 
 export function unpinThread(input: {
@@ -1195,10 +1375,23 @@ export function unpinThread(input: {
   threadId: string;
   unpinnedById: string;
 }) {
-  return setThreadPinnedState({
-    clubId: input.clubId,
-    threadId: input.threadId,
-    actorId: input.unpinnedById,
-    isPinned: false,
-  });
+  return logRepositoryOperation(
+    {
+      context: {
+        clubId: input.clubId,
+        threadId: input.threadId,
+        unpinnedById: input.unpinnedById,
+      },
+      module: REPOSITORY_MODULE,
+      operation: "unpinThread",
+      transactional: true,
+    },
+    () =>
+      setThreadPinnedState({
+        clubId: input.clubId,
+        threadId: input.threadId,
+        actorId: input.unpinnedById,
+        isPinned: false,
+      }),
+  );
 }

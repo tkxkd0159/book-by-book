@@ -27,7 +27,26 @@ describe("environment validation", () => {
     );
     expect(appEnv.googleOAuth.clientId).toBe("test-google-client-id");
     expect(appEnv.auth.secret).toBe("test-auth-secret");
+    expect(appEnv.logging.level).toBe("info");
     expect(appEnv.rateLimit.provider).toBe("disabled");
+  });
+
+  it("accepts supported log level overrides", () => {
+    expect(
+      AppEnv.from(
+        createEnv({
+          LOG_LEVEL: "debug",
+        }),
+      ).logging.level,
+    ).toBe("debug");
+
+    expect(
+      AppEnv.from(
+        createEnv({
+          LOG_LEVEL: "silent",
+        }),
+      ).logging.level,
+    ).toBe("silent");
   });
 
   it("accepts an absolute Google Books API base URL override", () => {
@@ -195,6 +214,16 @@ describe("environment validation", () => {
         }),
       ).validateForBuildOrThrow(),
     ).toThrow(/GOOGLE_BOOKS_API_BASE_URL must be an absolute URL\./);
+  });
+
+  it("rejects an invalid LOG_LEVEL value", () => {
+    expect(() =>
+      AppEnv.from(
+        createEnv({
+          LOG_LEVEL: "verbose",
+        }),
+      ).validateForBuildOrThrow(),
+    ).toThrow(/LOG_LEVEL must be one of: trace, debug, info, warn, error, fatal, silent\./);
   });
 
   it("requires NEXTAUTH_URL for production-like app runs", () => {
