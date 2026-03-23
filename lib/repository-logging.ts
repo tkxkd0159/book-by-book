@@ -46,14 +46,6 @@ export function logRepositoryOperation<T>(
   const context = sanitizeRepositoryLogContext(options.context);
   const startedAt = process.hrtime.bigint();
 
-  operationLogger.debug(
-    {
-      context,
-      outcome: "start",
-    },
-    "Repository operation started",
-  );
-
   return REPOSITORY_LOG_SCOPE.run({ active: true }, () => {
     try {
       const result = operation();
@@ -125,9 +117,7 @@ function sanitizeRepositoryLogContext(
   return Object.keys(sanitized).length > 0 ? sanitized : undefined;
 }
 
-function sanitizeObject(
-  value: Record<string, unknown>,
-): RepositoryLogContext {
+function sanitizeObject(value: Record<string, unknown>): RepositoryLogContext {
   const sanitized: RepositoryLogContext = {};
 
   for (const [key, currentValue] of Object.entries(value)) {
@@ -187,9 +177,7 @@ function sanitizeValue(
   }
 
   if (typeof value === "object") {
-    const sanitizedObject = sanitizeObject(
-      value as Record<string, unknown>,
-    );
+    const sanitizedObject = sanitizeObject(value as Record<string, unknown>);
 
     return Object.keys(sanitizedObject).length > 0
       ? sanitizedObject
