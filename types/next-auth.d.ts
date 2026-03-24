@@ -1,6 +1,6 @@
 import type { DefaultSession } from "next-auth";
 
-import type { AppSessionIdentity } from "@/types/db";
+import type { AppSessionIdentity } from "@/types/auth";
 
 declare module "next-auth" {
   interface Session {

@@ -1,9 +1,6 @@
 import { getCacheBackend } from "@/lib/cache/backend";
-import type {
-  AuthUser,
-  FavoriteGenreKey,
-  UserGender,
-} from "@/types/db";
+import type { AuthUser } from "@/types/auth";
+import type { FavoriteGenreKey, UserGender } from "@/types/db";
 
 const AUTH_USER_CACHE_KEY_PREFIX = "bbb:auth-user:v1";
 const AUTH_USER_CACHE_HIT_TTL_SECONDS = 60;

@@ -20,13 +20,7 @@ export default async function ClubMembersPage({
   searchParams,
 }: ClubMembersPageProps) {
   const [{ clubId }, paramsData] = await Promise.all([params, searchParams]);
-  const context = await loadClubOverviewContext(clubId);
-
-  if (!context) {
-    return null;
-  }
-
-  const { club, currentUser } = context;
+  const { club, currentUser } = await loadClubOverviewContext(clubId);
 
   if (!isClubMember(club.currentUserRole)) {
     forbidden();

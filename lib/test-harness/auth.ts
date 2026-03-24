@@ -5,7 +5,7 @@ import { env } from "@/lib/env";
 import { resolveAppSessionIdentity } from "@/lib/auth/identity";
 import { findUserByProviderIdentity } from "@/lib/auth/users";
 import { E2E_AUTH_COOKIE_NAME } from "@/lib/test-harness/constants";
-import type { AuthUser } from "@/types/db";
+import type { AuthUser } from "@/types/auth";
 
 export const E2E_USER_PROVIDER = "e2e";
 

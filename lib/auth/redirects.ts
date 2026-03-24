@@ -7,7 +7,7 @@ import {
   isInternalAdminSessionIdentity,
   isInternalAdminUser,
 } from "@/lib/auth/identity";
-import type { AuthUser } from "@/types/db";
+import type { AuthUser } from "@/types/auth";
 
 type SessionUserLike = Pick<Session["user"], "sessionIdentity">;
 

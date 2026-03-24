@@ -13,7 +13,7 @@ import {
   hashInvitationCode,
   resolveInvitationCodeStatus,
 } from "@/lib/invitation-codes/core";
-import type { AuthUser } from "@/types/db";
+import type { AuthUser } from "@/types/auth";
 
 type SignupUserRow = {
   id: string;

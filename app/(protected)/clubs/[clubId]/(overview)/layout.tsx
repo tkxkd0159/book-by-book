@@ -23,13 +23,7 @@ export default async function ClubOverviewLayout({
   params,
 }: ClubOverviewLayoutProps) {
   const { clubId } = await params;
-  const context = await loadClubOverviewContext(clubId);
-
-  if (!context) {
-    return null;
-  }
-
-  const { club } = context;
+  const { club } = await loadClubOverviewContext(clubId);
 
   return (
     <div className="space-y-6">

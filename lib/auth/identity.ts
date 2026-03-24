@@ -1,4 +1,4 @@
-import type { AppSessionIdentity, AuthUser } from "@/types/db";
+import type { AppSessionIdentity, AuthUser } from "@/types/auth";
 
 export const APP_SESSION_IDENTITIES = {
   INTERNAL_ADMIN: "INTERNAL_ADMIN",

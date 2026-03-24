@@ -22,7 +22,7 @@ import {
   syncCachedAuthUser,
 } from "@/lib/auth/user-cache";
 import { findUserById } from "@/lib/auth/users";
-import type { AuthUser } from "@/types/db";
+import type { AuthUser } from "@/types/auth";
 
 const readAuthSession = cache(async (): Promise<Session | null> => {
   const session = await getAuthSessionSafe();

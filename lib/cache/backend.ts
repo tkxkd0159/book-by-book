@@ -3,6 +3,10 @@ import {
   type CacheEnv,
   type CacheProvider,
 } from "@/lib/env";
+import {
+  getMemoryCacheStore,
+  type MemoryCacheEntry,
+} from "@/lib/cache/memory-store";
 
 type CacheSetOptions = {
   onlyIfAbsent?: boolean;
@@ -19,17 +23,6 @@ export type CacheBackend = {
 type InternalCacheBackend = CacheBackend & {
   incrementFixedWindowCounter(key: string, windowSeconds: number): Promise<number>;
 };
-
-type MemoryCacheEntry = {
-  expiresAtMs: number | null;
-  value: string;
-};
-
-type GlobalCacheState = typeof globalThis & {
-  __bbbSharedCacheMemoryStore?: Map<string, MemoryCacheEntry>;
-};
-
-const globalCacheState = globalThis as GlobalCacheState;
 
 const cachedBackendPromises = new Map<string, Promise<InternalCacheBackend>>();
 
@@ -97,13 +90,13 @@ function createMemoryCacheBackend(): InternalCacheBackend {
   return {
     provider: "memory",
     async del(key) {
-      getMemoryStore().delete(key);
+      getMemoryCacheStore().delete(key);
     },
     async get(key) {
-      return readMemoryEntry(getMemoryStore(), key)?.value ?? null;
+      return readMemoryEntry(getMemoryCacheStore(), key)?.value ?? null;
     },
     async incrementFixedWindowCounter(key, windowSeconds) {
-      const store = getMemoryStore();
+      const store = getMemoryCacheStore();
       const entry = readMemoryEntry(store, key);
       const nowMs = Date.now();
       if (!entry) {
@@ -122,7 +115,7 @@ function createMemoryCacheBackend(): InternalCacheBackend {
       return Number.isNaN(nextValue) ? 1 : nextValue + 1;
     },
     async set(key, value, options) {
-      const store = getMemoryStore();
+      const store = getMemoryCacheStore();
       const entry = readMemoryEntry(store, key);
       if (options?.onlyIfAbsent && entry) {
         return false;
@@ -248,14 +241,6 @@ async function createNodeRedisCacheBackend(
       return result === "OK";
     },
   };
-}
-
-function getMemoryStore() {
-  if (!globalCacheState.__bbbSharedCacheMemoryStore) {
-    globalCacheState.__bbbSharedCacheMemoryStore = new Map();
-  }
-
-  return globalCacheState.__bbbSharedCacheMemoryStore;
 }
 
 function readMemoryEntry(store: Map<string, MemoryCacheEntry>, key: string) {

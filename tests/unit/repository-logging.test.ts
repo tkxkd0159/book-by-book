@@ -25,7 +25,7 @@ function parseLogs(stream: CaptureStream) {
 }
 
 describe("repository logging", () => {
-  it("emits debug start and success logs with sanitized context", async () => {
+  it("emits one success log with sanitized context", async () => {
     const stream = new CaptureStream();
     const logger = createLogger({
       level: "debug",
@@ -50,19 +50,8 @@ describe("repository logging", () => {
     const logs = parseLogs(stream);
 
     expect(result).toBe("ok");
-    expect(logs).toHaveLength(2);
+    expect(logs).toHaveLength(1);
     expect(logs[0]).toMatchObject({
-      context: {
-        googleVolumeIds: ["vol-1", "vol-2"],
-        userId: "user-1",
-      },
-      level: 20,
-      module: "test.repository",
-      operation: "demo",
-      outcome: "start",
-      transactional: false,
-    });
-    expect(logs[1]).toMatchObject({
       context: {
         googleVolumeIds: ["vol-1", "vol-2"],
         userId: "user-1",
@@ -73,7 +62,7 @@ describe("repository logging", () => {
       outcome: "success",
       transactional: false,
     });
-    expect(logs[1].durationMs).toBeTypeOf("number");
+    expect(logs[0].durationMs).toBeTypeOf("number");
   });
 
   it("emits an error log when the repository operation fails", async () => {
@@ -99,8 +88,8 @@ describe("repository logging", () => {
 
     const logs = parseLogs(stream);
 
-    expect(logs).toHaveLength(2);
-    expect(logs[1]).toMatchObject({
+    expect(logs).toHaveLength(1);
+    expect(logs[0]).toMatchObject({
       context: { userId: "user-1" },
       err: {
         message: "boom",
@@ -139,9 +128,8 @@ describe("repository logging", () => {
 
     const logs = parseLogs(stream);
 
-    expect(logs).toHaveLength(2);
+    expect(logs).toHaveLength(1);
     expect(logs[0].operation).toBe("outer");
-    expect(logs[1].operation).toBe("outer");
   });
 
   it("respects the configured logger level", async () => {

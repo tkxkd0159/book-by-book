@@ -5,7 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { buttonStyles } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { FlashToast } from "@/components/ui/flash-toast";
-import { getCurrentUser } from "@/lib/auth/server";
+import { requireCurrentUser } from "@/lib/auth/server";
 import { getPublicUserIdentityLabel } from "@/lib/auth/users";
 import { findInvitationByToken } from "@/lib/clubs/repository";
 
@@ -26,10 +26,7 @@ export default async function InvitationPage({
   params,
   searchParams,
 }: InvitationPageProps) {
-  const currentUser = await getCurrentUser();
-  if (!currentUser) {
-    return null;
-  }
+  const currentUser = await requireCurrentUser();
 
   const [{ token }, paramsData] = await Promise.all([params, searchParams]);
   const invitation = await findInvitationByToken(token);

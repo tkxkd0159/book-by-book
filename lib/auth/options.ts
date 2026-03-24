@@ -15,7 +15,7 @@ import {
   findUserByProviderAccount,
   upsertGoogleOAuthUser,
 } from "@/lib/auth/users";
-import type { AuthUser } from "@/types/db";
+import type { AuthUser } from "@/types/auth";
 
 const SESSION_MAX_AGE_SECONDS = 14 * 24 * 60 * 60;
 const googleOAuthEnv = env.googleOAuth;

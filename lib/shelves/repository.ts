@@ -1,6 +1,7 @@
 import sql from "@/lib/db";
 import { logRepositoryOperation } from "@/lib/repository-logging";
-import type { AuthUser, BookRecord, ShelfItemRecord, ShelfRecord } from "@/types/db";
+import type { AuthUser } from "@/types/auth";
+import type { BookRecord, ShelfItemRecord, ShelfRecord } from "@/types/db";
 
 import { SHELF_ERROR_MESSAGES, ShelfError } from "@/lib/shelves/errors";
 import { canManageShelf, canViewShelf } from "@/lib/shelves/permissions";

@@ -12,7 +12,10 @@ import {
   normalizeNickname,
 } from "@/lib/auth/signup";
 import { logRepositoryOperation } from "@/lib/repository-logging";
-import type { AuthUser, InternalAdminAuthUser } from "@/types/db";
+import type {
+  AuthUser,
+  InternalAdminCredentialsUser,
+} from "@/types/auth";
 
 type UserRow = {
   id: string;
@@ -60,7 +63,9 @@ function mapAuthUser(row: UserRow): AuthUser {
   };
 }
 
-function mapInternalAdminAuthUser(row: UserRow): InternalAdminAuthUser {
+function mapInternalAdminCredentialsUser(
+  row: UserRow,
+): InternalAdminCredentialsUser {
   return {
     id: row.id,
     provider: row.provider,
@@ -263,7 +268,7 @@ export async function findPublicUserByNickname(
 
 export async function findInternalAdminByEmail(
   email: string,
-): Promise<InternalAdminAuthUser | null> {
+): Promise<InternalAdminCredentialsUser | null> {
   return logRepositoryOperation(
     {
       context: { lookup: "internalAdminEmail" },
@@ -293,7 +298,7 @@ export async function findInternalAdminByEmail(
         limit 1
       `;
 
-      return user ? mapInternalAdminAuthUser(user) : null;
+      return user ? mapInternalAdminCredentialsUser(user) : null;
     },
   );
 }

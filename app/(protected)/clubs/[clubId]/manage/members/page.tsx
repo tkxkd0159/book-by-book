@@ -17,13 +17,7 @@ export default async function ClubManageMembersPage({
   searchParams,
 }: ClubManageMembersPageProps) {
   const [{ clubId }, paramsData] = await Promise.all([params, searchParams]);
-  const context = await loadManageClubContext(clubId);
-
-  if (!context) {
-    return null;
-  }
-
-  const { club, currentUser } = context;
+  const { club, currentUser } = await loadManageClubContext(clubId);
   const members = await listClubMembers(clubId, currentUser.id);
   const activeRoleFilter = readManageMemberRoleFilter(paramsData.role);
   const filteredMembers =

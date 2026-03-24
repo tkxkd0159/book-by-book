@@ -4,7 +4,7 @@ import { ClubCard } from "@/components/clubs/club-card";
 import { Badge } from "@/components/ui/badge";
 import { buttonStyles } from "@/components/ui/button";
 import { FlashToast } from "@/components/ui/flash-toast";
-import { getCurrentUser } from "@/lib/auth/server";
+import { requireCurrentUser } from "@/lib/auth/server";
 import {
   listDiscoverablePublicClubs,
   listUserClubs,
@@ -22,10 +22,7 @@ function readMessage(
 }
 
 export default async function ClubsPage({ searchParams }: Props.Page) {
-  const currentUser = await getCurrentUser();
-  if (!currentUser) {
-    return null;
-  }
+  const currentUser = await requireCurrentUser();
 
   const [myClubs, discoverClubs, params] = await Promise.all([
     listUserClubs(currentUser.id),
