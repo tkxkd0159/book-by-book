@@ -170,14 +170,26 @@ test("internal admins can sign in and manage invitation-code activation", async 
   await page.getByRole("button", { name: "Create invitation code" }).click();
 
   await expect(page.getByText("Copy this code now")).toBeVisible();
-  await expect(page.getByRole("heading", { name: "QA Cohort" })).toBeVisible();
-  await expect(page.getByText("ACTIVE")).toBeVisible();
+  const invitationCodeCard = page
+    .locator("article")
+    .filter({ has: page.getByRole("heading", { name: "QA Cohort" }) });
+  await expect(invitationCodeCard).toBeVisible();
+  await expect(
+    invitationCodeCard.getByRole("heading", { name: "QA Cohort" }),
+  ).toBeVisible();
+  await expect(invitationCodeCard.getByText("ACTIVE")).toBeVisible();
 
-  await page.getByRole("button", { name: "Deactivate" }).click();
-  await expect(page.getByRole("button", { name: "Activate" })).toBeVisible();
+  await invitationCodeCard.getByRole("button", { name: "Deactivate" }).click();
+  await expect(invitationCodeCard.getByText("INACTIVE")).toBeVisible();
+  await expect(
+    invitationCodeCard.getByRole("button", { name: "Activate" }),
+  ).toBeVisible();
 
-  await page.getByRole("button", { name: "Activate" }).click();
-  await expect(page.getByRole("button", { name: "Deactivate" })).toBeVisible();
+  await invitationCodeCard.getByRole("button", { name: "Activate" }).click();
+  await expect(invitationCodeCard.getByText("ACTIVE")).toBeVisible();
+  await expect(
+    invitationCodeCard.getByRole("button", { name: "Deactivate" }),
+  ).toBeVisible();
 
   await page.goto(E2E_ROUTE_PATHS.signup);
   await expect(page).toHaveURL(/\/admin\/invitation-codes$/);
