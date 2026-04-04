@@ -8,7 +8,7 @@ import {
 } from "@/lib/shelves/access";
 import { createShelf } from "@/lib/shelves/repository";
 import { resetTestDatabase } from "@/lib/test-harness/fixtures";
-import type { AuthUser } from "@/types/db";
+import type { AuthUser } from "@/types/auth";
 
 async function getRequiredUser(key: string): Promise<AuthUser> {
   const user = await findUserByProviderIdentity(E2E_USER_PROVIDER, key);

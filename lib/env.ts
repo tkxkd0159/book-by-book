@@ -1,4 +1,4 @@
-export type RateLimitProvider = "upstash" | "redis" | "memory" | "disabled";
+export type CacheProvider = "upstash" | "redis" | "memory" | "disabled";
 export type LogLevel =
   | "trace"
   | "debug"
@@ -19,11 +19,14 @@ type RuntimeEnv = {
   isProductionLike: boolean;
 };
 
-type MutationRateLimitEnv = {
-  provider: RateLimitProvider;
+export type CacheEnv = {
+  provider: CacheProvider;
   redisUrl: string | null;
   upstashRestUrl: string | null;
   upstashRestToken: string | null;
+};
+
+type MutationRateLimitEnv = {
   overrides: {
     createClubLimit: number | null;
     createClubWindowSeconds: number | null;
@@ -146,12 +149,12 @@ export class AppEnv {
     };
   }
 
-  get rateLimit(): MutationRateLimitEnv {
-    const provider = this.#readRateLimitProvider();
+  get cache(): CacheEnv {
+    const provider = this.#readCacheProvider();
 
     if (provider === "memory" && this.runtime.isProductionLike) {
       throw new Error(
-        "RATE_LIMIT_PROVIDER=memory is only supported in test and local development environments.",
+        "CACHE_PROVIDER=memory is only supported in test and local development environments.",
       );
     }
 
@@ -160,24 +163,29 @@ export class AppEnv {
       redisUrl:
         provider === "redis"
           ? this.#readRequiredString(
-              "RATE_LIMIT_REDIS_URL",
-              "RATE_LIMIT_REDIS_URL is required for the configured rate-limit provider.",
+              "CACHE_REDIS_URL",
+              "CACHE_REDIS_URL is required for the configured cache provider.",
             )
           : null,
       upstashRestUrl:
         provider === "upstash"
           ? this.#readRequiredString(
-              "UPSTASH_REDIS_REST_URL",
-              "UPSTASH_REDIS_REST_URL is required for the configured rate-limit provider.",
+              "CACHE_UPSTASH_REST_URL",
+              "CACHE_UPSTASH_REST_URL is required for the configured cache provider.",
             )
           : null,
       upstashRestToken:
         provider === "upstash"
           ? this.#readRequiredString(
-              "UPSTASH_REDIS_REST_TOKEN",
-              "UPSTASH_REDIS_REST_TOKEN is required for the configured rate-limit provider.",
+              "CACHE_UPSTASH_REST_TOKEN",
+              "CACHE_UPSTASH_REST_TOKEN is required for the configured cache provider.",
             )
           : null,
+    };
+  }
+
+  get rateLimit(): MutationRateLimitEnv {
+    return {
       overrides: {
         createClubLimit: this.#readOptionalPositiveInteger(
           "RATE_LIMIT_CREATE_CLUB_LIMIT",
@@ -238,32 +246,32 @@ export class AppEnv {
       );
     }
 
-    const provider = this.#collectRateLimitProvider(issues);
+    const provider = this.#collectCacheProvider(issues);
 
     if (provider === "memory" && runtime.isProductionLike) {
       issues.push(
-        "RATE_LIMIT_PROVIDER=memory is only supported in test and local development environments.",
+        "CACHE_PROVIDER=memory is only supported in test and local development environments.",
       );
     }
 
     if (provider === "redis") {
       this.#collectRequiredString(
-        "RATE_LIMIT_REDIS_URL",
+        "CACHE_REDIS_URL",
         issues,
-        "RATE_LIMIT_REDIS_URL is required for the configured rate-limit provider.",
+        "CACHE_REDIS_URL is required for the configured cache provider.",
       );
     }
 
     if (provider === "upstash") {
       this.#collectRequiredString(
-        "UPSTASH_REDIS_REST_URL",
+        "CACHE_UPSTASH_REST_URL",
         issues,
-        "UPSTASH_REDIS_REST_URL is required for the configured rate-limit provider.",
+        "CACHE_UPSTASH_REST_URL is required for the configured cache provider.",
       );
       this.#collectRequiredString(
-        "UPSTASH_REDIS_REST_TOKEN",
+        "CACHE_UPSTASH_REST_TOKEN",
         issues,
-        "UPSTASH_REDIS_REST_TOKEN is required for the configured rate-limit provider.",
+        "CACHE_UPSTASH_REST_TOKEN is required for the configured cache provider.",
       );
     }
 
@@ -304,25 +312,29 @@ export class AppEnv {
     }
   }
 
-  #collectRateLimitProvider(issues: string[]): RateLimitProvider {
+  #collectCacheProvider(issues: string[]): CacheProvider {
     try {
-      return this.#readRateLimitProvider();
+      return this.#readCacheProvider();
     } catch (error) {
       issues.push(
         error instanceof Error
           ? error.message
-          : "RATE_LIMIT_PROVIDER must be one of: upstash, redis, memory, disabled.",
+          : "CACHE_PROVIDER must be one of: upstash, redis, memory, disabled.",
       );
       return "disabled";
     }
   }
 
-  #readRateLimitProvider(): RateLimitProvider {
-    const value = this.#readOptionalString("RATE_LIMIT_PROVIDER");
-    if (!value) {
-      return "disabled";
+  #readCacheProvider(): CacheProvider {
+    const cacheValue = this.#readOptionalString("CACHE_PROVIDER");
+    if (cacheValue) {
+      return this.#parseCacheProvider(cacheValue);
     }
 
+    return "disabled";
+  }
+
+  #parseCacheProvider(value: string): CacheProvider {
     if (
       value === "upstash" ||
       value === "redis" ||
@@ -332,9 +344,7 @@ export class AppEnv {
       return value;
     }
 
-    throw new Error(
-      "RATE_LIMIT_PROVIDER must be one of: upstash, redis, memory, disabled.",
-    );
+    throw new Error("CACHE_PROVIDER must be one of: upstash, redis, memory, disabled.");
   }
 
   #readLogLevel(): LogLevel {

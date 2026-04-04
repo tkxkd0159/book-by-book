@@ -2,7 +2,7 @@ import { forbidden, notFound } from "next/navigation";
 import { cache } from "react";
 
 import { FlashToast } from "@/components/ui/flash-toast";
-import { getCurrentUser } from "@/lib/auth/server";
+import { requireCurrentUser } from "@/lib/auth/server";
 import { canViewClub } from "@/lib/clubs/permissions";
 import { findClubDetail } from "@/lib/clubs/repository";
 
@@ -15,10 +15,7 @@ export function readMessage(value: string | string[] | undefined) {
 }
 
 export const loadClubOverviewContext = cache(async (clubId: string) => {
-  const currentUser = await getCurrentUser();
-  if (!currentUser) {
-    return null;
-  }
+  const currentUser = await requireCurrentUser();
 
   const club = await findClubDetail(clubId, currentUser.id);
 

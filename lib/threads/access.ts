@@ -1,7 +1,8 @@
 import { getCurrentUser } from "@/lib/auth/server";
 import { isClubMember } from "@/lib/clubs/permissions";
 import { findClubDetail, type ClubDetail } from "@/lib/clubs/repository";
-import type { AuthUser, ClubMemberRole } from "@/types/db";
+import type { AuthUser } from "@/types/auth";
+import type { ClubMemberRole } from "@/types/db";
 
 type ThreadMemberClub = ClubDetail & {
   currentUserRole: ClubMemberRole;

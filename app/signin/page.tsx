@@ -11,10 +11,10 @@ import {
 import { resolveAuthErrorMessage } from "@/lib/auth/error-messages";
 import {
   DEFAULT_PUBLIC_APP_PATH,
-  getAuthenticatedUserDestination,
+  getAuthenticatedSessionDestination,
   normalizeSafeCallbackUrl,
 } from "@/lib/auth/redirects";
-import { getCurrentUser } from "@/lib/auth/server";
+import { getAuthSession } from "@/lib/auth/server";
 
 function extractSearchParam(value: string | string[] | undefined) {
   if (Array.isArray(value)) {
@@ -30,9 +30,10 @@ export default async function SignInPage({ searchParams }: Props.Page) {
     extractSearchParam(params.callbackUrl) || DEFAULT_PUBLIC_APP_PATH,
     DEFAULT_PUBLIC_APP_PATH,
   );
-  const currentUser = await getCurrentUser();
-  if (currentUser) {
-    redirect(getAuthenticatedUserDestination(currentUser, callbackUrl));
+  const session = await getAuthSession();
+  const sessionUser = session?.user?.id ? session.user : null;
+  if (sessionUser) {
+    redirect(getAuthenticatedSessionDestination(sessionUser, callbackUrl));
   }
 
   const errorCode = extractSearchParam(params.error);

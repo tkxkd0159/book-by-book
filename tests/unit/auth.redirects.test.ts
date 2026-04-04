@@ -1,8 +1,10 @@
 import { describe, expect, it } from "vitest";
 
+import { APP_SESSION_IDENTITIES } from "@/lib/auth/identity";
 import {
   createSignInHref,
   createSignupHref,
+  getAuthenticatedSessionDestination,
   getAuthenticatedUserDestination,
   normalizeSafeCallbackUrl,
 } from "@/lib/auth/redirects";
@@ -46,6 +48,33 @@ describe("auth redirect helpers", () => {
         {
           provider: "internal",
           signupCompletedAt: null,
+        },
+        "/clubs",
+      ),
+    ).toBe("/admin/invitation-codes");
+  });
+
+  it("routes authenticated session identities without a DB-backed user", () => {
+    expect(
+      getAuthenticatedSessionDestination(
+        {
+          sessionIdentity: APP_SESSION_IDENTITIES.PUBLIC,
+        },
+        "/clubs",
+      ),
+    ).toBe("/clubs");
+    expect(
+      getAuthenticatedSessionDestination(
+        {
+          sessionIdentity: APP_SESSION_IDENTITIES.PUBLIC_INCOMPLETE,
+        },
+        "/clubs",
+      ),
+    ).toBe("/signup?callbackUrl=%2Fclubs");
+    expect(
+      getAuthenticatedSessionDestination(
+        {
+          sessionIdentity: APP_SESSION_IDENTITIES.INTERNAL_ADMIN,
         },
         "/clubs",
       ),

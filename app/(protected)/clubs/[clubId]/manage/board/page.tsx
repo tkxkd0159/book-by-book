@@ -18,13 +18,7 @@ export default async function ClubManageBoardPage({
   searchParams,
 }: ClubManageBoardPageProps) {
   const [{ clubId }, paramsData] = await Promise.all([params, searchParams]);
-  const context = await loadManageClubContext(clubId);
-
-  if (!context) {
-    return null;
-  }
-
-  const { club, currentUser } = context;
+  const { club, currentUser } = await loadManageClubContext(clubId);
   const returnTo = createManageSectionHref({
     clubId,
     section: "board",

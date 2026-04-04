@@ -1,10 +1,15 @@
 import { headers } from "next/headers";
+import type { Session } from "next-auth";
 
 import {
+  isIncompletePublicSessionIdentity,
   isIncompletePublicUser,
+  isInternalAdminSessionIdentity,
   isInternalAdminUser,
 } from "@/lib/auth/identity";
-import type { AuthUser } from "@/types/db";
+import type { AuthUser } from "@/types/auth";
+
+type SessionUserLike = Pick<Session["user"], "sessionIdentity">;
 
 export const AUTH_REQUEST_PATH_HEADER = "x-bbb-request-path";
 export const DEFAULT_PUBLIC_APP_PATH = "/books/search";
@@ -101,6 +106,26 @@ export function getAuthenticatedUserDestination(
   }
 
   if (isIncompletePublicUser(user)) {
+    return createSignupHref(safeCallbackUrl);
+  }
+
+  return safeCallbackUrl;
+}
+
+export function getAuthenticatedSessionDestination(
+  user: SessionUserLike,
+  callbackUrl = DEFAULT_PUBLIC_APP_PATH,
+) {
+  const safeCallbackUrl = normalizeSafeCallbackUrl(
+    callbackUrl,
+    DEFAULT_PUBLIC_APP_PATH,
+  );
+
+  if (isInternalAdminSessionIdentity(user.sessionIdentity)) {
+    return DEFAULT_INTERNAL_ADMIN_PATH;
+  }
+
+  if (isIncompletePublicSessionIdentity(user.sessionIdentity)) {
     return createSignupHref(safeCallbackUrl);
   }
 

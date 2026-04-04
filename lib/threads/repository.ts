@@ -1,7 +1,7 @@
 import sql from "@/lib/db";
 import { logRepositoryOperation } from "@/lib/repository-logging";
+import type { AuthUser } from "@/types/auth";
 import type {
-  AuthUser,
   BookRecord,
   ClubBookRecord,
   ClubBookStatus,

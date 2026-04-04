@@ -85,9 +85,8 @@ describe("signup completion integration", () => {
       gender: "WOMAN",
       countryCode: "KR",
       favoriteGenres: ["FANTASY", "TRAVEL"],
-      isSignupComplete: true,
-      sessionIdentity: "PUBLIC",
     });
+    expect(completedUser.signupCompletedAt).toBeInstanceOf(Date);
 
     const storedUser = await findUserById(userId);
     expect(storedUser?.signupCompletedAt).toBeInstanceOf(Date);

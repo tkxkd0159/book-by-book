@@ -26,10 +26,8 @@ describe("auth user repository integration", () => {
       gender: "MAN",
       countryCode: "US",
       favoriteGenres: ["FANTASY", "SCIENCE"],
-      isInternalAdmin: false,
-      isSignupComplete: true,
-      sessionIdentity: "PUBLIC",
     });
+    expect(user?.signupCompletedAt).toBeInstanceOf(Date);
   });
 
   it("resolves public users by nickname", async () => {
@@ -37,7 +35,7 @@ describe("auth user repository integration", () => {
 
     expect(user?.id).toBeTruthy();
     expect(user?.nickname).toBe("member-reader");
-    expect(user?.sessionIdentity).toBe("PUBLIC");
+    expect(user?.signupCompletedAt).toBeInstanceOf(Date);
   });
 
   it("does not resolve incomplete public users by nickname", async () => {
@@ -53,9 +51,7 @@ describe("auth user repository integration", () => {
       provider: INTERNAL_AUTH_PROVIDER,
       providerUserId: "admin@book-by-book.test",
       email: "admin@book-by-book.test",
-      isInternalAdmin: true,
-      isSignupComplete: false,
-      sessionIdentity: "INTERNAL_ADMIN",
+      signupCompletedAt: null,
     });
     expect(admin?.passwordHash).toBeTruthy();
     await expect(

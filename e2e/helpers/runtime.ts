@@ -29,11 +29,11 @@ export const E2E_POSTGRES_IMAGE = "postgres:18";
 export const E2E_TEMPLATE_DATABASE = DEFAULT_TEMPLATE_DATABASE;
 export const E2E_SERVER_ENV = {
   AUTH_SECRET: "book-by-book-e2e-auth-secret",
+  CACHE_PROVIDER: "memory",
   E2E_BYPASS_AUTH: "1",
   GOOGLE_BOOKS_API_KEY: "book-by-book-e2e-google-books-api-key",
   GOOGLE_CLIENT_ID: "book-by-book-e2e-google-client-id",
   GOOGLE_CLIENT_SECRET: "book-by-book-e2e-google-client-secret",
-  RATE_LIMIT_PROVIDER: "memory",
   RATE_LIMIT_ADMIN_SIGNIN_EMAIL_IP_LIMIT: "2",
   RATE_LIMIT_ADMIN_SIGNIN_EMAIL_IP_WINDOW_SECONDS: "60",
   RATE_LIMIT_ADMIN_SIGNIN_IP_LIMIT: "3",

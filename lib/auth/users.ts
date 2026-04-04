@@ -1,10 +1,9 @@
 import sql from "@/lib/db";
+import { syncCachedAuthUser } from "@/lib/auth/user-cache";
 import { AuthFlowError } from "@/lib/auth/errors";
 import {
   getUserDisplayName,
   INTERNAL_AUTH_PROVIDER,
-  isInternalAuthProvider,
-  resolveAppSessionIdentity,
 } from "@/lib/auth/identity";
 import { normalizeInternalAdminEmail } from "@/lib/auth/internal";
 import {
@@ -13,7 +12,10 @@ import {
   normalizeNickname,
 } from "@/lib/auth/signup";
 import { logRepositoryOperation } from "@/lib/repository-logging";
-import type { AuthUser, InternalAdminAuthUser } from "@/types/db";
+import type {
+  AuthUser,
+  InternalAdminCredentialsUser,
+} from "@/types/auth";
 
 type UserRow = {
   id: string;
@@ -46,8 +48,6 @@ type UpsertGoogleOAuthUserInput = {
 const REPOSITORY_MODULE = "auth.users";
 
 function mapAuthUser(row: UserRow): AuthUser {
-  const sessionIdentity = resolveAppSessionIdentity(row);
-
   return {
     id: row.id,
     provider: row.provider,
@@ -60,13 +60,12 @@ function mapAuthUser(row: UserRow): AuthUser {
     countryCode: row.countryCode,
     favoriteGenres: coerceFavoriteGenres(row.favoriteGenres),
     signupCompletedAt: row.signupCompletedAt,
-    isInternalAdmin: isInternalAuthProvider(row.provider),
-    isSignupComplete: sessionIdentity === "PUBLIC",
-    sessionIdentity,
   };
 }
 
-function mapInternalAdminAuthUser(row: UserRow): InternalAdminAuthUser {
+function mapInternalAdminCredentialsUser(
+  row: UserRow,
+): InternalAdminCredentialsUser {
   return {
     id: row.id,
     provider: row.provider,
@@ -80,9 +79,6 @@ function mapInternalAdminAuthUser(row: UserRow): InternalAdminAuthUser {
     favoriteGenres: coerceFavoriteGenres(row.favoriteGenres),
     signupCompletedAt: row.signupCompletedAt,
     passwordHash: row.passwordHash,
-    isInternalAdmin: true,
-    isSignupComplete: false,
-    sessionIdentity: "INTERNAL_ADMIN",
   };
 }
 
@@ -272,7 +268,7 @@ export async function findPublicUserByNickname(
 
 export async function findInternalAdminByEmail(
   email: string,
-): Promise<InternalAdminAuthUser | null> {
+): Promise<InternalAdminCredentialsUser | null> {
   return logRepositoryOperation(
     {
       context: { lookup: "internalAdminEmail" },
@@ -302,7 +298,7 @@ export async function findInternalAdminByEmail(
         limit 1
       `;
 
-      return user ? mapInternalAdminAuthUser(user) : null;
+      return user ? mapInternalAdminCredentialsUser(user) : null;
     },
   );
 }
@@ -417,7 +413,9 @@ export async function upsertGoogleOAuthUser(
           updated_at = now()
       `;
 
-      return mapAuthUser(user);
+      const authUser = mapAuthUser(user);
+      await syncCachedAuthUser(authUser.id, authUser);
+      return authUser;
     },
   );
 }

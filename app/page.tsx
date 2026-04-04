@@ -9,13 +9,14 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { getAuthenticatedUserDestination } from "@/lib/auth/redirects";
-import { getCurrentUser } from "@/lib/auth/server";
+import { getAuthenticatedSessionDestination } from "@/lib/auth/redirects";
+import { getAuthSession } from "@/lib/auth/server";
 
 export default async function Page() {
-  const currentUser = await getCurrentUser();
-  if (currentUser) {
-    redirect(getAuthenticatedUserDestination(currentUser));
+  const session = await getAuthSession();
+  const sessionUser = session?.user?.id ? session.user : null;
+  if (sessionUser) {
+    redirect(getAuthenticatedSessionDestination(sessionUser));
   }
 
   return (

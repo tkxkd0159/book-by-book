@@ -13,13 +13,7 @@ export default async function ClubBoardPage({
   searchParams,
 }: ClubBoardPageProps) {
   const [{ clubId }, paramsData] = await Promise.all([params, searchParams]);
-  const context = await loadClubOverviewContext(clubId);
-
-  if (!context) {
-    return null;
-  }
-
-  const { club } = context;
+  const { club } = await loadClubOverviewContext(clubId);
   const books = await listClubBooks(clubId);
 
   return (

@@ -24,13 +24,7 @@ export default async function ClubManageInvitePage({
   searchParams,
 }: ClubManageInvitePageProps) {
   const [{ clubId }, paramsData] = await Promise.all([params, searchParams]);
-  const context = await loadManageClubContext(clubId);
-
-  if (!context) {
-    return null;
-  }
-
-  const { club, currentUser } = context;
+  const { club, currentUser } = await loadManageClubContext(clubId);
 
   if (club.visibility !== "PRIVATE") {
     redirect(createManageEntryHref(clubId));

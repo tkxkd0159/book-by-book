@@ -4,10 +4,10 @@ describe("mutation rate limiter", () => {
   beforeEach(() => {
     vi.resetModules();
     vi.useRealTimers();
-    delete process.env.RATE_LIMIT_PROVIDER;
-    delete process.env.RATE_LIMIT_REDIS_URL;
-    delete process.env.UPSTASH_REDIS_REST_URL;
-    delete process.env.UPSTASH_REDIS_REST_TOKEN;
+    delete process.env.CACHE_PROVIDER;
+    delete process.env.CACHE_REDIS_URL;
+    delete process.env.CACHE_UPSTASH_REST_URL;
+    delete process.env.CACHE_UPSTASH_REST_TOKEN;
     delete process.env.RATE_LIMIT_CREATE_CLUB_LIMIT;
     delete process.env.RATE_LIMIT_CREATE_CLUB_WINDOW_SECONDS;
     delete process.env.RATE_LIMIT_ADD_BOOK_LIMIT;
@@ -50,52 +50,51 @@ describe("mutation rate limiter", () => {
   });
 
   it("validates configured provider requirements", async () => {
-    process.env.RATE_LIMIT_PROVIDER = "upstash";
+    process.env.CACHE_PROVIDER = "upstash";
 
     await expect(
       import("@/lib/rate-limit/mutation").then((module) =>
         module.getMutationRateLimitStore(),
       ),
     ).rejects.toThrow(
-      "UPSTASH_REDIS_REST_URL is required for the configured rate-limit provider.",
+      "CACHE_UPSTASH_REST_URL is required for the configured cache provider.",
     );
 
     vi.resetModules();
-    process.env.RATE_LIMIT_PROVIDER = "redis";
+    process.env.CACHE_PROVIDER = "redis";
 
     await expect(
       import("@/lib/rate-limit/mutation").then((module) =>
         module.getMutationRateLimitStore(),
       ),
     ).rejects.toThrow(
-      "RATE_LIMIT_REDIS_URL is required for the configured rate-limit provider.",
+      "CACHE_REDIS_URL is required for the configured cache provider.",
     );
   });
 
   it("tracks fixed-window decisions with the memory provider", async () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2026-03-17T00:00:00.000Z"));
-    process.env.RATE_LIMIT_PROVIDER = "memory";
+    process.env.CACHE_PROVIDER = "memory";
     process.env.RATE_LIMIT_ADD_BOOK_LIMIT = "2";
     process.env.RATE_LIMIT_ADD_BOOK_WINDOW_SECONDS = "60";
 
     const {
       checkMutationRateLimit,
-      resetMemoryMutationRateLimitStore,
     } = await import("@/lib/rate-limit/mutation");
-    resetMemoryMutationRateLimitStore();
+    const userId = "unit-add-book-user";
 
     const first = await checkMutationRateLimit({
       action: "add-book",
-      userId: "user-1",
+      userId,
     });
     const second = await checkMutationRateLimit({
       action: "add-book",
-      userId: "user-1",
+      userId,
     });
     const third = await checkMutationRateLimit({
       action: "add-book",
-      userId: "user-1",
+      userId,
     });
 
     expect(first).toMatchObject({
