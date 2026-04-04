@@ -28,7 +28,8 @@ describe("environment validation", () => {
     expect(appEnv.googleOAuth.clientId).toBe("test-google-client-id");
     expect(appEnv.auth.secret).toBe("test-auth-secret");
     expect(appEnv.logging.level).toBe("info");
-    expect(appEnv.rateLimit.provider).toBe("disabled");
+    expect(appEnv.cache.provider).toBe("disabled");
+    expect(appEnv.rateLimit.overrides.createClubLimit).toBeNull();
   });
 
   it("accepts supported log level overrides", () => {
@@ -163,25 +164,38 @@ describe("environment validation", () => {
     );
   });
 
-  it("requires provider-specific rate-limit configuration", () => {
+  it("requires provider-specific cache configuration", () => {
     expect(() =>
       AppEnv.from(
         createEnv({
-          RATE_LIMIT_PROVIDER: "upstash",
-          UPSTASH_REDIS_REST_URL: "",
-          UPSTASH_REDIS_REST_TOKEN: "",
+          CACHE_PROVIDER: "upstash",
+          CACHE_UPSTASH_REST_URL: "",
+          CACHE_UPSTASH_REST_TOKEN: "",
         }),
       ).validateForBuildOrThrow(),
-    ).toThrow(/UPSTASH_REDIS_REST_URL is required/);
+    ).toThrow(/CACHE_UPSTASH_REST_URL is required/);
 
     expect(() =>
       AppEnv.from(
         createEnv({
-          RATE_LIMIT_PROVIDER: "redis",
-          RATE_LIMIT_REDIS_URL: "",
+          CACHE_PROVIDER: "redis",
+          CACHE_REDIS_URL: "",
         }),
       ).validateForBuildOrThrow(),
-    ).toThrow(/RATE_LIMIT_REDIS_URL is required/);
+    ).toThrow(/CACHE_REDIS_URL is required/);
+  });
+
+  it("accepts generic cache backend configuration", () => {
+    const appEnv = AppEnv.from(
+      createEnv({
+        CACHE_PROVIDER: "redis",
+        CACHE_REDIS_URL: "redis://localhost:6379",
+      }),
+    );
+
+    expect(appEnv.cache.provider).toBe("redis");
+    expect(appEnv.cache.redisUrl).toBe("redis://localhost:6379");
+    expect(appEnv.rateLimit.overrides.createClubLimit).toBeNull();
   });
 
   it("rejects invalid positive integer overrides", () => {
@@ -253,17 +267,17 @@ describe("environment validation", () => {
     );
   });
 
-  it("rejects memory rate limiting in production-like runtime", () => {
+  it("rejects memory cache in production-like runtime", () => {
     expect(
       () =>
         AppEnv.from(
           createEnv({
+            CACHE_PROVIDER: "memory",
             NODE_ENV: "production",
-            RATE_LIMIT_PROVIDER: "memory",
           }),
-        ).rateLimit,
+        ).cache,
     ).toThrow(
-      "RATE_LIMIT_PROVIDER=memory is only supported in test and local development environments.",
+      "CACHE_PROVIDER=memory is only supported in test and local development environments.",
     );
   });
 });

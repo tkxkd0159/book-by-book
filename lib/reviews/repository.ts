@@ -1,6 +1,7 @@
 import sql from "@/lib/db";
 import { logRepositoryOperation } from "@/lib/repository-logging";
-import type { AuthUser, BookRecord, ReviewRecord, ReviewRating } from "@/types/db";
+import type { AuthUser } from "@/types/auth";
+import type { BookRecord, ReviewRecord, ReviewRating } from "@/types/db";
 
 import { REVIEW_ERROR_MESSAGES, ReviewError } from "@/lib/reviews/errors";
 import {

@@ -10,11 +10,11 @@ import {
 } from "@/components/ui/card";
 import {
   DEFAULT_INTERNAL_ADMIN_PATH,
-  getAuthenticatedUserDestination,
+  getAuthenticatedSessionDestination,
   normalizeSafeCallbackUrl,
 } from "@/lib/auth/redirects";
-import { getCurrentUser } from "@/lib/auth/server";
-import { isInternalAdminUser } from "@/lib/auth/identity";
+import { isInternalAdminSessionIdentity } from "@/lib/auth/identity";
+import { getAuthSession } from "@/lib/auth/server";
 
 function extractSearchParam(value: string | string[] | undefined) {
   if (Array.isArray(value)) {
@@ -30,14 +30,15 @@ export default async function AdminSignInPage({ searchParams }: Props.Page) {
     extractSearchParam(params.callbackUrl) || DEFAULT_INTERNAL_ADMIN_PATH,
     DEFAULT_INTERNAL_ADMIN_PATH,
   );
-  const currentUser = await getCurrentUser();
+  const session = await getAuthSession();
+  const sessionUser = session?.user?.id ? session.user : null;
 
-  if (currentUser) {
-    if (!isInternalAdminUser(currentUser)) {
+  if (sessionUser) {
+    if (!isInternalAdminSessionIdentity(sessionUser.sessionIdentity)) {
       forbidden();
     }
 
-    redirect(getAuthenticatedUserDestination(currentUser, callbackUrl));
+    redirect(getAuthenticatedSessionDestination(sessionUser, callbackUrl));
   }
 
   return (
@@ -46,7 +47,8 @@ export default async function AdminSignInPage({ searchParams }: Props.Page) {
         <CardHeader>
           <CardTitle className="text-3xl">Internal admin sign-in</CardTitle>
           <CardDescription>
-            Invitation-code management is restricted to manually provisioned internal admins.
+            Invitation-code management is restricted to manually provisioned
+            internal admins.
           </CardDescription>
         </CardHeader>
         <CardContent>

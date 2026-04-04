@@ -16,6 +16,7 @@ import {
   getAuthenticatedUserDestination,
   normalizeSafeCallbackUrl,
 } from "@/lib/auth/redirects";
+import { isCompletedPublicUser } from "@/lib/auth/identity";
 import { requireCurrentUser } from "@/lib/auth/server";
 import {
   FAVORITE_GENRE_GROUPS,
@@ -46,7 +47,7 @@ export default async function SignupPage({ searchParams }: Props.Page) {
     callbackUrl,
   });
 
-  if (currentUser.isSignupComplete) {
+  if (isCompletedPublicUser(currentUser)) {
     redirect(getAuthenticatedUserDestination(currentUser, callbackUrl));
   }
 

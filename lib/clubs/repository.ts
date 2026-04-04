@@ -1,8 +1,8 @@
 import { createHash, randomBytes } from "node:crypto";
 
 import sql from "@/lib/db";
+import type { AuthUser } from "@/types/auth";
 import type {
-  AuthUser,
   BookRecord,
   ClubBookRecord,
   ClubBookStatus,

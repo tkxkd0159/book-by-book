@@ -21,8 +21,6 @@ type FavoriteGenreKey =
   | "COOKING_FOOD"
   | "ESSAYS_JOURNALISM";
 
-type AppSessionIdentity = "PUBLIC_INCOMPLETE" | "PUBLIC" | "INTERNAL_ADMIN";
-
 type UserRecord = {
   id: string;
   provider: string;
@@ -36,18 +34,6 @@ type UserRecord = {
   favoriteGenres: FavoriteGenreKey[];
   signupCompletedAt: Date | null;
   passwordHash: string | null;
-};
-
-type AuthUser = Omit<UserRecord, "passwordHash"> & {
-  isInternalAdmin: boolean;
-  isSignupComplete: boolean;
-  sessionIdentity: AppSessionIdentity;
-};
-
-type InternalAdminAuthUser = UserRecord & {
-  isInternalAdmin: true;
-  isSignupComplete: false;
-  sessionIdentity: "INTERNAL_ADMIN";
 };
 
 type BookRecord = {
@@ -210,8 +196,6 @@ type ThreadPostRecord = {
 };
 
 export type {
-  AppSessionIdentity,
-  AuthUser,
   BookRecord,
   ClubBookRecord,
   ClubBookStatus,
@@ -222,7 +206,6 @@ export type {
   ClubRecord,
   ClubVisibility,
   FavoriteGenreKey,
-  InternalAdminAuthUser,
   InvitationCodePurpose,
   InvitationCodeRecord,
   InvitationCodeRedemptionRecord,

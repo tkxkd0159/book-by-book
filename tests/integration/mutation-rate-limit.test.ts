@@ -4,14 +4,9 @@ describe("mutation rate limit integration", () => {
   beforeEach(async () => {
     vi.resetModules();
     vi.useRealTimers();
-    process.env.RATE_LIMIT_PROVIDER = "memory";
+    process.env.CACHE_PROVIDER = "memory";
     process.env.RATE_LIMIT_CREATE_CLUB_LIMIT = "2";
     process.env.RATE_LIMIT_CREATE_CLUB_WINDOW_SECONDS = "60";
-
-    const { resetMemoryMutationRateLimitStore } = await import(
-      "@/lib/rate-limit/mutation"
-    );
-    resetMemoryMutationRateLimitStore();
   });
 
   it("denies repeated requests for the same user after the configured limit", async () => {
@@ -19,11 +14,12 @@ describe("mutation rate limit integration", () => {
     vi.setSystemTime(new Date("2026-03-17T00:00:00.000Z"));
 
     const { checkMutationRateLimit } = await import("@/lib/rate-limit/mutation");
+    const userId = "integration-limit-user";
 
     expect(
       await checkMutationRateLimit({
         action: "create-club",
-        userId: "user-1",
+        userId,
       }),
     ).toMatchObject({
       allowed: true,
@@ -33,7 +29,7 @@ describe("mutation rate limit integration", () => {
     expect(
       await checkMutationRateLimit({
         action: "create-club",
-        userId: "user-1",
+        userId,
       }),
     ).toMatchObject({
       allowed: true,
@@ -43,7 +39,7 @@ describe("mutation rate limit integration", () => {
     expect(
       await checkMutationRateLimit({
         action: "create-club",
-        userId: "user-1",
+        userId,
       }),
     ).toMatchObject({
       allowed: false,
@@ -59,17 +55,17 @@ describe("mutation rate limit integration", () => {
 
     await checkMutationRateLimit({
       action: "create-club",
-      userId: "user-1",
+      userId: "integration-isolation-user-1",
     });
     await checkMutationRateLimit({
       action: "create-club",
-      userId: "user-1",
+      userId: "integration-isolation-user-1",
     });
 
     expect(
       await checkMutationRateLimit({
         action: "create-club",
-        userId: "user-2",
+        userId: "integration-isolation-user-2",
       }),
     ).toMatchObject({
       allowed: true,

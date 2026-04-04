@@ -27,13 +27,7 @@ export default async function ClubManageLayout({
   params,
 }: ClubManageLayoutProps) {
   const { clubId } = await params;
-  const context = await loadManageClubContext(clubId);
-
-  if (!context) {
-    return null;
-  }
-
-  const { club } = context;
+  const { club } = await loadManageClubContext(clubId);
 
   return (
     <div className="mx-auto max-w-6xl space-y-6">

@@ -5,7 +5,7 @@ describe("admin sign-in rate limiter", () => {
     vi.resetModules();
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2026-03-22T00:00:00.000Z"));
-    process.env.RATE_LIMIT_PROVIDER = "memory";
+    process.env.CACHE_PROVIDER = "memory";
     process.env.RATE_LIMIT_ADMIN_SIGNIN_EMAIL_IP_LIMIT = "2";
     process.env.RATE_LIMIT_ADMIN_SIGNIN_EMAIL_IP_WINDOW_SECONDS = "60";
     process.env.RATE_LIMIT_ADMIN_SIGNIN_IP_LIMIT = "3";
@@ -14,7 +14,7 @@ describe("admin sign-in rate limiter", () => {
 
   afterEach(() => {
     vi.useRealTimers();
-    delete process.env.RATE_LIMIT_PROVIDER;
+    delete process.env.CACHE_PROVIDER;
     delete process.env.RATE_LIMIT_ADMIN_SIGNIN_EMAIL_IP_LIMIT;
     delete process.env.RATE_LIMIT_ADMIN_SIGNIN_EMAIL_IP_WINDOW_SECONDS;
     delete process.env.RATE_LIMIT_ADMIN_SIGNIN_IP_LIMIT;
@@ -40,13 +40,9 @@ describe("admin sign-in rate limiter", () => {
   });
 
   it("throttles repeated failures for the same email and IP", async () => {
-    const { resetMemoryMutationRateLimitStore } = await import(
-      "@/lib/rate-limit/mutation"
-    );
     const { recordFailedAdminSignInAttempt } = await import(
       "@/lib/rate-limit/admin-signin"
     );
-    resetMemoryMutationRateLimitStore();
 
     await expect(
       recordFailedAdminSignInAttempt({
@@ -71,13 +67,9 @@ describe("admin sign-in rate limiter", () => {
   });
 
   it("throttles by IP across multiple email addresses", async () => {
-    const { resetMemoryMutationRateLimitStore } = await import(
-      "@/lib/rate-limit/mutation"
-    );
     const { recordFailedAdminSignInAttempt } = await import(
       "@/lib/rate-limit/admin-signin"
     );
-    resetMemoryMutationRateLimitStore();
 
     await recordFailedAdminSignInAttempt({
       email: "admin-1@book-by-book.test",

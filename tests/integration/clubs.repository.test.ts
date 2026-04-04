@@ -34,7 +34,7 @@ import {
 } from "@/lib/test-harness/fixtures";
 import { findBookByGoogleVolumeId, upsertBook } from "@/lib/books/repository";
 import { addBookToShelf, createShelf } from "@/lib/shelves/repository";
-import type { AuthUser } from "@/types/db";
+import type { AuthUser } from "@/types/auth";
 
 async function getRequiredUser(key: string): Promise<AuthUser> {
   const user = await findUserByProviderIdentity(E2E_USER_PROVIDER, key);

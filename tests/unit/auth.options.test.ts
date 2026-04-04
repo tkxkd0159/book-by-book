@@ -1,5 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+import { APP_SESSION_IDENTITIES } from "@/lib/auth/identity";
+
 const findUserByIdMock = vi.fn();
 const findUserByProviderAccountMock = vi.fn();
 const upsertGoogleOAuthUserMock = vi.fn();
@@ -23,9 +25,6 @@ function createAuthUser() {
     countryCode: null,
     favoriteGenres: [],
     signupCompletedAt: new Date("2026-01-01T00:00:00.000Z"),
-    isInternalAdmin: false,
-    isSignupComplete: true,
-    sessionIdentity: "PUBLIC" as const,
   };
 }
 
@@ -60,8 +59,7 @@ describe("authOptions jwt callback", () => {
       userId: dbUser.id,
       provider: "google",
       nickname: "reader",
-      isSignupComplete: true,
-      sessionIdentity: "PUBLIC",
+      sessionIdentity: APP_SESSION_IDENTITIES.PUBLIC,
     });
   });
 
@@ -70,9 +68,7 @@ describe("authOptions jwt callback", () => {
       ...createAuthUser(),
       provider: "internal",
       providerUserId: "admin@book-by-book.test",
-      isInternalAdmin: true,
-      isSignupComplete: false,
-      sessionIdentity: "INTERNAL_ADMIN" as const,
+      signupCompletedAt: null,
     };
     findUserByIdMock.mockResolvedValue(dbUser);
 
@@ -94,7 +90,7 @@ describe("authOptions jwt callback", () => {
     expect(token).toMatchObject({
       userId: dbUser.id,
       provider: "internal",
-      sessionIdentity: "INTERNAL_ADMIN",
+      sessionIdentity: APP_SESSION_IDENTITIES.INTERNAL_ADMIN,
     });
   });
 
@@ -115,7 +111,7 @@ describe("authOptions jwt callback", () => {
     expect(token).toMatchObject({
       userId: dbUser.id,
       provider: "google",
-      sessionIdentity: "PUBLIC",
+      sessionIdentity: APP_SESSION_IDENTITIES.PUBLIC,
     });
   });
 });

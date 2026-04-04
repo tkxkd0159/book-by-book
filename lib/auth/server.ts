@@ -2,7 +2,10 @@ import type { Session } from "next-auth";
 import { forbidden, redirect } from "next/navigation";
 import { cache } from "react";
 
-import { isIncompletePublicUser, isInternalAdminUser } from "@/lib/auth/identity";
+import {
+  isIncompletePublicUser,
+  isInternalAdminUser,
+} from "@/lib/auth/identity";
 import {
   createAdminSignInHref,
   createSignInHref,
@@ -13,12 +16,13 @@ import {
   readAuthCallbackUrlFromRequest,
 } from "@/lib/auth/redirects";
 import { getAuthSessionSafe } from "@/lib/auth/session";
+import { createE2ESession, getE2ECurrentUser } from "@/lib/test-harness/auth";
 import {
-  createE2ESession,
-  getE2ECurrentUser,
-} from "@/lib/test-harness/auth";
+  readCachedAuthUserById,
+  syncCachedAuthUser,
+} from "@/lib/auth/user-cache";
 import { findUserById } from "@/lib/auth/users";
-import type { AuthUser } from "@/types/db";
+import type { AuthUser } from "@/types/auth";
 
 const readAuthSession = cache(async (): Promise<Session | null> => {
   const session = await getAuthSessionSafe();
@@ -41,11 +45,19 @@ async function findCurrentUserFromSession(
     return null;
   }
 
-  return findUserById(session.user.id);
+  const cachedUser = await readCachedAuthUserById(session.user.id);
+  if (cachedUser !== undefined) {
+    return cachedUser;
+  }
+
+  const user = await findUserById(session.user.id);
+  await syncCachedAuthUser(session.user.id, user);
+  return user;
 }
 
-const readCurrentUser = cache(async (): Promise<AuthUser | null> =>
-  findCurrentUserFromSession(await readAuthSession()),
+const readCurrentUser = cache(
+  async (): Promise<AuthUser | null> =>
+    findCurrentUserFromSession(await readAuthSession()),
 );
 
 export const getAuthSession = readAuthSession;
@@ -69,24 +81,6 @@ async function resolveCallbackUrl(options?: RequireCurrentUserOptions) {
   return readAuthCallbackUrlFromRequest(
     options?.fallbackCallbackUrl ?? DEFAULT_PUBLIC_APP_PATH,
   );
-}
-
-export async function requireAuthSession(options?: {
-  callbackUrl?: string;
-  fallbackCallbackUrl?: string;
-}): Promise<Session> {
-  const session = await getAuthSession();
-  const callbackUrl =
-    options?.callbackUrl ??
-    (await readAuthCallbackUrlFromRequest(
-      options?.fallbackCallbackUrl ?? DEFAULT_PUBLIC_APP_PATH,
-    ));
-
-  if (!session?.user?.id) {
-    redirect(createSignInHref(callbackUrl));
-  }
-
-  return session;
 }
 
 export async function requireCurrentUser(
